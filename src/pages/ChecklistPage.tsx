@@ -4,31 +4,21 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { compressPhoto, db } from '../db'
 import { getTemplate, countItems } from '../templates'
 import {
-  ASSESSMENT_OPTIONS,
   EMPTY_RESPONSE,
   FACILITY_PHOTOS,
-  YES_NO_OPTIONS,
-  type ComplianceAssessment,
   type Inspection,
   type Photo,
   type QuestionResponse,
+  type Section,
 } from '../types'
 import PhotoThumb from '../components/PhotoThumb'
+import QuestionItem from '../components/QuestionItem'
 
-const ASSESS_LABEL: Record<ComplianceAssessment, string> = {
-  '': '',
-  'Full compliance': 'Full',
-  'Partial compliance': 'Partial',
-  'No compliance': 'None',
-  'N/A': 'N/A',
-}
-const ASSESS_CLASS: Record<ComplianceAssessment, string> = {
-  '': '',
-  'Full compliance': 'sel-full',
-  'Partial compliance': 'sel-partial',
-  'No compliance': 'sel-none',
-  'N/A': 'sel-na',
-}
+type Filter = 'all' | 'unanswered' | 'flagged'
+
+const isAnswered = (r?: QuestionResponse) => !!r && (r.assessment !== '' || r.yesNo !== '')
+const isFlagged = (r?: QuestionResponse) =>
+  r?.assessment === 'No compliance' || r?.assessment === 'Partial compliance'
 
 export default function ChecklistPage() {
   const { id } = useParams()
@@ -39,13 +29,18 @@ export default function ChecklistPage() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
   const [openDetails, setOpenDetails] = useState<Record<string, boolean>>({})
   const [assigningPhoto, setAssigningPhoto] = useState<Photo | null>(null)
+  const [assignQuery, setAssignQuery] = useState('')
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null)
   const [flashItem, setFlashItem] = useState<string | null>(null)
   const [exporting, setExporting] = useState<null | 'excel' | 'word'>(null)
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<Filter>('all')
 
   const quickCameraRef = useRef<HTMLInputElement>(null)
+  const quickGalleryRef = useRef<HTMLInputElement>(null)
   const itemCameraRef = useRef<HTMLInputElement>(null)
-  const itemCameraTarget = useRef<string | null>(null)
+  const itemGalleryRef = useRef<HTMLInputElement>(null)
+  const itemTarget = useRef<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const photos = useLiveQuery(
@@ -87,11 +82,38 @@ export default function ChecklistPage() {
   }
 
   const progress = useMemo(() => {
-    if (!template || !inspection) return { answered: 0, total: 0 }
+    if (!template || !inspection) return { answered: 0, total: 0, flagged: 0 }
     const total = countItems(template)
-    const answered = Object.values(inspection.responses).filter((r) => r.assessment !== '' || r.yesNo !== '').length
-    return { answered, total }
+    const answered = Object.values(inspection.responses).filter(isAnswered).length
+    const flagged = Object.values(inspection.responses).filter(isFlagged).length
+    return { answered, total, flagged }
   }, [template, inspection])
+
+  // Search + filter across the whole questionnaire
+  const matches = useMemo(() => {
+    if (!template || !inspection) return null
+    const q = query.trim().toLowerCase()
+    if (!q && filter === 'all') return null
+    const out: Array<{ section: Section; codes: string[] }> = []
+    for (const section of template.sections) {
+      const codes = section.questions
+        .filter((question) => {
+          const resp = inspection.responses[question.code]
+          if (filter === 'unanswered' && isAnswered(resp)) return false
+          if (filter === 'flagged' && !isFlagged(resp)) return false
+          if (!q) return true
+          return (
+            question.code.toLowerCase().includes(q) ||
+            question.text.toLowerCase().includes(q) ||
+            section.title.toLowerCase().includes(q) ||
+            (resp?.observation ?? '').toLowerCase().includes(q)
+          )
+        })
+        .map((question) => question.code)
+      if (codes.length > 0) out.push({ section, codes })
+    }
+    return out
+  }, [template, inspection, query, filter])
 
   if (!inspection || !template) {
     return <main className="page">{inspection === null ? <div className="empty">Loading…</div> : null}</main>
@@ -99,34 +121,39 @@ export default function ChecklistPage() {
 
   // --- photo handling -------------------------------------------------------
 
-  const addPhoto = async (file: File, itemId: string | null) => {
-    const blob = await compressPhoto(file)
-    const photo: Photo = {
-      inspectionId,
-      itemId,
-      blob,
-      caption: '',
-      createdAt: new Date().toISOString(),
+  const addPhotos = async (files: FileList | File[], itemId: string | null): Promise<Photo[]> => {
+    const saved: Photo[] = []
+    for (const file of Array.from(files)) {
+      const blob = await compressPhoto(file)
+      const photo: Photo = {
+        inspectionId,
+        itemId,
+        blob,
+        caption: '',
+        createdAt: new Date().toISOString(),
+      }
+      const photoId = await db.photos.add(photo)
+      saved.push({ ...photo, id: photoId })
     }
-    const photoId = await db.photos.add(photo)
-    return { ...photo, id: photoId }
+    return saved
   }
 
   const onQuickCapture = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
+    const files = e.target.files
+    if (!files?.length) return
     // Photo-first flow: capture now, then choose where it belongs.
-    const saved = await addPhoto(file, null)
-    setAssigningPhoto(saved)
+    const saved = await addPhotos(files, null)
+    e.target.value = ''
+    if (saved.length === 1) setAssigningPhoto(saved[0])
+    // Multiple gallery picks land in the "waiting to be assigned" card.
   }
 
   const onItemCapture = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = e.target.files
+    const itemId = itemTarget.current
+    if (!files?.length || !itemId) return
+    await addPhotos(files, itemId)
     e.target.value = ''
-    const itemId = itemCameraTarget.current
-    if (!file || !itemId) return
-    await addPhoto(file, itemId)
     if (itemId !== FACILITY_PHOTOS) setOpenDetails((d) => ({ ...d, [itemId]: true }))
   }
 
@@ -145,6 +172,7 @@ export default function ChecklistPage() {
     if (!assigningPhoto?.id) return
     await db.photos.update(assigningPhoto.id, { itemId })
     setAssigningPhoto(null)
+    setAssignQuery('')
     if (itemId === FACILITY_PHOTOS) return
     // A photo usually documents a problem — pre-select No compliance if untouched.
     if ((inspection.responses[itemId]?.assessment ?? '') === '') {
@@ -178,8 +206,51 @@ export default function ChecklistPage() {
   const facilityShots = (photos ?? []).filter((p) => p.itemId === FACILITY_PHOTOS)
   const photosFor = (code: string) => (photos ?? []).filter((p) => p.itemId === code)
 
+  const allOpen = template.sections.every((s) => openSections[s.letter])
+  const searching = matches !== null
+
+  const renderQuestion = (code: string) => {
+    const question = template.sections.flatMap((s) => s.questions).find((qq) => qq.code === code)!
+    return (
+      <QuestionItem
+        key={code}
+        question={question}
+        resp={inspection.responses[code] ?? EMPTY_RESPONSE}
+        photos={photosFor(code)}
+        detailsOpen={openDetails[code] ?? false}
+        flash={flashItem === code}
+        onPatch={(patch) => setResponse(code, patch)}
+        onOpenDetails={() => setOpenDetails((d) => ({ ...d, [code]: true }))}
+        onCamera={() => {
+          itemTarget.current = code
+          itemCameraRef.current?.click()
+        }}
+        onGallery={() => {
+          itemTarget.current = code
+          itemGalleryRef.current?.click()
+        }}
+        onViewPhoto={setViewingPhoto}
+      />
+    )
+  }
+
+  const assignQ = assignQuery.trim().toLowerCase()
+  const assignSections = template.sections
+    .map((section) => ({
+      section,
+      questions: section.questions.filter(
+        (question) =>
+          !assignQ ||
+          question.code.toLowerCase().includes(assignQ) ||
+          question.text.toLowerCase().includes(assignQ) ||
+          section.title.toLowerCase().includes(assignQ),
+      ),
+    }))
+    .filter((s) => s.questions.length > 0)
+
   return (
     <>
+      <div className="top-stack">
       <header className="app-header">
         <button className="back" onClick={() => navigate('/')} aria-label="Back">
           ‹
@@ -193,8 +264,52 @@ export default function ChecklistPage() {
           <div style={{ width: `${progress.total ? (progress.answered / progress.total) * 100 : 0}%` }} />
         </div>
         <div className="progress-text">
-          {progress.answered} of {progress.total} questions answered
+          {progress.answered} of {progress.total} answered
+          {progress.flagged > 0 && ` · ${progress.flagged} non-compliance`}
         </div>
+      </div>
+
+      <div className="toolbar">
+        <div className="search-box">
+          <span className="search-icon">🔎</span>
+          <input
+            type="search"
+            value={query}
+            placeholder="Search questions (e.g. fire, bed, A7…)"
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button className="clear-btn" onClick={() => setQuery('')} aria-label="Clear search">
+              ✕
+            </button>
+          )}
+        </div>
+        <div className="chip-row">
+          {(
+            [
+              ['all', 'All'],
+              ['unanswered', 'Unanswered'],
+              ['flagged', 'Non-compliant'],
+            ] as Array<[Filter, string]>
+          ).map(([f, label]) => (
+            <button key={f} className={`chip${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
+              {label}
+              {f === 'unanswered' && ` (${progress.total - progress.answered})`}
+              {f === 'flagged' && ` (${progress.flagged})`}
+            </button>
+          ))}
+          {!searching && (
+            <button
+              className="chip"
+              onClick={() =>
+                setOpenSections(Object.fromEntries(template.sections.map((s) => [s.letter, !allOpen])))
+              }
+            >
+              {allOpen ? 'Collapse all' : 'Expand all'}
+            </button>
+          )}
+        </div>
+      </div>
       </div>
 
       <main className="page">
@@ -210,183 +325,123 @@ export default function ChecklistPage() {
           </div>
         )}
 
-        <div className="card">
-          <b style={{ fontSize: 14 }}>🏕 Facility / site photos</b>
-          <p className="note" style={{ margin: '4px 0 8px' }}>
-            General photos of the camp — exported into the General Information sheet.
-          </p>
-          <div className="photo-row">
-            {facilityShots.map((p) => (
-              <PhotoThumb key={p.id} blob={p.blob} className="photo-thumb" onClick={() => setViewingPhoto(p)} />
-            ))}
-            <button
-              className="add-photo"
-              title="Add facility photo"
-              onClick={() => {
-                itemCameraTarget.current = FACILITY_PHOTOS
-                itemCameraRef.current?.click()
-              }}
-            >
-              📷
-            </button>
-          </div>
-        </div>
-
-        {template.sections.map((section) => {
-          const sectionAnswered = section.questions.filter((qq) => {
-            const resp = inspection.responses[qq.code]
-            return resp && (resp.assessment !== '' || resp.yesNo !== '')
-          }).length
-          const open = openSections[section.letter] ?? false
-          return (
-            <div key={section.letter} className="card section-card">
-              <button
-                className="section-head"
-                onClick={() => setOpenSections((o) => ({ ...o, [section.letter]: !open }))}
-              >
-                <span className="chev">{open ? '▾' : '▸'}</span>
-                <span className="letter">{section.letter}</span>
-                {section.title}
-                <span className="counts">
-                  {sectionAnswered}/{section.questions.length}
-                </span>
-              </button>
-              {open &&
-                section.questions.map((question) => {
-                  const resp = inspection.responses[question.code] ?? EMPTY_RESPONSE
-                  const itemPhotos = photosFor(question.code)
-                  const detailsOpen =
-                    (openDetails[question.code] ?? false) ||
-                    resp.assessment === 'No compliance' ||
-                    resp.assessment === 'Partial compliance' ||
-                    itemPhotos.length > 0 ||
-                    !!resp.observation ||
-                    !!resp.actionPlan
-                  return (
-                    <div
-                      key={question.code}
-                      id={`item-${question.code}`}
-                      className={`item${flashItem === question.code ? ' flash' : ''}`}
-                    >
-                      <div className="item-text">
-                        <b className="qcode">{question.code}</b> {question.text}
-                      </div>
-                      <div className="control-label">Yes / No / N-A</div>
-                      <div className="result-btns">
-                        {YES_NO_OPTIONS.map((opt) => (
-                          <button
-                            key={opt}
-                            className={resp.yesNo === opt ? `sel-yn-${opt === 'Yes' ? 'yes' : opt === 'No' ? 'no' : 'na'}` : ''}
-                            onClick={() => setResponse(question.code, { yesNo: resp.yesNo === opt ? '' : opt })}
-                          >
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="control-label">Compliance assessment</div>
-                      <div className="result-btns">
-                        {ASSESSMENT_OPTIONS.map((opt) => (
-                          <button
-                            key={opt}
-                            className={resp.assessment === opt ? ASSESS_CLASS[opt] : ''}
-                            onClick={() =>
-                              setResponse(question.code, { assessment: resp.assessment === opt ? '' : opt })
-                            }
-                          >
-                            {ASSESS_LABEL[opt]}
-                          </button>
-                        ))}
-                      </div>
-                      {detailsOpen ? (
-                        <div className="item-details">
-                          <div className="field">
-                            <label>Observation</label>
-                            <textarea
-                              value={resp.observation}
-                              placeholder="What did you observe?"
-                              onChange={(e) => setResponse(question.code, { observation: e.target.value })}
-                            />
-                          </div>
-                          <div className="field">
-                            <label>Action plan / remarks</label>
-                            <textarea
-                              value={resp.actionPlan}
-                              placeholder="What must be done, by whom, by when?"
-                              onChange={(e) => setResponse(question.code, { actionPlan: e.target.value })}
-                            />
-                          </div>
-                          <div className="photo-row">
-                            {itemPhotos.map((p) => (
-                              <PhotoThumb
-                                key={p.id}
-                                blob={p.blob}
-                                className="photo-thumb"
-                                onClick={() => setViewingPhoto(p)}
-                              />
-                            ))}
-                            <button
-                              className="add-photo"
-                              title="Add photo"
-                              onClick={() => {
-                                itemCameraTarget.current = question.code
-                                itemCameraRef.current?.click()
-                              }}
-                            >
-                              📷
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          className="details-toggle"
-                          onClick={() => setOpenDetails((d) => ({ ...d, [question.code]: true }))}
-                        >
-                          + Add observation / photo
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
+        {searching ? (
+          <>
+            <div className="result-count">
+              {matches.reduce((n, m) => n + m.codes.length, 0)} question
+              {matches.reduce((n, m) => n + m.codes.length, 0) === 1 ? '' : 's'} found
             </div>
-          )
-        })}
+            {matches.length === 0 && <div className="empty">Nothing matches. Try another word or filter.</div>}
+            {matches.map(({ section, codes }) => (
+              <div key={section.letter} className="card section-card">
+                <div className="section-head static">
+                  <span className="letter">{section.letter}</span>
+                  {section.title}
+                </div>
+                {codes.map(renderQuestion)}
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <div className="card">
+              <b style={{ fontSize: 14 }}>🏕 Facility / site photos</b>
+              <p className="note" style={{ margin: '4px 0 8px' }}>
+                General photos of the camp — exported into the General Information sheet.
+              </p>
+              <div className="photo-row">
+                {facilityShots.map((p) => (
+                  <PhotoThumb key={p.id} blob={p.blob} className="photo-thumb" onClick={() => setViewingPhoto(p)} />
+                ))}
+                <button
+                  className="add-photo"
+                  title="Take facility photo"
+                  onClick={() => {
+                    itemTarget.current = FACILITY_PHOTOS
+                    itemCameraRef.current?.click()
+                  }}
+                >
+                  📷
+                </button>
+                <button
+                  className="add-photo"
+                  title="Choose from gallery"
+                  onClick={() => {
+                    itemTarget.current = FACILITY_PHOTOS
+                    itemGalleryRef.current?.click()
+                  }}
+                >
+                  🖼
+                </button>
+              </div>
+            </div>
 
-        <div className="card">
-          <div className="field">
-            <label>Conclusion remarks (added to the Word report)</label>
-            <textarea
-              value={inspection.notes}
-              placeholder="Particular concerns, priorities, deadlines…"
-              onChange={(e) => update((ins) => ({ ...ins, notes: e.target.value }))}
-            />
-          </div>
-          <button
-            className={`btn block ${inspection.status === 'completed' ? '' : 'primary'}`}
-            onClick={() =>
-              update((ins) => ({ ...ins, status: ins.status === 'completed' ? 'draft' : 'completed' }))
-            }
-          >
-            {inspection.status === 'completed' ? '↩ Reopen as draft' : '✔ Mark inspection complete'}
-          </button>
-          <div className="btn-row">
-            <button className="btn" disabled={exporting !== null} onClick={() => doExport('excel')}>
-              {exporting === 'excel' ? 'Exporting…' : '⬇ Excel report'}
-            </button>
-            <button className="btn" disabled={exporting !== null} onClick={() => doExport('word')}>
-              {exporting === 'word' ? 'Exporting…' : '⬇ Word report'}
-            </button>
-          </div>
-          <p className="note" style={{ marginTop: 10 }}>
-            Excel: full inspection report workbook (Cover, General Information, Questionnaire, Summary, Photo
-            Evidence). Word: non-compliance findings report. Both generated on your phone, no internet needed.
-          </p>
-        </div>
+            {template.sections.map((section) => {
+              const sectionAnswered = section.questions.filter((qq) =>
+                isAnswered(inspection.responses[qq.code]),
+              ).length
+              const open = openSections[section.letter] ?? false
+              return (
+                <div key={section.letter} className="card section-card">
+                  <button
+                    className="section-head"
+                    onClick={() => setOpenSections((o) => ({ ...o, [section.letter]: !open }))}
+                  >
+                    <span className="chev">{open ? '▾' : '▸'}</span>
+                    <span className="letter">{section.letter}</span>
+                    {section.title}
+                    <span className="counts">
+                      {sectionAnswered}/{section.questions.length}
+                    </span>
+                  </button>
+                  {open && section.questions.map((qq) => renderQuestion(qq.code))}
+                </div>
+              )
+            })}
+
+            <div className="card">
+              <div className="field">
+                <label>Conclusion remarks (added to the Word report)</label>
+                <textarea
+                  value={inspection.notes}
+                  placeholder="Particular concerns, priorities, deadlines…"
+                  onChange={(e) => update((ins) => ({ ...ins, notes: e.target.value }))}
+                />
+              </div>
+              <button
+                className={`btn block ${inspection.status === 'completed' ? '' : 'primary'}`}
+                onClick={() =>
+                  update((ins) => ({ ...ins, status: ins.status === 'completed' ? 'draft' : 'completed' }))
+                }
+              >
+                {inspection.status === 'completed' ? '↩ Reopen as draft' : '✔ Mark inspection complete'}
+              </button>
+              <div className="btn-row">
+                <button className="btn" disabled={exporting !== null} onClick={() => doExport('excel')}>
+                  {exporting === 'excel' ? 'Exporting…' : '⬇ Excel report'}
+                </button>
+                <button className="btn" disabled={exporting !== null} onClick={() => doExport('word')}>
+                  {exporting === 'word' ? 'Exporting…' : '⬇ Word report'}
+                </button>
+              </div>
+              <p className="note" style={{ marginTop: 10 }}>
+                Excel: full inspection report workbook. Word: non-compliance findings report. Both generated on
+                your phone, no internet needed.
+              </p>
+            </div>
+          </>
+        )}
       </main>
 
-      {/* Photo-first flow: floating camera button */}
-      <button className="fab" title="Take photo" onClick={() => quickCameraRef.current?.click()}>
-        📷
-      </button>
+      {/* Photo-first flow: floating camera + gallery buttons */}
+      <div className="fab-stack">
+        <button className="fab small" title="Add photos from gallery" onClick={() => quickGalleryRef.current?.click()}>
+          🖼
+        </button>
+        <button className="fab" title="Take photo" onClick={() => quickCameraRef.current?.click()}>
+          📷
+        </button>
+      </div>
       <input
         ref={quickCameraRef}
         type="file"
@@ -395,6 +450,7 @@ export default function ChecklistPage() {
         hidden
         onChange={onQuickCapture}
       />
+      <input ref={quickGalleryRef} type="file" accept="image/*" multiple hidden onChange={onQuickCapture} />
       <input
         ref={itemCameraRef}
         type="file"
@@ -403,6 +459,7 @@ export default function ChecklistPage() {
         hidden
         onChange={onItemCapture}
       />
+      <input ref={itemGalleryRef} type="file" accept="image/*" multiple hidden onChange={onItemCapture} />
 
       {/* Assign-photo modal */}
       {assigningPhoto && (
@@ -415,16 +472,26 @@ export default function ChecklistPage() {
               </button>
             </div>
             <PhotoThumb blob={assigningPhoto.blob} className="assign-preview" />
+            <div className="assign-search">
+              <input
+                type="search"
+                value={assignQuery}
+                placeholder="Search questions…"
+                onChange={(e) => setAssignQuery(e.target.value)}
+              />
+            </div>
             <div className="modal-body">
-              <button className="assign-item" onClick={() => void assignPhoto(FACILITY_PHOTOS)}>
-                🏕 <b>General facility / site photo</b>
-              </button>
-              {template.sections.map((section) => (
+              {!assignQ && (
+                <button className="assign-item" onClick={() => void assignPhoto(FACILITY_PHOTOS)}>
+                  🏕 <b>General facility / site photo</b>
+                </button>
+              )}
+              {assignSections.map(({ section, questions }) => (
                 <div key={section.letter}>
                   <div className="assign-section">
                     Section {section.letter} — {section.title}
                   </div>
-                  {section.questions.map((question) => (
+                  {questions.map((question) => (
                     <button
                       key={question.code}
                       className="assign-item"
@@ -435,6 +502,7 @@ export default function ChecklistPage() {
                   ))}
                 </div>
               ))}
+              {assignSections.length === 0 && <div className="empty">No question matches “{assignQuery}”.</div>}
             </div>
           </div>
         </div>
