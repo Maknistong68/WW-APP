@@ -2,13 +2,18 @@ import type { InspectionTemplate } from '../types'
 
 // Generated 1:1 from the official workbook:
 // "AL FAHD Workers Camp Welfare Inspection Report" — Assessment Questionnaire sheet.
-// Section titles and question texts are copied verbatim (including original spelling).
+// Question texts are copied verbatim. Two section-title spellings were corrected
+// from the source workbook: "Self-Cooing Section" → "Self-Cooking Section" and
+// "Lightning" → "Lighting".
 export const accommodation: InspectionTemplate = {
   id: 'accommodation',
   name: 'Labour Accommodation Audit',
   shortName: 'Accommodation',
   description: 'Welfare inspection of workers’ accommodation using the official assessment questionnaire (Sections A–X).',
   questionnaireTitle: 'Group Labor Accommodation',
+  coverTitle: 'Labour Accommodation Audit Report',
+  reportHeading: 'Camp Welfare Inspection',
+  wordTitle: 'Findings: Non-Neom Approved Accommodation',
   sections: [
     {
       letter: "A",
@@ -103,7 +108,7 @@ export const accommodation: InspectionTemplate = {
     },
     {
       letter: "G",
-      title: "Self-Cooing Section",
+      title: "Self-Cooking Section",
       questions: [
         { code: "G1", text: "Is the accomodation site been provided with self-catering facilities?" },
         { code: "G2", text: "Is there a clean and functional kitchen with a functioning cooking stove (electric or gas) and cooling equipment?" },
@@ -165,7 +170,7 @@ export const accommodation: InspectionTemplate = {
     },
     {
       letter: "K",
-      title: "Lightning",
+      title: "Lighting",
       questions: [
         { code: "K1", text: "Do all rooms in the residential units have working lights?" },
         { code: "K2", text: "Is there a complete indoor lighting system for the indoor spaces?" },

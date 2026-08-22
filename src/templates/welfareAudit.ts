@@ -10,6 +10,9 @@ export const welfareAudit: InspectionTemplate = {
   shortName: 'Welfare Audit',
   description: 'Audit of contractor compliance with workers’ welfare requirements. (Placeholder checklist.)',
   questionnaireTitle: 'Workers’ Welfare Audit',
+  coverTitle: 'Workers’ Welfare Audit Report',
+  reportHeading: 'Workers’ Welfare Audit',
+  wordTitle: 'Findings: Workers’ Welfare Audit',
   sections: [
     {
       letter: 'A',

@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { db } from '../db'
 import { getTemplate } from '../templates'
+import { showToast } from '../components/Toast'
 import type { GeneralInfo, Inspection } from '../types'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -14,36 +15,55 @@ const remember = (key: string, fallback = '') => {
   }
 }
 
-export default function NewInspectionPage() {
-  const { templateId } = useParams()
-  const navigate = useNavigate()
-  const template = getTemplate(templateId ?? '')
+const blankInfo = (): GeneralInfo => ({
+  typeOfReview: 'Welfare Inspection',
+  reviewDate: today(),
+  auditTeam: remember('auditTeam'),
+  region: remember('region'),
+  facilityLocation: '',
+  facilityType: 'Camp',
+  mapCoordinates: '',
+  googleMapsLink: '',
+  facilityManagement: '',
+  occupantsNumber: '',
+  numberOfRooms: '',
+  maxOccupancy: '',
+  contractorsCount: '1',
+  contractorNames: '',
+  projectsServed: '',
+  facilityRepresentative: '',
+  workOrder: '',
+})
 
-  const [info, setInfo] = useState<GeneralInfo>(() => ({
-    typeOfReview: 'Welfare Inspection',
-    reviewDate: today(),
-    auditTeam: remember('auditTeam'),
-    region: remember('region'),
-    facilityLocation: '',
-    facilityType: 'Camp',
-    mapCoordinates: '',
-    googleMapsLink: '',
-    facilityManagement: '',
-    occupantsNumber: '',
-    numberOfRooms: '',
-    maxOccupancy: '',
-    contractorsCount: '1',
-    contractorNames: '',
-    projectsServed: '',
-    facilityRepresentative: '',
-    workOrder: '',
-  }))
+/** Creates a new inspection (/new/:templateId) or edits one (/inspection/:id/edit). */
+export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
+  const { templateId, id } = useParams()
+  const navigate = useNavigate()
+  const inspectionId = Number(id)
+
+  const [existing, setExisting] = useState<Inspection | null>(null)
+  const [info, setInfo] = useState<GeneralInfo>(blankInfo)
+  const [loaded, setLoaded] = useState(mode === 'new')
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    if (mode !== 'edit') return
+    void db.inspections.get(inspectionId).then((ins) => {
+      if (ins) {
+        setExisting(ins)
+        setInfo(ins.info)
+      }
+      setLoaded(true)
+    })
+  }, [mode, inspectionId])
+
+  const template = mode === 'edit' ? getTemplate(existing?.templateId ?? '') : getTemplate(templateId ?? '')
+
+  if (!loaded) return <main className="page"><div className="empty">Loading…</div></main>
   if (!template) {
     return (
       <main className="page">
-        <div className="empty">Unknown checklist type.</div>
+        <div className="empty">{mode === 'edit' ? 'Inspection not found.' : 'Unknown checklist type.'}</div>
       </main>
     )
   }
@@ -62,6 +82,12 @@ export default function NewInspectionPage() {
       // private-mode storage failures are non-fatal
     }
     const now = new Date().toISOString()
+    if (mode === 'edit' && existing) {
+      await db.inspections.put({ ...existing, info, updatedAt: now })
+      showToast({ text: 'Inspection details updated' })
+      navigate(`/inspection/${existing.id}`, { replace: true })
+      return
+    }
     const inspection: Inspection = {
       templateId: template.id,
       status: 'draft',
@@ -71,8 +97,8 @@ export default function NewInspectionPage() {
       responses: {},
       notes: '',
     }
-    const id = await db.inspections.add(inspection)
-    navigate(`/inspection/${id}`, { replace: true })
+    const newId = await db.inspections.add(inspection)
+    navigate(`/inspection/${newId}`, { replace: true })
   }
 
   const field = (
@@ -93,13 +119,15 @@ export default function NewInspectionPage() {
     </div>
   )
 
+  const backTo = mode === 'edit' ? `/inspection/${inspectionId}` : '/'
+
   return (
     <>
       <header className="app-header">
-        <button className="back" onClick={() => navigate('/')} aria-label="Back">
+        <button className="back" onClick={() => navigate(backTo)} aria-label="Back">
           ‹
         </button>
-        <h1>New {template.name}</h1>
+        <h1>{mode === 'edit' ? 'Inspection details' : `New ${template.name}`}</h1>
       </header>
       <main className="page">
         <form onSubmit={submit}>
@@ -145,7 +173,7 @@ export default function NewInspectionPage() {
           </div>
 
           <button className="btn primary block" type="submit" disabled={saving}>
-            Start inspection
+            {mode === 'edit' ? 'Save changes' : 'Start inspection'}
           </button>
         </form>
       </main>

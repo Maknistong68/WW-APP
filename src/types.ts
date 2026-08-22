@@ -27,6 +27,12 @@ export interface InspectionTemplate {
   description: string
   /** Header shown above the questionnaire table (e.g. "Group Labor Accommodation"). */
   questionnaireTitle: string
+  /** Excel cover sheet title (e.g. "Labour Accommodation Audit Report"). */
+  coverTitle: string
+  /** Suffix after the contractor name atop the questionnaire sheet (e.g. "Camp Welfare Inspection"). */
+  reportHeading: string
+  /** Title of the Word findings report. */
+  wordTitle: string
   sections: Section[]
 }
 

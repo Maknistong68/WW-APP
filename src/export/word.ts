@@ -13,7 +13,6 @@ import {
   VerticalAlign,
   WidthType,
 } from 'docx'
-import { saveAs } from 'file-saver'
 import type { Inspection, InspectionTemplate, Photo } from '../types'
 import { loadPhotos, longDate, questionPhotos, withSizes, wordFileName, type PhotoWithSize } from './common'
 import neomLogoUrl from '../assets/neom-logo.jpeg'
@@ -55,7 +54,10 @@ async function fetchImage(url: string): Promise<ArrayBuffer> {
   return res.arrayBuffer()
 }
 
-export async function exportWord(template: InspectionTemplate, inspection: Inspection): Promise<void> {
+export async function buildWord(
+  template: InspectionTemplate,
+  inspection: Inspection,
+): Promise<{ blob: Blob; fileName: string }> {
   const info = inspection.info
   const contractor = info.contractorNames || info.facilityManagement || 'Contractor'
   const photos = await loadPhotos(inspection.id!)
@@ -124,7 +126,7 @@ export async function exportWord(template: InspectionTemplate, inspection: Inspe
     }),
     new Paragraph({
       heading: HeadingLevel.TITLE,
-      children: [new TextRun('Findings: Non-Neom Approved Accommodation')],
+      children: [new TextRun(template.wordTitle)],
     }),
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
@@ -225,15 +227,26 @@ export async function exportWord(template: InspectionTemplate, inspection: Inspe
   ]
   for (const f of findings) {
     const photoParas: Paragraph[] = f.photos.length
-      ? f.photos.map(({ buffer, width, height }) => {
+      ? f.photos.flatMap(({ photo, buffer, width, height }) => {
           const displayW = 190
           const displayH = Math.round((height / width) * displayW)
-          return new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [
-              new ImageRun({ type: 'jpg', data: buffer, transformation: { width: displayW, height: displayH } }),
-            ],
-          })
+          const paras = [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new ImageRun({ type: 'jpg', data: buffer, transformation: { width: displayW, height: displayH } }),
+              ],
+            }),
+          ]
+          if (photo.caption.trim()) {
+            paras.push(
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: photo.caption.trim(), italics: true, size: 18 })],
+              }),
+            )
+          }
+          return paras
         })
       : [new Paragraph({ children: [new TextRun('NO PHOTO')] })]
     obsRows.push(
@@ -315,5 +328,5 @@ export async function exportWord(template: InspectionTemplate, inspection: Inspe
   })
 
   const blob = await Packer.toBlob(doc)
-  saveAs(blob, wordFileName(inspection))
+  return { blob, fileName: wordFileName(inspection) }
 }
