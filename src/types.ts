@@ -67,6 +67,8 @@ export interface GeneralInfo {
 
 export interface Inspection {
   id?: number
+  /** Stable identity across devices/backups; used for cloud sync. */
+  uuid?: string
   templateId: string
   status: 'draft' | 'completed'
   createdAt: string
@@ -80,6 +82,8 @@ export interface Inspection {
 
 export interface Photo {
   id?: number
+  /** Stable identity across devices/backups; used for cloud sync. */
+  uuid?: string
   inspectionId: number
   /**
    * What the photo is attached to:
@@ -91,6 +95,25 @@ export interface Photo {
   blob: Blob
   caption: string
   createdAt: string
+  /** Bumped on caption/assignment changes so sync can pick a winner. */
+  updatedAt?: string
+  /** Set once the blob has been uploaded to cloud storage. */
+  syncedAt?: string
+}
+
+export interface LogEntry {
+  id?: number
+  /** null = app-level event (backup, sync, …). */
+  inspectionId: number | null
+  time: string
+  event: string
+  detail: string
+}
+
+export interface Tombstone {
+  id?: number
+  table: 'inspections' | 'photos'
+  uuid: string
 }
 
 /** Special Photo.itemId for general facility/site photos. */

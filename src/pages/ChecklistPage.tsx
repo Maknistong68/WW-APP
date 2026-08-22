@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useParams } from 'react-router-dom'
 import { saveAs } from 'file-saver'
-import { compressPhoto, db } from '../db'
+import { compressPhoto, db, logEvent, newUuid } from '../db'
+import { scoreInspection } from '../lib/score'
 import { getTemplate, countItems } from '../templates'
 import {
   EMPTY_RESPONSE,
@@ -147,16 +148,24 @@ export default function ChecklistPage() {
     const saved: Photo[] = []
     for (const file of Array.from(files)) {
       const blob = await compressPhoto(file)
+      const now = new Date().toISOString()
       const photo: Photo = {
+        uuid: newUuid(),
         inspectionId,
         itemId,
         blob,
         caption: '',
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       }
       const photoId = await db.photos.add(photo)
       saved.push({ ...photo, id: photoId })
     }
+    logEvent(
+      inspectionId,
+      `Photo${saved.length === 1 ? '' : 's'} added`,
+      `${saved.length} to ${itemId ?? 'unassigned'}`,
+    )
     return saved
   }
 
@@ -201,7 +210,8 @@ export default function ChecklistPage() {
 
   const assignPhoto = async (itemId: string) => {
     if (!assigningPhoto?.id) return
-    await db.photos.update(assigningPhoto.id, { itemId })
+    await db.photos.update(assigningPhoto.id, { itemId, updatedAt: new Date().toISOString() })
+    logEvent(inspectionId, 'Photo assigned', itemId === FACILITY_PHOTOS ? 'facility photos' : itemId)
     setAssignQuery('')
     if (itemId !== FACILITY_PHOTOS && (inspection.responses[itemId]?.assessment ?? '') === '') {
       // A photo usually documents a problem — pre-select No compliance if untouched.
@@ -226,6 +236,8 @@ export default function ChecklistPage() {
     // Re-read before deleting so Undo restores the latest caption, not a stale copy.
     const fresh = (await db.photos.get(photo.id)) ?? photo
     await db.photos.delete(photo.id)
+    if (fresh.uuid) await db.tombstones.add({ table: 'photos', uuid: fresh.uuid })
+    logEvent(inspectionId, 'Photo deleted', fresh.itemId ?? 'unassigned')
     setViewingPhoto(null)
     // F-08: undo instead of a blocking confirm — the blob is still in memory.
     showToast({
@@ -235,6 +247,10 @@ export default function ChecklistPage() {
         const { id: _oldId, ...rest } = fresh
         void _oldId
         void db.photos.add(rest)
+        if (fresh.uuid) {
+          void db.tombstones.where('uuid').equals(fresh.uuid).delete()
+        }
+        logEvent(inspectionId, 'Photo restored')
       },
     })
   }
@@ -251,6 +267,7 @@ export default function ChecklistPage() {
           ? await (await import('../export/excel')).buildExcel(template, inspection)
           : await (await import('../export/word')).buildWord(template, inspection)
       saveAs(blob, fileName)
+      logEvent(inspectionId, kind === 'excel' ? 'Excel report exported' : 'Word report exported', fileName)
       const file = new File([blob], fileName, { type: MIME[kind] })
       const canShare = typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })
       showToast({
@@ -489,10 +506,25 @@ export default function ChecklistPage() {
                   onChange={(e) => update((ins) => ({ ...ins, notes: e.target.value }))}
                 />
               </div>
+              {(() => {
+                const score = scoreInspection(template, inspection)
+                return (
+                  score.pct !== null && (
+                    <p className="note" style={{ marginTop: 0 }}>
+                      Current compliance score: <b>{score.pct}%</b>
+                      {score.flagged > 0 && ` · ${score.flagged} open finding${score.flagged === 1 ? '' : 's'}`}
+                    </p>
+                  )
+                )
+              })()}
               <button
                 className={`btn block ${inspection.status === 'completed' ? '' : 'primary'}`}
                 onClick={() =>
-                  update((ins) => ({ ...ins, status: ins.status === 'completed' ? 'draft' : 'completed' }))
+                  update((ins) => {
+                    const completed = ins.status !== 'completed'
+                    logEvent(inspectionId, completed ? 'Inspection completed' : 'Inspection reopened')
+                    return { ...ins, status: completed ? 'completed' : 'draft' }
+                  })
                 }
               >
                 {inspection.status === 'completed' ? '↩ Reopen as draft' : '✔ Mark inspection complete'}
@@ -624,7 +656,11 @@ export default function ChecklistPage() {
                 defaultValue={viewingPhoto.caption}
                 placeholder="e.g. Blocked fire exit, Block B"
                 onChange={(e) => {
-                  if (viewingPhoto.id) void db.photos.update(viewingPhoto.id, { caption: e.target.value })
+                  if (viewingPhoto.id)
+                    void db.photos.update(viewingPhoto.id, {
+                      caption: e.target.value,
+                      updatedAt: new Date().toISOString(),
+                    })
                 }}
               />
             </div>
