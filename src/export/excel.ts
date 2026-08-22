@@ -1,5 +1,4 @@
 import ExcelJS from 'exceljs'
-import { saveAs } from 'file-saver'
 import type { Inspection, InspectionTemplate, Section } from '../types'
 import {
   excelFileName,
@@ -70,8 +69,10 @@ const wrapHeight = (text: string, chars: number, min = 15.75): number => {
 const ifsScore = (e: string) =>
   `_xlfn.IFS(${e}="Full compliance",2,${e}="partial compliance",1,${e}="no compliance",0,${e}="N/A","-",${e}="","")`
 const ifsOutOf100 = (f: string) => `_xlfn.IFS(${f}=2,100,${f}=1,50,${f}=0,0,${f}="-","-",${f}="","")`
+// IFERROR keeps sections with no answers yet showing blank instead of #DIV/0!.
 const ifsAssessment = (f: string) =>
-  `_xlfn.IFS(${f}<1, "No compliance", ${f}<=1.5,"Partial compliance", ${f}>1.5,"Full compliance")`
+  `IFERROR(_xlfn.IFS(${f}<1, "No compliance", ${f}<=1.5,"Partial compliance", ${f}>1.5,"Full compliance"),"")`
+const safeAvg = (range: string) => `IFERROR(AVERAGE(${range}),"")`
 
 interface SectionRows {
   section: Section
@@ -81,7 +82,10 @@ interface SectionRows {
   scoreRow: number
 }
 
-export async function exportExcel(template: InspectionTemplate, inspection: Inspection): Promise<void> {
+export async function buildExcel(
+  template: InspectionTemplate,
+  inspection: Inspection,
+): Promise<{ blob: Blob; fileName: string }> {
   const wb = new ExcelJS.Workbook()
   wb.creator = inspection.info.auditTeam || 'WW App'
   wb.created = new Date()
@@ -102,7 +106,7 @@ export async function exportExcel(template: InspectionTemplate, inspection: Insp
     }
   }
   const coverTitle = cover.getCell('C6')
-  coverTitle.value = 'Labour Accommodation Audit Report'
+  coverTitle.value = template.coverTitle
   coverTitle.font = font({ size: 16, bold: true, color: { argb: WHITE } })
   coverTitle.fill = fill(NAVY)
   const coverDate = cover.getCell('C7')
@@ -204,8 +208,9 @@ export async function exportExcel(template: InspectionTemplate, inspection: Insp
   scale.getColumn(6).width = 15.9
   sheetTitle(scale.getCell('B3'), '2. Assessment Scale')
 
-  const scaleIntro =
-    'The questionnaire is divided into ten sections which are from Section A to Section J, each section has questions that must be answered as Yes, No, or Not Applicable, in addition to assigning a risk assessment to the criteria of the question as a full compliance, Partial compliance, no compliance or not applicable. '
+  const firstLetter = template.sections[0].letter
+  const lastLetter = template.sections[template.sections.length - 1].letter
+  const scaleIntro = `The questionnaire is divided into ${template.sections.length} sections which are from Section ${firstLetter} to Section ${lastLetter}, each section has questions that must be answered as Yes, No, or Not Applicable, in addition to assigning a risk assessment to the criteria of the question as a full compliance, Partial compliance, no compliance or not applicable. `
   scale.mergeCells('B5:E5')
   const b5 = scale.getCell('B5')
   b5.value = scaleIntro
@@ -286,7 +291,7 @@ export async function exportExcel(template: InspectionTemplate, inspection: Insp
 
   q.getCell('A1').value = '  '
   const qTitle = q.getCell('C1')
-  qTitle.value = `${info.contractorNames || info.facilityManagement} Camp Welfare Inspection `
+  qTitle.value = `${info.contractorNames || info.facilityManagement} ${template.reportHeading} `
   qTitle.font = font({ size: 14, bold: true })
   qTitle.alignment = { horizontal: 'center', vertical: 'middle' }
   const qDate = q.getCell('E1')
@@ -370,10 +375,10 @@ export async function exportExcel(template: InspectionTemplate, inspection: Insp
     const eCell = q.getCell(r, 5)
     eCell.value = { formula: ifsAssessment(`F${r}`) }
     const fCell = q.getCell(r, 6)
-    fCell.value = { formula: `AVERAGE(F${firstQ}:F${lastQ})` }
+    fCell.value = { formula: safeAvg(`F${firstQ}:F${lastQ}`) }
     fCell.numFmt = '0.000'
     const gCell = q.getCell(r, 7)
-    gCell.value = { formula: `AVERAGE(G${firstQ}:G${lastQ})` }
+    gCell.value = { formula: safeAvg(`G${firstQ}:G${lastQ}`) }
     gCell.numFmt = '0.000'
     for (const cell of [eCell, fCell, gCell]) {
       cell.font = font()
@@ -417,11 +422,11 @@ export async function exportExcel(template: InspectionTemplate, inspection: Insp
     sm.getCell(row, 2).value = `Section ${sr.section.letter}`
     sm.mergeCells(row, 3, row, 4)
     sm.getCell(row, 3).value = sr.section.title
-    sm.getCell(row, 5).value = { formula: `${QN}!E${sr.scoreRow}` }
+    sm.getCell(row, 5).value = { formula: `IFERROR(${QN}!E${sr.scoreRow},"")` }
     sm.getCell(row, 6).value = { formula: `COUNTIF(${QN}!F${sr.firstQ}:F${sr.lastQ},"<2")` }
-    sm.getCell(row, 7).value = { formula: `${QN}!F${sr.scoreRow}` }
+    sm.getCell(row, 7).value = { formula: `IFERROR(${QN}!F${sr.scoreRow},"")` }
     sm.getCell(row, 7).numFmt = '0.00'
-    sm.getCell(row, 8).value = { formula: `${QN}!G${sr.scoreRow}` }
+    sm.getCell(row, 8).value = { formula: `IFERROR(${QN}!G${sr.scoreRow},"")` }
     sm.getCell(row, 8).numFmt = '0.00'
     for (let c = 2; c <= 8; c++) {
       const cell = sm.getCell(row, c)
@@ -449,12 +454,12 @@ export async function exportExcel(template: InspectionTemplate, inspection: Insp
   ovF.value = { formula: `SUM(F5:F${lastSectionRow})` }
   ovF.fill = fill(GRAY)
   const ovG = sm.getCell(overall, 7)
-  ovG.value = { formula: `AVERAGE(G5:G${lastSectionRow})` }
+  ovG.value = { formula: safeAvg(`G5:G${lastSectionRow}`) }
   ovG.numFmt = '0.000'
   ovG.font = font({ bold: true })
   ovG.fill = fill(GRAY)
   const ovH = sm.getCell(overall, 8)
-  ovH.value = { formula: `AVERAGE(H5:H${lastSectionRow})` }
+  ovH.value = { formula: safeAvg(`H5:H${lastSectionRow}`) }
   ovH.numFmt = '0.000'
   ovH.fill = fill(GRAY)
   for (const cell of [ovE, ovF, ovG, ovH]) {
@@ -529,8 +534,9 @@ export async function exportExcel(template: InspectionTemplate, inspection: Insp
   pe.getColumn(4).width = 13.9
   pe.getColumn(5).width = 13.1
   pe.getColumn(6).width = 40.4
+  pe.getColumn(7).width = 26
   sheetTitle(pe.getCell('B3'), '6. Photo Evidence', true)
-  const peHeaders = ['Photo Ref.', 'Section', 'Question Number', 'Compliance / No Compliance', 'Photo Evidence']
+  const peHeaders = ['Photo Ref.', 'Section', 'Question Number', 'Compliance / No Compliance', 'Photo Evidence', 'Caption']
   peHeaders.forEach((h, i) => tableHeader(pe.getCell(5, 2 + i), h))
   pe.getRow(5).height = 30
 
@@ -554,11 +560,12 @@ export async function exportExcel(template: InspectionTemplate, inspection: Insp
     pe.getCell(peRow, 3).value = letter
     pe.getCell(peRow, 4).value = code
     pe.getCell(peRow, 5).value = rag
-    for (let c = 2; c <= 6; c++) {
+    pe.getCell(peRow, 7).value = photo.caption
+    for (let c = 2; c <= 7; c++) {
       const cell = pe.getCell(peRow, c)
       if (!cell.font) cell.font = font()
       cell.border = BORDER
-      cell.alignment = { horizontal: c === 6 ? 'left' : 'center', vertical: 'middle', wrapText: true }
+      cell.alignment = { horizontal: c >= 6 ? 'left' : 'center', vertical: 'middle', wrapText: true }
     }
     const displayW = 275
     const displayH = Math.round((height / width) * displayW)
@@ -572,10 +579,10 @@ export async function exportExcel(template: InspectionTemplate, inspection: Insp
   })
 
   const buf = await wb.xlsx.writeBuffer()
-  saveAs(
-    new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-    excelFileName(inspection),
-  )
+  return {
+    blob: new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    fileName: excelFileName(inspection),
+  }
 }
 
 function numOrText(s: string): ExcelJS.CellValue {

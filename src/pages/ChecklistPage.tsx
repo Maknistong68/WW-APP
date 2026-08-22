@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useParams } from 'react-router-dom'
+import { saveAs } from 'file-saver'
 import { compressPhoto, db } from '../db'
 import { getTemplate, countItems } from '../templates'
 import {
@@ -13,12 +14,19 @@ import {
 } from '../types'
 import PhotoThumb from '../components/PhotoThumb'
 import QuestionItem from '../components/QuestionItem'
+import Modal from '../components/Modal'
+import { showToast } from '../components/Toast'
 
 type Filter = 'all' | 'unanswered' | 'flagged'
 
 const isAnswered = (r?: QuestionResponse) => !!r && (r.assessment !== '' || r.yesNo !== '')
 const isFlagged = (r?: QuestionResponse) =>
   r?.assessment === 'No compliance' || r?.assessment === 'Partial compliance'
+
+const MIME = {
+  excel: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  word: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+}
 
 export default function ChecklistPage() {
   const { id } = useParams()
@@ -31,10 +39,12 @@ export default function ChecklistPage() {
   const [assigningPhoto, setAssigningPhoto] = useState<Photo | null>(null)
   const [assignQuery, setAssignQuery] = useState('')
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null)
+  const [sectionSheet, setSectionSheet] = useState(false)
   const [flashItem, setFlashItem] = useState<string | null>(null)
   const [exporting, setExporting] = useState<null | 'excel' | 'word'>(null)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const [compact, setCompact] = useState(false)
 
   const quickCameraRef = useRef<HTMLInputElement>(null)
   const quickGalleryRef = useRef<HTMLInputElement>(null)
@@ -42,6 +52,7 @@ export default function ChecklistPage() {
   const itemGalleryRef = useRef<HTMLInputElement>(null)
   const itemTarget = useRef<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
+  const lastScrollY = useRef(0)
 
   const photos = useLiveQuery(
     () => db.photos.where('inspectionId').equals(inspectionId).sortBy('createdAt'),
@@ -51,6 +62,18 @@ export default function ChecklistPage() {
   useEffect(() => {
     void db.inspections.get(inspectionId).then((ins) => setInspection(ins ?? null))
   }, [inspectionId])
+
+  // F-07: collapse the toolbar while scrolling down, restore on scroll up.
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY
+      const goingDown = y > lastScrollY.current
+      lastScrollY.current = y
+      setCompact(goingDown && y > 140)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   const template = inspection ? getTemplate(inspection.templateId) : undefined
 
@@ -89,7 +112,6 @@ export default function ChecklistPage() {
     return { answered, total, flagged }
   }, [template, inspection])
 
-  // Search + filter across the whole questionnaire
   const matches = useMemo(() => {
     if (!template || !inspection) return null
     const q = query.trim().toLowerCase()
@@ -144,8 +166,7 @@ export default function ChecklistPage() {
     // Photo-first flow: capture now, then choose where it belongs.
     const saved = await addPhotos(files, null)
     e.target.value = ''
-    if (saved.length === 1) setAssigningPhoto(saved[0])
-    // Multiple gallery picks land in the "waiting to be assigned" card.
+    setAssigningPhoto(saved[0])
   }
 
   const onItemCapture = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -168,17 +189,54 @@ export default function ChecklistPage() {
     setTimeout(() => setFlashItem(null), 1800)
   }
 
+  const jumpToSection = (letter: string) => {
+    setSectionSheet(false)
+    setQuery('')
+    setFilter('all')
+    setOpenSections((o) => ({ ...o, [letter]: true }))
+    setTimeout(() => {
+      document.getElementById(`section-${letter}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 60)
+  }
+
   const assignPhoto = async (itemId: string) => {
     if (!assigningPhoto?.id) return
     await db.photos.update(assigningPhoto.id, { itemId })
-    setAssigningPhoto(null)
     setAssignQuery('')
-    if (itemId === FACILITY_PHOTOS) return
-    // A photo usually documents a problem — pre-select No compliance if untouched.
-    if ((inspection.responses[itemId]?.assessment ?? '') === '') {
+    if (itemId !== FACILITY_PHOTOS && (inspection.responses[itemId]?.assessment ?? '') === '') {
+      // A photo usually documents a problem — pre-select No compliance if untouched.
       setResponse(itemId, { assessment: 'No compliance', yesNo: inspection.responses[itemId]?.yesNo ?? '' })
     }
-    jumpToItem(itemId)
+    // F-14: chain through remaining unassigned photos instead of reopening the picker.
+    const remaining = (photos ?? []).filter((p) => p.itemId === null && p.id !== assigningPhoto.id)
+    showToast({
+      text: itemId === FACILITY_PHOTOS ? 'Added to facility photos' : `Photo attached to ${itemId}`,
+      duration: 2500,
+    })
+    if (remaining.length > 0) {
+      setAssigningPhoto(remaining[0])
+    } else {
+      setAssigningPhoto(null)
+      if (itemId !== FACILITY_PHOTOS) jumpToItem(itemId)
+    }
+  }
+
+  const deletePhoto = async (photo: Photo) => {
+    if (!photo.id) return
+    // Re-read before deleting so Undo restores the latest caption, not a stale copy.
+    const fresh = (await db.photos.get(photo.id)) ?? photo
+    await db.photos.delete(photo.id)
+    setViewingPhoto(null)
+    // F-08: undo instead of a blocking confirm — the blob is still in memory.
+    showToast({
+      text: 'Photo deleted',
+      actionLabel: 'Undo',
+      onAction: () => {
+        const { id: _oldId, ...rest } = fresh
+        void _oldId
+        void db.photos.add(rest)
+      },
+    })
   }
 
   const doExport = async (kind: 'excel' | 'word') => {
@@ -188,15 +246,28 @@ export default function ChecklistPage() {
       clearTimeout(saveTimer.current)
       await db.inspections.put({ ...inspection, updatedAt: new Date().toISOString() })
       // Export libraries are heavy — load them only when actually exporting.
-      if (kind === 'excel') {
-        const { exportExcel } = await import('../export/excel')
-        await exportExcel(template, inspection)
-      } else {
-        const { exportWord } = await import('../export/word')
-        await exportWord(template, inspection)
-      }
+      const { blob, fileName } =
+        kind === 'excel'
+          ? await (await import('../export/excel')).buildExcel(template, inspection)
+          : await (await import('../export/word')).buildWord(template, inspection)
+      saveAs(blob, fileName)
+      const file = new File([blob], fileName, { type: MIME[kind] })
+      const canShare = typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })
+      showToast({
+        text: `Saved ${fileName}`,
+        duration: 7000,
+        actionLabel: canShare ? 'Share…' : undefined,
+        onAction: canShare
+          ? () => {
+              void navigator.share({ files: [file], title: fileName }).catch(() => {})
+            }
+          : undefined,
+      })
     } catch (err) {
-      alert(`Export failed: ${err instanceof Error ? err.message : String(err)}`)
+      showToast({
+        text: `Export failed: ${err instanceof Error ? err.message : String(err)}`,
+        duration: 8000,
+      })
     } finally {
       setExporting(null)
     }
@@ -206,7 +277,6 @@ export default function ChecklistPage() {
   const facilityShots = (photos ?? []).filter((p) => p.itemId === FACILITY_PHOTOS)
   const photosFor = (code: string) => (photos ?? []).filter((p) => p.itemId === code)
 
-  const allOpen = template.sections.every((s) => openSections[s.letter])
   const searching = matches !== null
 
   const renderQuestion = (code: string) => {
@@ -250,66 +320,75 @@ export default function ChecklistPage() {
 
   return (
     <>
-      <div className="top-stack">
-      <header className="app-header">
-        <button className="back" onClick={() => navigate('/')} aria-label="Back">
-          ‹
-        </button>
-        <h1>
-          {template.shortName} · {inspection.info.contractorNames || inspection.info.facilityLocation}
-        </h1>
-      </header>
-      <div className="progress-wrap">
-        <div className="progress-bar">
-          <div style={{ width: `${progress.total ? (progress.answered / progress.total) * 100 : 0}%` }} />
+      <div className={`top-stack${compact ? ' compact' : ''}`}>
+        <header className="app-header">
+          <button className="back" onClick={() => navigate('/')} aria-label="Back">
+            ‹
+          </button>
+          <h1>
+            {template.shortName} · {inspection.info.contractorNames || inspection.info.facilityLocation}
+          </h1>
+          <button
+            className="icon-btn header-btn"
+            aria-label="Edit inspection details"
+            title="Edit inspection details"
+            onClick={() => navigate(`/inspection/${inspectionId}/edit`)}
+          >
+            ✎
+          </button>
+        </header>
+        <div className="progress-wrap">
+          <div className="progress-bar">
+            <div style={{ width: `${progress.total ? (progress.answered / progress.total) * 100 : 0}%` }} />
+          </div>
+          <div className="progress-text">
+            {progress.answered} of {progress.total} answered
+            {progress.flagged > 0 && ` · ${progress.flagged} non-compliance`}
+          </div>
         </div>
-        <div className="progress-text">
-          {progress.answered} of {progress.total} answered
-          {progress.flagged > 0 && ` · ${progress.flagged} non-compliance`}
-        </div>
-      </div>
 
-      <div className="toolbar">
-        <div className="search-box">
-          <span className="search-icon">🔎</span>
-          <input
-            type="search"
-            value={query}
-            placeholder="Search questions (e.g. fire, bed, A7…)"
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {query && (
-            <button className="clear-btn" onClick={() => setQuery('')} aria-label="Clear search">
-              ✕
-            </button>
-          )}
-        </div>
-        <div className="chip-row">
-          {(
-            [
-              ['all', 'All'],
-              ['unanswered', 'Unanswered'],
-              ['flagged', 'Non-compliant'],
-            ] as Array<[Filter, string]>
-          ).map(([f, label]) => (
-            <button key={f} className={`chip${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
-              {label}
-              {f === 'unanswered' && ` (${progress.total - progress.answered})`}
-              {f === 'flagged' && ` (${progress.flagged})`}
-            </button>
-          ))}
-          {!searching && (
+        <div className="toolbar">
+          <div className="search-row">
+            <div className="search-box">
+              <span className="search-icon" aria-hidden="true">🔎</span>
+              <input
+                type="search"
+                value={query}
+                placeholder="Search questions (e.g. fire, bed, A7…)"
+                aria-label="Search questions"
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              {query && (
+                <button className="clear-btn" onClick={() => setQuery('')} aria-label="Clear search">
+                  ✕
+                </button>
+              )}
+            </div>
             <button
-              className="chip"
-              onClick={() =>
-                setOpenSections(Object.fromEntries(template.sections.map((s) => [s.letter, !allOpen])))
-              }
+              className="jump-btn"
+              aria-label="Jump to section"
+              title="Jump to section"
+              onClick={() => setSectionSheet(true)}
             >
-              {allOpen ? 'Collapse all' : 'Expand all'}
+              A→X
             </button>
-          )}
+          </div>
+          <div className="chip-row">
+            {(
+              [
+                ['all', 'All'],
+                ['unanswered', 'Unanswered'],
+                ['flagged', 'Non-compliant'],
+              ] as Array<[Filter, string]>
+            ).map(([f, label]) => (
+              <button key={f} className={`chip${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
+                {label}
+                {f === 'unanswered' && ` (${progress.total - progress.answered})`}
+                {f === 'flagged' && ` (${progress.flagged})`}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
       </div>
 
       <main className="page">
@@ -355,6 +434,7 @@ export default function ChecklistPage() {
                 ))}
                 <button
                   className="add-photo"
+                  aria-label="Take facility photo"
                   title="Take facility photo"
                   onClick={() => {
                     itemTarget.current = FACILITY_PHOTOS
@@ -365,6 +445,7 @@ export default function ChecklistPage() {
                 </button>
                 <button
                   className="add-photo"
+                  aria-label="Choose facility photos from gallery"
                   title="Choose from gallery"
                   onClick={() => {
                     itemTarget.current = FACILITY_PHOTOS
@@ -382,7 +463,7 @@ export default function ChecklistPage() {
               ).length
               const open = openSections[section.letter] ?? false
               return (
-                <div key={section.letter} className="card section-card">
+                <div key={section.letter} id={`section-${section.letter}`} className="card section-card">
                   <button
                     className="section-head"
                     onClick={() => setOpenSections((o) => ({ ...o, [section.letter]: !open }))}
@@ -435,10 +516,15 @@ export default function ChecklistPage() {
 
       {/* Photo-first flow: floating camera + gallery buttons */}
       <div className="fab-stack">
-        <button className="fab small" title="Add photos from gallery" onClick={() => quickGalleryRef.current?.click()}>
+        <button
+          className="fab small"
+          aria-label="Add photos from gallery"
+          title="Add photos from gallery"
+          onClick={() => quickGalleryRef.current?.click()}
+        >
           🖼
         </button>
-        <button className="fab" title="Take photo" onClick={() => quickCameraRef.current?.click()}>
+        <button className="fab" aria-label="Take photo" title="Take photo" onClick={() => quickCameraRef.current?.click()}>
           📷
         </button>
       </div>
@@ -461,102 +547,104 @@ export default function ChecklistPage() {
       />
       <input ref={itemGalleryRef} type="file" accept="image/*" multiple hidden onChange={onItemCapture} />
 
+      {/* Section jump sheet */}
+      {sectionSheet && (
+        <Modal title="Jump to section" onClose={() => setSectionSheet(false)}>
+          <div className="modal-body">
+            {template.sections.map((section) => {
+              const done = section.questions.filter((qq) => isAnswered(inspection.responses[qq.code])).length
+              return (
+                <button key={section.letter} className="assign-item" onClick={() => jumpToSection(section.letter)}>
+                  <span className="letter">{section.letter}</span> {section.title}
+                  <span className="jump-count">
+                    {done}/{section.questions.length}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </Modal>
+      )}
+
       {/* Assign-photo modal */}
       {assigningPhoto && (
-        <div className="modal-backdrop" onClick={() => setAssigningPhoto(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head">
-              <b>Where does this photo belong?</b>
-              <button className="icon-btn" onClick={() => setAssigningPhoto(null)}>
-                ✕
-              </button>
-            </div>
-            <PhotoThumb blob={assigningPhoto.blob} className="assign-preview" />
-            <div className="assign-search">
-              <input
-                type="search"
-                value={assignQuery}
-                placeholder="Search questions…"
-                onChange={(e) => setAssignQuery(e.target.value)}
-              />
-            </div>
-            <div className="modal-body">
-              {!assignQ && (
-                <button className="assign-item" onClick={() => void assignPhoto(FACILITY_PHOTOS)}>
-                  🏕 <b>General facility / site photo</b>
-                </button>
-              )}
-              {assignSections.map(({ section, questions }) => (
-                <div key={section.letter}>
-                  <div className="assign-section">
-                    Section {section.letter} — {section.title}
-                  </div>
-                  {questions.map((question) => (
-                    <button
-                      key={question.code}
-                      className="assign-item"
-                      onClick={() => void assignPhoto(question.code)}
-                    >
-                      <b className="qcode">{question.code}</b> {question.text}
-                    </button>
-                  ))}
-                </div>
-              ))}
-              {assignSections.length === 0 && <div className="empty">No question matches “{assignQuery}”.</div>}
-            </div>
+        <Modal
+          title={
+            unassigned.length > 1
+              ? `Where does this photo belong? (${unassigned.length} to assign)`
+              : 'Where does this photo belong?'
+          }
+          onClose={() => setAssigningPhoto(null)}
+        >
+          <PhotoThumb blob={assigningPhoto.blob} className="assign-preview" />
+          <div className="assign-search">
+            <input
+              type="search"
+              value={assignQuery}
+              placeholder="Search questions…"
+              aria-label="Search questions to assign"
+              onChange={(e) => setAssignQuery(e.target.value)}
+            />
           </div>
-        </div>
+          <div className="modal-body">
+            {!assignQ && (
+              <button className="assign-item" onClick={() => void assignPhoto(FACILITY_PHOTOS)}>
+                🏕 <b>General facility / site photo</b>
+              </button>
+            )}
+            {assignSections.map(({ section, questions }) => (
+              <div key={section.letter}>
+                <div className="assign-section">
+                  Section {section.letter} — {section.title}
+                </div>
+                {questions.map((question) => (
+                  <button
+                    key={question.code}
+                    className="assign-item"
+                    onClick={() => void assignPhoto(question.code)}
+                  >
+                    <b className="qcode">{question.code}</b> {question.text}
+                  </button>
+                ))}
+              </div>
+            ))}
+            {assignSections.length === 0 && <div className="empty">No question matches “{assignQuery}”.</div>}
+          </div>
+        </Modal>
       )}
 
       {/* Photo viewer */}
       {viewingPhoto && (
-        <div className="modal-backdrop" onClick={() => setViewingPhoto(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head">
-              <b>Photo</b>
-              <button className="icon-btn" onClick={() => setViewingPhoto(null)}>
-                ✕
+        <Modal title="Photo" onClose={() => setViewingPhoto(null)}>
+          <div className="viewer">
+            <PhotoThumb blob={viewingPhoto.blob} />
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>Caption (printed in the reports)</label>
+              <input
+                defaultValue={viewingPhoto.caption}
+                placeholder="e.g. Blocked fire exit, Block B"
+                onChange={(e) => {
+                  if (viewingPhoto.id) void db.photos.update(viewingPhoto.id, { caption: e.target.value })
+                }}
+              />
+            </div>
+            <div className="btn-row">
+              <button
+                className="btn"
+                onClick={() => {
+                  const p = viewingPhoto
+                  setViewingPhoto(null)
+                  setAssigningPhoto(p)
+                }}
+              >
+                Move / reassign
+              </button>
+              <button className="btn danger" onClick={() => void deletePhoto(viewingPhoto)}>
+                Delete
               </button>
             </div>
-            <div className="viewer">
-              <PhotoThumb blob={viewingPhoto.blob} />
-              <div className="field" style={{ marginTop: 12 }}>
-                <label>Caption</label>
-                <input
-                  defaultValue={viewingPhoto.caption}
-                  placeholder="e.g. Blocked fire exit, Block B"
-                  onChange={(e) => {
-                    if (viewingPhoto.id) void db.photos.update(viewingPhoto.id, { caption: e.target.value })
-                  }}
-                />
-              </div>
-              <div className="btn-row">
-                <button
-                  className="btn"
-                  onClick={() => {
-                    const p = viewingPhoto
-                    setViewingPhoto(null)
-                    setAssigningPhoto(p)
-                  }}
-                >
-                  Move / reassign
-                </button>
-                <button
-                  className="btn"
-                  style={{ color: 'var(--red)' }}
-                  onClick={() => {
-                    if (viewingPhoto.id && confirm('Delete this photo?')) {
-                      void db.photos.delete(viewingPhoto.id)
-                      setViewingPhoto(null)
-                    }
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   )

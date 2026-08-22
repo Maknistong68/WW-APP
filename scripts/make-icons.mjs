@@ -1,4 +1,5 @@
-// Generates the PWA icons (teal rounded square with a white checkmark)
+// Generates the PWA icons (navy rounded square with a gold checkmark,
+// matching the official report suite's navy/gold identity)
 // without any image-library dependency by writing PNG chunks directly.
 import { deflateSync } from 'node:zlib'
 import { writeFileSync, mkdirSync } from 'node:fs'
@@ -57,8 +58,8 @@ const distToSegment = (px, py, ax, ay, bx, by) => {
 }
 
 function makeIcon(size, { padded }) {
-  const teal = [15, 118, 110]
-  const bg = [245, 247, 247]
+  const navy = [0, 56, 101]
+  const bg = [243, 245, 248]
   // maskable icons need the artwork inside the 80% safe zone
   const inset = padded ? size * 0.04 : 0
   const radius = size * 0.18
@@ -77,8 +78,8 @@ function makeIcon(size, { padded }) {
       distToSegment(x / size, y / size, a[0], a[1], mid[0], mid[1]),
       distToSegment(x / size, y / size, mid[0], mid[1], b[0], b[1]),
     ) * size
-    if (d <= stroke / 2) return [255, 255, 255, 255]
-    return [...teal, 255]
+    if (d <= stroke / 2) return [235, 192, 63, 255]
+    return [...navy, 255]
   })
 }
 
