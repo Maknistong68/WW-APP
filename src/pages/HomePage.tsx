@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import { saveAs } from 'file-saver'
-import { createBackup, db, deleteInspection, restoreBackup } from '../db'
+import { createBackup, db, deleteInspection, duplicateInspection, restoreBackup } from '../db'
 import { TEMPLATES, countItems, getTemplate } from '../templates'
 import { ConfirmSheet } from '../components/Modal'
 import { showToast } from '../components/Toast'
@@ -80,6 +80,14 @@ export default function HomePage() {
         >
           📊
         </button>
+        <button
+          className="icon-btn header-btn"
+          onClick={() => navigate('/settings')}
+          title="Settings & cloud sync"
+          aria-label="Settings and cloud sync"
+        >
+          ⚙
+        </button>
       </header>
       <main className="page">
         <div className="section-label">Start a new inspection</div>
@@ -127,6 +135,22 @@ export default function HomePage() {
                   </span>
                 </div>
                 <span className={`badge ${ins.status}`}>{ins.status === 'completed' ? 'Completed' : 'Draft'}</span>
+                <button
+                  className="icon-btn"
+                  title="Repeat visit (copy details into a new inspection)"
+                  aria-label="Start repeat visit"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void duplicateInspection(ins.id!).then((newId) => {
+                      if (newId) {
+                        showToast({ text: 'New inspection started with the same details' })
+                        navigate(`/inspection/${newId}`)
+                      }
+                    })
+                  }}
+                >
+                  ⧉
+                </button>
                 <button
                   className="icon-btn"
                   title="Delete"

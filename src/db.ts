@@ -1,9 +1,16 @@
 import Dexie, { type Table } from 'dexie'
-import type { Inspection, Photo } from './types'
+import type { Inspection, LogEntry, Photo, Tombstone } from './types'
+
+export const newUuid = (): string =>
+  typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
 class WWDatabase extends Dexie {
   inspections!: Table<Inspection, number>
   photos!: Table<Photo, number>
+  logs!: Table<LogEntry, number>
+  tombstones!: Table<Tombstone, number>
 
   constructor() {
     super('ww-app')
@@ -11,10 +18,33 @@ class WWDatabase extends Dexie {
       inspections: '++id, templateId, status, createdAt',
       photos: '++id, inspectionId, itemId, [inspectionId+itemId]',
     })
+    this.version(2)
+      .stores({
+        inspections: '++id, uuid, templateId, status, createdAt',
+        photos: '++id, uuid, inspectionId, itemId, [inspectionId+itemId]',
+        logs: '++id, inspectionId, time',
+        tombstones: '++id, uuid',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('inspections').toCollection().modify((ins: Inspection) => {
+          if (!ins.uuid) ins.uuid = newUuid()
+        })
+        await tx.table('photos').toCollection().modify((p: Photo) => {
+          if (!p.uuid) p.uuid = newUuid()
+          if (!p.updatedAt) p.updatedAt = p.createdAt
+        })
+      })
   }
 }
 
 export const db = new WWDatabase()
+
+/** Append an entry to the activity log (fire-and-forget). */
+export function logEvent(inspectionId: number | null, event: string, detail = ''): void {
+  void db.logs
+    .add({ inspectionId, time: new Date().toISOString(), event, detail })
+    .catch(() => {})
+}
 
 /**
  * Ask the browser to protect IndexedDB from eviction under storage pressure.
@@ -78,13 +108,17 @@ export async function createBackup(): Promise<{ blob: Blob; fileName: string }> 
     photos: backupPhotos,
   }
   const date = new Date().toISOString().slice(0, 10)
+  logEvent(null, 'Backup saved', `${inspections.length} inspections, ${photos.length} photos`)
   return {
     blob: new Blob([JSON.stringify(payload)], { type: 'application/json' }),
     fileName: `WW-App-Backup_${date}.json`,
   }
 }
 
-/** Imports a backup file, adding its inspections alongside existing ones. */
+/**
+ * Imports a backup file. Inspections/photos whose uuid already exists locally
+ * are skipped, so restoring twice never duplicates data.
+ */
 export async function restoreBackup(file: Blob): Promise<{ inspections: number; photos: number }> {
   const parsed = JSON.parse(await file.text()) as BackupFile
   if (parsed.app !== 'ww-app' || !Array.isArray(parsed.inspections) || !Array.isArray(parsed.photos)) {
@@ -93,26 +127,73 @@ export async function restoreBackup(file: Blob): Promise<{ inspections: number; 
   let inspections = 0
   let photos = 0
   await db.transaction('rw', db.inspections, db.photos, async () => {
+    const existingIns = new Set(
+      (await db.inspections.toArray()).map((i) => i.uuid).filter(Boolean) as string[],
+    )
+    const existingPhotos = new Set(
+      (await db.photos.toArray()).map((p) => p.uuid).filter(Boolean) as string[],
+    )
     for (const ins of parsed.inspections) {
       const { id: oldId, ...rest } = ins
-      const newId = await db.inspections.add(rest as Inspection)
-      inspections++
+      const uuid = rest.uuid ?? newUuid()
+      let localId: number
+      if (rest.uuid && existingIns.has(rest.uuid)) {
+        const existing = await db.inspections.where('uuid').equals(rest.uuid).first()
+        localId = existing!.id!
+      } else {
+        localId = await db.inspections.add({ ...rest, uuid } as Inspection)
+        inspections++
+      }
       for (const p of parsed.photos.filter((x) => x.inspectionId === oldId)) {
+        if (p.uuid && existingPhotos.has(p.uuid)) continue
         const { id: _photoId, mime, data, ...photoRest } = p
         void _photoId
-        await db.photos.add({ ...photoRest, inspectionId: newId, blob: base64ToBlob(data, mime) })
+        await db.photos.add({
+          ...photoRest,
+          uuid: photoRest.uuid ?? newUuid(),
+          updatedAt: photoRest.updatedAt ?? photoRest.createdAt,
+          inspectionId: localId,
+          blob: base64ToBlob(data, mime),
+        })
         photos++
       }
     }
   })
+  logEvent(null, 'Backup restored', `${inspections} inspections, ${photos} photos added`)
   return { inspections, photos }
 }
 
 export async function deleteInspection(id: number): Promise<void> {
-  await db.transaction('rw', db.inspections, db.photos, async () => {
+  await db.transaction('rw', db.inspections, db.photos, db.tombstones, async () => {
+    const ins = await db.inspections.get(id)
+    if (ins?.uuid) await db.tombstones.add({ table: 'inspections', uuid: ins.uuid })
+    const photoList = await db.photos.where('inspectionId').equals(id).toArray()
+    for (const p of photoList) {
+      if (p.uuid) await db.tombstones.add({ table: 'photos', uuid: p.uuid })
+    }
     await db.photos.where('inspectionId').equals(id).delete()
     await db.inspections.delete(id)
   })
+  logEvent(null, 'Inspection deleted')
+}
+
+/** Starts a new inspection copying another one's general info (repeat visit). */
+export async function duplicateInspection(id: number): Promise<number | null> {
+  const src = await db.inspections.get(id)
+  if (!src) return null
+  const now = new Date().toISOString()
+  const newId = await db.inspections.add({
+    templateId: src.templateId,
+    uuid: newUuid(),
+    status: 'draft',
+    createdAt: now,
+    updatedAt: now,
+    info: { ...src.info, reviewDate: now.slice(0, 10) },
+    responses: {},
+    notes: '',
+  })
+  logEvent(newId, 'Inspection created', `Repeat visit copied from ${src.info.contractorNames || 'inspection'}`)
+  return newId
 }
 
 /** Resize/compress a captured photo so storage and exports stay manageable. */

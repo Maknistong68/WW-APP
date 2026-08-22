@@ -34,6 +34,31 @@ camp and nothing leaves your phone.
 > The **KPIs** section (contractor welfare KPIs) is intentionally empty for now, and the
 > Workers' Welfare Audit checklist is still a placeholder awaiting the official document.
 
+## Deploy to Vercel (recommended)
+
+1. Go to [vercel.com](https://vercel.com) → **Add New → Project** → import the **WW-APP** repository.
+2. Select the branch to deploy (`claude/welfare-inspection-app-vvl8of` until it's merged to main).
+3. Click **Deploy** — Vercel auto-detects Vite; `vercel.json` in the repo handles caching/service-worker headers.
+
+Every push to the branch redeploys automatically.
+
+## Cloud sync with Supabase (optional)
+
+The app is fully usable offline with no account. To sync inspections + photos to your own
+free Supabase database (survives phone loss, works across devices):
+
+1. Create a project at [supabase.com](https://supabase.com) (free tier is plenty).
+2. In the project: **SQL Editor → New query**, paste the contents of
+   [`supabase/schema.sql`](supabase/schema.sql), and **Run**. This creates the
+   `inspections` and `photos` tables (with row-level security so only you can read your
+   data) and a private storage bucket for photo files.
+3. In the app: **⚙ Settings → Cloud sync** → paste your **Project URL** and **anon public
+   key** (from Supabase → Settings → API), then create your account / sign in.
+4. Tap **Sync now** — the app also syncs automatically whenever it opens with internet.
+
+Sync is offline-first with last-write-wins per inspection; deletions propagate across
+devices.
+
 ## Install on your phone
 
 Host the built app anywhere static (Vercel, Netlify, GitHub Pages), open the URL in

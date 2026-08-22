@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { db } from '../db'
+import { db, logEvent, newUuid } from '../db'
 import { getTemplate } from '../templates'
 import { showToast } from '../components/Toast'
 import type { GeneralInfo, Inspection } from '../types'
@@ -84,12 +84,14 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
     const now = new Date().toISOString()
     if (mode === 'edit' && existing) {
       await db.inspections.put({ ...existing, info, updatedAt: now })
+      logEvent(existing.id!, 'Details edited', info.contractorNames)
       showToast({ text: 'Inspection details updated' })
       navigate(`/inspection/${existing.id}`, { replace: true })
       return
     }
     const inspection: Inspection = {
       templateId: template.id,
+      uuid: newUuid(),
       status: 'draft',
       createdAt: now,
       updatedAt: now,
@@ -98,6 +100,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
       notes: '',
     }
     const newId = await db.inspections.add(inspection)
+    logEvent(newId, 'Inspection created', `${template.name} · ${info.contractorNames}`)
     navigate(`/inspection/${newId}`, { replace: true })
   }
 
