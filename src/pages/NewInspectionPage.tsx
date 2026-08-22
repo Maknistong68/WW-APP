@@ -2,17 +2,16 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { db } from '../db'
 import { getTemplate } from '../templates'
-import type { Inspection } from '../types'
+import type { GeneralInfo, Inspection } from '../types'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-const defaultReference = (shortName: string) => {
-  const prefix = shortName
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-  return `${prefix}-${today().replace(/-/g, '')}`
+const remember = (key: string, fallback = '') => {
+  try {
+    return localStorage.getItem(`ww.${key}`) ?? fallback
+  } catch {
+    return fallback
+  }
 }
 
 export default function NewInspectionPage() {
@@ -20,11 +19,25 @@ export default function NewInspectionPage() {
   const navigate = useNavigate()
   const template = getTemplate(templateId ?? '')
 
-  const [contractor, setContractor] = useState('')
-  const [location, setLocation] = useState('')
-  const [inspector, setInspector] = useState(() => localStorage.getItem('ww.inspector') ?? '')
-  const [date, setDate] = useState(today())
-  const [reference, setReference] = useState(() => (template ? defaultReference(template.shortName) : ''))
+  const [info, setInfo] = useState<GeneralInfo>(() => ({
+    typeOfReview: 'Welfare Inspection',
+    reviewDate: today(),
+    auditTeam: remember('auditTeam'),
+    region: remember('region'),
+    facilityLocation: '',
+    facilityType: 'Camp',
+    mapCoordinates: '',
+    googleMapsLink: '',
+    facilityManagement: '',
+    occupantsNumber: '',
+    numberOfRooms: '',
+    maxOccupancy: '',
+    contractorsCount: '1',
+    contractorNames: '',
+    projectsServed: '',
+    facilityRepresentative: '',
+    workOrder: '',
+  }))
   const [saving, setSaving] = useState(false)
 
   if (!template) {
@@ -35,12 +48,16 @@ export default function NewInspectionPage() {
     )
   }
 
+  const set = (key: keyof GeneralInfo) => (e: { target: { value: string } }) =>
+    setInfo((prev) => ({ ...prev, [key]: e.target.value }))
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (saving) return
     setSaving(true)
     try {
-      localStorage.setItem('ww.inspector', inspector)
+      localStorage.setItem('ww.auditTeam', info.auditTeam)
+      localStorage.setItem('ww.region', info.region)
     } catch {
       // private-mode storage failures are non-fatal
     }
@@ -50,12 +67,31 @@ export default function NewInspectionPage() {
       status: 'draft',
       createdAt: now,
       updatedAt: now,
-      meta: { reference, date, contractor, location, inspector, notes: '' },
+      info,
       responses: {},
+      notes: '',
     }
     const id = await db.inspections.add(inspection)
     navigate(`/inspection/${id}`, { replace: true })
   }
+
+  const field = (
+    label: string,
+    key: keyof GeneralInfo,
+    opts: { type?: string; placeholder?: string; required?: boolean } = {},
+  ) => (
+    <div className="field">
+      <label>{label}</label>
+      <input
+        type={opts.type ?? 'text'}
+        value={info[key]}
+        onChange={set(key)}
+        placeholder={opts.placeholder}
+        required={opts.required}
+        inputMode={opts.type === 'number' ? 'numeric' : undefined}
+      />
+    </div>
+  )
 
   return (
     <>
@@ -66,32 +102,48 @@ export default function NewInspectionPage() {
         <h1>New {template.name}</h1>
       </header>
       <main className="page">
-        <form className="card" onSubmit={submit}>
-          <div className="field">
-            <label>Reference</label>
-            <input value={reference} onChange={(e) => setReference(e.target.value)} />
+        <form onSubmit={submit}>
+          <div className="card">
+            <div className="section-label" style={{ marginTop: 0 }}>
+              Review
+            </div>
+            {field('Type of review', 'typeOfReview', { required: true })}
+            {field('Review date', 'reviewDate', { type: 'date', required: true })}
+            {field('Member(s) of the audit team', 'auditTeam', { placeholder: 'Your name' })}
           </div>
-          <div className="field">
-            <label>Date</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+
+          <div className="card">
+            <div className="section-label" style={{ marginTop: 0 }}>
+              Facility
+            </div>
+            {field('Region', 'region', { placeholder: 'e.g. OXAGON' })}
+            {field('Facility location', 'facilityLocation', { placeholder: 'e.g. Duba', required: true })}
+            {field('Facility type', 'facilityType')}
+            {field('Map coordinates', 'mapCoordinates')}
+            {field('Link for Google Maps', 'googleMapsLink', { placeholder: 'https://…' })}
+            {field('Facility management', 'facilityManagement')}
+            {field('Facility representative', 'facilityRepresentative')}
           </div>
-          <div className="field">
-            <label>Contractor / Camp name</label>
-            <input
-              value={contractor}
-              onChange={(e) => setContractor(e.target.value)}
-              placeholder="e.g. ABC Contracting — Camp 3"
-              required
-            />
+
+          <div className="card">
+            <div className="section-label" style={{ marginTop: 0 }}>
+              Occupancy
+            </div>
+            {field('Occupants number', 'occupantsNumber', { type: 'number' })}
+            {field('Number of rooms', 'numberOfRooms', { type: 'number' })}
+            {field('Maximum number of occupancy', 'maxOccupancy', { type: 'number' })}
           </div>
-          <div className="field">
-            <label>Location</label>
-            <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Industrial Area, Zone 2" />
+
+          <div className="card">
+            <div className="section-label" style={{ marginTop: 0 }}>
+              Contractor
+            </div>
+            {field('Number of contractor(s) within the facility', 'contractorsCount', { type: 'number' })}
+            {field('Name of contractor(s)', 'contractorNames', { placeholder: 'e.g. AL FAHD', required: true })}
+            {field('Projects served by contractors in the facility', 'projectsServed')}
+            {field('Project / Work Order', 'workOrder', { placeholder: 'e.g. 4800000882/1272' })}
           </div>
-          <div className="field">
-            <label>Inspector</label>
-            <input value={inspector} onChange={(e) => setInspector(e.target.value)} placeholder="Your name" />
-          </div>
+
           <button className="btn primary block" type="submit" disabled={saving}>
             Start inspection
           </button>

@@ -5,147 +5,315 @@ import {
   ImageRun,
   Packer,
   Paragraph,
+  ShadingType,
   Table,
   TableCell,
   TableRow,
   TextRun,
+  VerticalAlign,
   WidthType,
 } from 'docx'
 import { saveAs } from 'file-saver'
-import type { Inspection, InspectionTemplate } from '../types'
-import { RESULT_LABELS } from '../types'
-import { exportFileName, itemLabel, loadPhotos, withSizes } from './common'
+import type { Inspection, InspectionTemplate, Photo } from '../types'
+import { loadPhotos, longDate, questionPhotos, withSizes, wordFileName, type PhotoWithSize } from './common'
+import neomLogoUrl from '../assets/neom-logo.jpeg'
+import oxagonLogoUrl from '../assets/oxagon-logo.png'
 
-// NOTE: This report layout is a PLACEHOLDER. It will be rebuilt to match the
-// official report template 100% (cover, logos, headers/footers, tables)
-// once the template document is provided.
+// Reproduces the official non-compliance report layout
+// ("AL FAHD Workers Camp NonCompliance.docx"):
+// cover logos · Findings title · Contents · Objective · Methodology ·
+// Reference · Observation and recommendation (general info + findings
+// tables with photos) · Conclusion. Only the content changes.
 
-const cell = (text: string, opts: { bold?: boolean; width?: number; color?: string } = {}) =>
+const GOLD = 'F2C200'
+const BLUE = '2E74B5'
+const CONTENT_DXA = 9360 // 6.5in inside 1in margins on US Letter
+
+const heading1 = (text: string) =>
+  new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(text)] })
+
+const body = (text: string) => new Paragraph({ children: [new TextRun(text)] })
+
+const cell = (
+  children: Array<Paragraph>,
+  width: number,
+  opts: { header?: boolean } = {},
+): TableCell =>
   new TableCell({
-    width: opts.width ? { size: opts.width, type: WidthType.PERCENTAGE } : undefined,
-    children: [
-      new Paragraph({
-        children: [new TextRun({ text, bold: opts.bold, color: opts.color })],
+    width: { size: width, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.CENTER,
+    shading: opts.header ? { type: ShadingType.CLEAR, fill: 'D9E2F3' } : undefined,
+    margins: { top: 60, bottom: 60, left: 100, right: 100 },
+    children,
+  })
+
+const textCell = (text: string, width: number, opts: { bold?: boolean; header?: boolean } = {}) =>
+  cell([new Paragraph({ children: [new TextRun({ text, bold: opts.bold ?? opts.header })] })], width, opts)
+
+async function fetchImage(url: string): Promise<ArrayBuffer> {
+  const res = await fetch(url)
+  return res.arrayBuffer()
+}
+
+export async function exportWord(template: InspectionTemplate, inspection: Inspection): Promise<void> {
+  const info = inspection.info
+  const contractor = info.contractorNames || info.facilityManagement || 'Contractor'
+  const photos = await loadPhotos(inspection.id!)
+  const evidence = await withSizes(questionPhotos(photos))
+  const byCode = new Map<string, PhotoWithSize[]>()
+  for (const e of evidence) {
+    const code = (e.photo as Photo).itemId!
+    byCode.set(code, [...(byCode.get(code) ?? []), e])
+  }
+
+  const [neomLogo, oxagonLogo] = await Promise.all([fetchImage(neomLogoUrl), fetchImage(oxagonLogoUrl)])
+
+  // Findings: questions marked non-/partially compliant, or with an observation
+  interface Finding {
+    code: string
+    text: string
+    remarks: string
+    photos: PhotoWithSize[]
+  }
+  const findings: Finding[] = []
+  for (const section of template.sections) {
+    for (const question of section.questions) {
+      const resp = inspection.responses[question.code]
+      if (!resp) continue
+      const flagged =
+        resp.assessment === 'No compliance' || resp.assessment === 'Partial compliance' || !!resp.observation
+      if (!flagged) continue
+      const base = resp.observation.trim() || question.text.trim().replace(/[.?]*$/, '')
+      findings.push({
+        code: question.code,
+        text: `${base.replace(/\.$/, '')} (Section ${question.code}).`,
+        remarks: resp.actionPlan,
+        photos: byCode.get(question.code) ?? [],
+      })
+    }
+  }
+
+  const nonCompliantAreas = template.sections
+    .filter((s) =>
+      s.questions.some((qq) => {
+        const a = inspection.responses[qq.code]?.assessment
+        return a === 'No compliance' || a === 'Partial compliance'
       }),
+    )
+    .map((s) => s.title.trim().toLowerCase())
+
+  const coveringList = template.sections.map((s) => s.title.trim().toLowerCase())
+  const joinList = (items: string[]) =>
+    items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
+
+  const children: Array<Paragraph | Table> = [
+    // Cover: full-width NEOM logo + OXAGON logo (as in the template)
+    new Paragraph({
+      children: [
+        new ImageRun({
+          type: 'jpg',
+          data: neomLogo,
+          transformation: { width: 624, height: 768 },
+        }),
+        new ImageRun({
+          type: 'png',
+          data: oxagonLogo,
+          transformation: { width: 77, height: 80 },
+        }),
+      ],
+    }),
+    new Paragraph({
+      heading: HeadingLevel.TITLE,
+      children: [new TextRun('Findings: Non-Neom Approved Accommodation')],
+    }),
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      children: [new TextRun(`${contractor} – ${info.workOrder}`)],
+    }),
+    heading1('1.  Contents'),
+    body('1.  Contents'),
+    body('2.  Objective'),
+    body('3.  Methodology'),
+    body('4.  Reference'),
+    body('5.  Observation and recommendation'),
+    body('6.  Conclusion'),
+    heading1('2.  Objective'),
+    body(
+      `The primary objective of this report is to evaluate compliance with NEOM Worker Welfare Standards and contractual requirements against ${contractor} regarding the workers camp operated by the Contractor in ${info.facilityLocation} (${info.region} region) under Work Order ${contractor} – ${info.workOrder}.`,
+    ),
+    heading1('3.  Methodology'),
+    body(
+      `Welfare inspection of the ${contractor} workers camp using the NEOM Worker Welfare Standards assessment questionnaire (Sections ${template.sections[0].letter}–${template.sections[template.sections.length - 1].letter}), covering ${joinList(coveringList)}.`,
+    ),
+    heading1('4.  Reference'),
+    new Table({
+      width: { size: CONTENT_DXA, type: WidthType.DXA },
+      columnWidths: [4680, 4680],
+      rows: [
+        new TableRow({
+          tableHeader: true,
+          children: [textCell('Reference', 4680, { header: true }), textCell('Description', 4680, { header: true })],
+        }),
+        new TableRow({
+          children: [
+            textCell('NEOM-NDC-STD-001 Rev 04.00, November 2025', 4680),
+            textCell('NEOM Worker Welfare Standards', 4680),
+          ],
+        }),
+        new TableRow({
+          children: [
+            textCell('KSA Labor Law and its Implementing Regulations', 4680),
+            textCell('Ministry of Human Resources and Social Development', 4680),
+          ],
+        }),
+        new TableRow({
+          children: [textCell('NEOM Public Safety Schedule S', 4680), textCell('Security requirements', 4680)],
+        }),
+        new TableRow({
+          children: [textCell('Contractual agreement', 4680), textCell('Contractor agreement with NEOM', 4680)],
+        }),
+      ],
+    }),
+    heading1('5.  Observation and recommendation'),
+  ]
+
+  // General information table
+  const occupants = Number(info.occupantsNumber)
+  const maxOcc = Number(info.maxOccupancy)
+  const occupancy =
+    occupants > 0 && maxOcc > 0 ? `${((occupants / maxOcc) * 100).toFixed(2)}%` : ''
+  const giRows: Array<[string, string]> = [
+    ['Project / Work Order', info.workOrder],
+    ['Contractor', contractor],
+    ['Type of review', info.typeOfReview],
+    ['Date of inspection', longDate(info.reviewDate)],
+    ['Region', info.region],
+    ['Facility Location', info.facilityLocation],
+    ['Facility Type', info.facilityType],
+    ['Map coordinates', info.mapCoordinates],
+    ['Facility Management', info.facilityManagement],
+    ['Facility Representative', info.facilityRepresentative],
+    ['Auditor', info.auditTeam],
+    ['Occupants Number', info.occupantsNumber],
+    ['Number of Rooms', info.numberOfRooms],
+    ['Maximum number of occupancy', info.maxOccupancy],
+    ['Facility occupancy level', occupancy],
+  ]
+  children.push(
+    new Table({
+      width: { size: CONTENT_DXA, type: WidthType.DXA },
+      columnWidths: [4680, 4680],
+      rows: giRows.map(
+        ([k, v]) =>
+          new TableRow({ children: [textCell(k, 4680, { bold: true }), textCell(v, 4680)] }),
+      ),
+    }),
+    new Paragraph({ text: '' }),
+  )
+
+  // Observations table
+  const OBS_W = 3120
+  const obsRows: TableRow[] = [
+    new TableRow({
+      tableHeader: true,
+      children: [
+        textCell('Observations', OBS_W, { header: true }),
+        textCell('Photos', OBS_W, { header: true }),
+        textCell('Remarks', OBS_W, { header: true }),
+      ],
+    }),
+  ]
+  for (const f of findings) {
+    const photoParas: Paragraph[] = f.photos.length
+      ? f.photos.map(({ buffer, width, height }) => {
+          const displayW = 190
+          const displayH = Math.round((height / width) * displayW)
+          return new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new ImageRun({ type: 'jpg', data: buffer, transformation: { width: displayW, height: displayH } }),
+            ],
+          })
+        })
+      : [new Paragraph({ children: [new TextRun('NO PHOTO')] })]
+    obsRows.push(
+      new TableRow({
+        children: [
+          textCell(f.text, OBS_W),
+          cell(photoParas, OBS_W),
+          textCell(f.remarks, OBS_W),
+        ],
+      }),
+    )
+  }
+  children.push(new Table({ width: { size: CONTENT_DXA, type: WidthType.DXA }, columnWidths: [OBS_W, OBS_W, OBS_W], rows: obsRows }))
+
+  // Conclusion
+  children.push(heading1('6.  Conclusion'))
+  if (nonCompliantAreas.length > 0) {
+    children.push(
+      body(
+        `The ${contractor} workers camp in ${info.facilityLocation} shows multiple non-compliances against the NEOM Worker Welfare Standards across ${joinList(nonCompliantAreas)}. These findings require remediation by the Contractor and follow-up verification.`,
+      ),
+    )
+  } else {
+    children.push(
+      body(
+        `The inspection of the ${contractor} workers camp in ${info.facilityLocation} did not identify non-compliances against the NEOM Worker Welfare Standards.`,
+      ),
+    )
+  }
+  if (inspection.notes.trim()) {
+    children.push(body(inspection.notes.trim()))
+  }
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: { run: { font: 'Arial', size: 22 } },
+      },
+      paragraphStyles: [
+        {
+          id: 'Title',
+          name: 'Title',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: 'Arial', size: 56 },
+          paragraph: { spacing: { before: 240, after: 120 } },
+        },
+        {
+          id: 'Heading1',
+          name: 'Heading 1',
+          basedOn: 'Normal',
+          next: 'Normal',
+          quickFormat: true,
+          run: { font: 'Arial', size: 30, bold: true, color: GOLD },
+          paragraph: { spacing: { before: 240, after: 120 } },
+        },
+        {
+          id: 'Heading2',
+          name: 'Heading 2',
+          basedOn: 'Normal',
+          next: 'Normal',
+          quickFormat: true,
+          run: { font: 'Arial', size: 26, color: BLUE },
+          paragraph: { spacing: { before: 200, after: 100 } },
+        },
+      ],
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            size: { width: 12240, height: 15840 },
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+          },
+        },
+        children,
+      },
     ],
   })
 
-export async function exportWord(template: InspectionTemplate, inspection: Inspection): Promise<void> {
-  const photos = await loadPhotos(inspection.id!)
-  const sized = await withSizes(photos)
-
-  const children: Array<Paragraph | Table> = [
-    new Paragraph({
-      heading: HeadingLevel.TITLE,
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: template.name, bold: true })],
-    }),
-    new Paragraph({ text: '' }),
-    new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [
-        new TableRow({ children: [cell('Reference', { bold: true, width: 25 }), cell(inspection.meta.reference, { width: 25 }), cell('Date', { bold: true, width: 25 }), cell(inspection.meta.date, { width: 25 })] }),
-        new TableRow({ children: [cell('Contractor / Camp', { bold: true }), cell(inspection.meta.contractor), cell('Inspector', { bold: true }), cell(inspection.meta.inspector)] }),
-        new TableRow({ children: [cell('Location', { bold: true }), cell(inspection.meta.location), cell('Status', { bold: true }), cell(inspection.status === 'completed' ? 'Completed' : 'Draft')] }),
-      ],
-    }),
-    new Paragraph({ text: '' }),
-  ]
-
-  // Summary of findings
-  const allResponses = Object.values(inspection.responses)
-  const counts = {
-    compliant: allResponses.filter((r) => r.result === 'compliant').length,
-    non_compliant: allResponses.filter((r) => r.result === 'non_compliant').length,
-    na: allResponses.filter((r) => r.result === 'na').length,
-  }
-  children.push(
-    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('Summary')] }),
-    new Paragraph({
-      children: [
-        new TextRun(
-          `Compliant: ${counts.compliant}   •   Non-compliant: ${counts.non_compliant}   •   N/A: ${counts.na}`,
-        ),
-      ],
-    }),
-  )
-  if (inspection.meta.notes) {
-    children.push(new Paragraph({ children: [new TextRun({ text: inspection.meta.notes })] }))
-  }
-
-  // Checklist detail
-  let itemNo = 0
-  for (const section of template.sections) {
-    children.push(
-      new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(section.title)] }),
-    )
-    const rows: TableRow[] = [
-      new TableRow({
-        tableHeader: true,
-        children: [
-          cell('#', { bold: true, width: 5 }),
-          cell('Checklist Item', { bold: true, width: 40 }),
-          cell('Result', { bold: true, width: 13 }),
-          cell('Observation', { bold: true, width: 21 }),
-          cell('Corrective Action', { bold: true, width: 21 }),
-        ],
-      }),
-    ]
-    for (const item of section.items) {
-      itemNo++
-      const resp = inspection.responses[item.id]
-      const result = resp?.result ?? 'not_checked'
-      rows.push(
-        new TableRow({
-          children: [
-            cell(String(itemNo)),
-            cell(item.text),
-            cell(RESULT_LABELS[result], result === 'non_compliant' ? { bold: true, color: 'B91C1C' } : {}),
-            cell(resp?.observation ?? ''),
-            cell(resp?.correctiveAction ?? ''),
-          ],
-        }),
-      )
-    }
-    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }))
-    children.push(new Paragraph({ text: '' }))
-  }
-
-  // Photo evidence
-  if (sized.length > 0) {
-    children.push(
-      new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('Photo Evidence')] }),
-    )
-    sized.forEach(({ photo, buffer, width, height }, i) => {
-      const displayW = 420
-      const displayH = Math.round((height / width) * displayW)
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `Photo ${i + 1}: ${photo.itemId ? itemLabel(template, photo.itemId) : 'Unassigned'}`,
-              bold: true,
-            }),
-          ],
-        }),
-        new Paragraph({
-          children: [
-            new ImageRun({
-              type: 'jpg',
-              data: buffer,
-              transformation: { width: displayW, height: displayH },
-            }),
-          ],
-        }),
-      )
-      if (photo.caption) {
-        children.push(new Paragraph({ children: [new TextRun({ text: photo.caption, italics: true })] }))
-      }
-      children.push(new Paragraph({ text: '' }))
-    })
-  }
-
-  const doc = new Document({ sections: [{ children }] })
   const blob = await Packer.toBlob(doc)
-  saveAs(blob, exportFileName(template, inspection, 'docx'))
+  saveAs(blob, wordFileName(inspection))
 }

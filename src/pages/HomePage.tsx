@@ -22,7 +22,7 @@ export default function HomePage() {
             <h3>{t.name}</h3>
             <p>{t.description}</p>
             <div className="count">
-              {t.sections.length} sections · {countItems(t)} items →
+              {t.sections.length} sections · {countItems(t)} questions →
             </div>
           </button>
         ))}
@@ -34,14 +34,16 @@ export default function HomePage() {
           inspections.map((ins) => {
             const t = getTemplate(ins.templateId)
             const total = t ? countItems(t) : 0
-            const answered = Object.values(ins.responses).filter((r) => r.result !== 'not_checked').length
+            const answered = Object.values(ins.responses ?? {}).filter(
+              (r) => r && (r.assessment !== '' || r.yesNo !== ''),
+            ).length
             return (
               <div key={ins.id} className="card inspection-row" onClick={() => navigate(`/inspection/${ins.id}`)}>
                 <div className="info">
-                  <b>{ins.meta.contractor || t?.shortName || ins.templateId}</b>
+                  <b>{ins.info?.contractorNames || ins.info?.facilityLocation || t?.shortName || ins.templateId}</b>
                   <span>
-                    {t?.shortName} · {ins.meta.date}
-                    {total > 0 && ` · ${answered}/${total} items`}
+                    {t?.shortName} · {ins.info?.reviewDate}
+                    {total > 0 && ` · ${answered}/${total} questions`}
                   </span>
                 </div>
                 <span className={`badge ${ins.status}`}>{ins.status === 'completed' ? 'Completed' : 'Draft'}</span>
