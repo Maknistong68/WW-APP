@@ -1,15 +1,23 @@
-export type ResultValue = 'compliant' | 'non_compliant' | 'na' | 'not_checked'
+export type YesNoNA = '' | 'Yes' | 'No' | 'N/A'
 
-export interface ChecklistItemTemplate {
-  id: string
+export type ComplianceAssessment =
+  | ''
+  | 'Full compliance'
+  | 'Partial compliance'
+  | 'No compliance'
+  | 'N/A'
+
+export interface Question {
+  /** Question code as it appears in the workbook, e.g. "A1". */
+  code: string
   text: string
-  guidance?: string
 }
 
-export interface ChecklistSectionTemplate {
-  id: string
+export interface Section {
+  /** Section letter A–X. */
+  letter: string
   title: string
-  items: ChecklistItemTemplate[]
+  questions: Question[]
 }
 
 export interface InspectionTemplate {
@@ -17,24 +25,38 @@ export interface InspectionTemplate {
   name: string
   shortName: string
   description: string
-  /** Which export outputs this checklist produces. */
-  exports: Array<'excel' | 'word'>
-  sections: ChecklistSectionTemplate[]
+  /** Header shown above the questionnaire table (e.g. "Group Labor Accommodation"). */
+  questionnaireTitle: string
+  sections: Section[]
 }
 
-export interface ItemResponse {
-  result: ResultValue
+export interface QuestionResponse {
+  yesNo: YesNoNA
+  assessment: ComplianceAssessment
   observation: string
-  correctiveAction: string
+  /** Action plan / remarks — used in the Summary sheet and the Word report. */
+  actionPlan: string
 }
 
-export interface InspectionMeta {
-  reference: string
-  date: string
-  contractor: string
-  location: string
-  inspector: string
-  notes: string
+export interface GeneralInfo {
+  typeOfReview: string
+  reviewDate: string
+  auditTeam: string
+  region: string
+  facilityLocation: string
+  facilityType: string
+  mapCoordinates: string
+  googleMapsLink: string
+  facilityManagement: string
+  occupantsNumber: string
+  numberOfRooms: string
+  maxOccupancy: string
+  contractorsCount: string
+  contractorNames: string
+  projectsServed: string
+  facilityRepresentative: string
+  /** e.g. "4800000882/1272" — used in the Word report. */
+  workOrder: string
 }
 
 export interface Inspection {
@@ -43,24 +65,56 @@ export interface Inspection {
   status: 'draft' | 'completed'
   createdAt: string
   updatedAt: string
-  meta: InspectionMeta
-  /** Keyed by checklist item id. */
-  responses: Record<string, ItemResponse>
+  info: GeneralInfo
+  /** Keyed by question code (e.g. "A1"). */
+  responses: Record<string, QuestionResponse>
+  /** Extra remarks appended to the Word report conclusion. */
+  notes: string
 }
 
 export interface Photo {
   id?: number
   inspectionId: number
-  /** Checklist item the photo is attached to; null while still unassigned. */
+  /**
+   * What the photo is attached to:
+   *  - a question code ("A1") for checklist evidence
+   *  - FACILITY_PHOTOS for general site photos (General Information sheet)
+   *  - null while still unassigned
+   */
   itemId: string | null
   blob: Blob
   caption: string
   createdAt: string
 }
 
-export const RESULT_LABELS: Record<ResultValue, string> = {
-  compliant: 'Compliant',
-  non_compliant: 'Non-compliant',
-  na: 'N/A',
-  not_checked: 'Not checked',
+/** Special Photo.itemId for general facility/site photos. */
+export const FACILITY_PHOTOS = '@facility'
+
+export const YES_NO_OPTIONS: YesNoNA[] = ['Yes', 'No', 'N/A']
+
+export const ASSESSMENT_OPTIONS: ComplianceAssessment[] = [
+  'Full compliance',
+  'Partial compliance',
+  'No compliance',
+  'N/A',
+]
+
+export const EMPTY_RESPONSE: QuestionResponse = {
+  yesNo: '',
+  assessment: '',
+  observation: '',
+  actionPlan: '',
+}
+
+export const complianceScore = (a: ComplianceAssessment): number | null => {
+  switch (a) {
+    case 'Full compliance':
+      return 2
+    case 'Partial compliance':
+      return 1
+    case 'No compliance':
+      return 0
+    default:
+      return null
+  }
 }
