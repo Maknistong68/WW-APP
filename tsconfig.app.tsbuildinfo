@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/db.ts","./src/main.tsx","./src/types.ts","./src/components/PhotoThumb.tsx","./src/export/common.ts","./src/export/excel.ts","./src/export/word.ts","./src/pages/ChecklistPage.tsx","./src/pages/HomePage.tsx","./src/pages/KpisPage.tsx","./src/pages/NewInspectionPage.tsx","./src/templates/index.ts"],"version":"5.9.3"}
