@@ -101,6 +101,43 @@ export interface Photo {
   syncedAt?: string
 }
 
+export interface WalkthroughLine {
+  /** Official question codes this reminder answers (first code holds notes/photos). */
+  codes: string[]
+  /** Short field reminder, e.g. "Privacy screen/curtain for EVERY bed space". */
+  label: string
+}
+
+export interface WalkthroughArea {
+  title: string
+  lines: WalkthroughLine[]
+}
+
+/** Quick statuses used in walkthrough mode, mapped onto the questionnaire. */
+export type WalkStatus = 'ok' | 'partial' | 'obs' | 'na'
+
+export const WALK_STATUS_PATCH: Record<WalkStatus, Pick<QuestionResponse, 'yesNo' | 'assessment'>> = {
+  ok: { yesNo: 'Yes', assessment: 'Full compliance' },
+  partial: { yesNo: 'Yes', assessment: 'Partial compliance' },
+  obs: { yesNo: 'No', assessment: 'No compliance' },
+  na: { yesNo: 'N/A', assessment: 'N/A' },
+}
+
+export const assessmentToWalkStatus = (a: ComplianceAssessment): WalkStatus | null => {
+  switch (a) {
+    case 'Full compliance':
+      return 'ok'
+    case 'Partial compliance':
+      return 'partial'
+    case 'No compliance':
+      return 'obs'
+    case 'N/A':
+      return 'na'
+    default:
+      return null
+  }
+}
+
 export interface LogEntry {
   id?: number
   /** null = app-level event (backup, sync, …). */

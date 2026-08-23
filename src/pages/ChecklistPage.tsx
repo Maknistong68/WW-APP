@@ -4,17 +4,21 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { saveAs } from 'file-saver'
 import { compressPhoto, db, logEvent, newUuid } from '../db'
 import { scoreInspection } from '../lib/score'
-import { getTemplate, countItems } from '../templates'
+import { getTemplate, getWalkthrough, countItems } from '../templates'
 import {
   EMPTY_RESPONSE,
   FACILITY_PHOTOS,
+  WALK_STATUS_PATCH,
   type Inspection,
   type Photo,
   type QuestionResponse,
   type Section,
+  type WalkStatus,
+  type WalkthroughLine as WalkLine,
 } from '../types'
 import PhotoThumb from '../components/PhotoThumb'
 import QuestionItem from '../components/QuestionItem'
+import WalkthroughLine, { lineStatus } from '../components/WalkthroughLine'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toast'
 
@@ -46,6 +50,20 @@ export default function ChecklistPage() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [compact, setCompact] = useState(false)
+  const [view, setViewState] = useState<'walk' | 'full'>(() =>
+    localStorage.getItem('ww.view') === 'full' ? 'full' : 'walk',
+  )
+  const [openAreas, setOpenAreas] = useState<Record<number, boolean>>({})
+  const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({})
+
+  const setView = (v: 'walk' | 'full') => {
+    setViewState(v)
+    try {
+      localStorage.setItem('ww.view', v)
+    } catch {
+      // non-fatal
+    }
+  }
 
   const quickCameraRef = useRef<HTMLInputElement>(null)
   const quickGalleryRef = useRef<HTMLInputElement>(null)
@@ -77,6 +95,8 @@ export default function ChecklistPage() {
   }, [])
 
   const template = inspection ? getTemplate(inspection.templateId) : undefined
+  const walkthrough = inspection ? getWalkthrough(inspection.templateId) : null
+  const walkMode = view === 'walk' && walkthrough !== null
 
   const persist = (next: Inspection) => {
     clearTimeout(saveTimer.current)
@@ -142,6 +162,30 @@ export default function ChecklistPage() {
     return <main className="page">{inspection === null ? <div className="empty">Loading…</div> : null}</main>
   }
 
+  const questionByCode = new Map(template.sections.flatMap((s) => s.questions).map((q) => [q.code, q]))
+
+  const setLineStatus = (line: WalkLine, status: WalkStatus) => {
+    const current = lineStatus(line.codes, inspection.responses)
+    const patch =
+      current === status ? { yesNo: '' as const, assessment: '' as const } : WALK_STATUS_PATCH[status]
+    update((ins) => ({
+      ...ins,
+      responses: {
+        ...ins.responses,
+        ...Object.fromEntries(
+          line.codes.map((c) => [c, { ...(ins.responses[c] ?? EMPTY_RESPONSE), ...patch }]),
+        ),
+      },
+    }))
+  }
+
+  // Questions the walkthrough doesn't touch (answered only in Full view)
+  const coveredCodes = new Set((walkthrough ?? []).flatMap((a) => a.lines.flatMap((l) => l.codes)))
+  const uncovered = walkthrough
+    ? template.sections.flatMap((s) => s.questions).filter((q) => !coveredCodes.has(q.code))
+    : []
+  const uncoveredUnanswered = uncovered.filter((q) => !isAnswered(inspection.responses[q.code])).length
+
   // --- photo handling -------------------------------------------------------
 
   const addPhotos = async (files: FileList | File[], itemId: string | null): Promise<Photo[]> => {
@@ -188,6 +232,25 @@ export default function ChecklistPage() {
   }
 
   const jumpToItem = (code: string) => {
+    if (walkMode && walkthrough) {
+      // Find the first walkthrough line containing this code and reveal it.
+      for (let ai = 0; ai < walkthrough.length; ai++) {
+        const li = walkthrough[ai].lines.findIndex((l) => l.codes.includes(code))
+        if (li >= 0) {
+          const lineId = `wline-${ai}-${li}`
+          setOpenAreas((o) => ({ ...o, [ai]: true }))
+          setExpandedLines((e) => ({ ...e, [lineId]: true }))
+          setFlashItem(lineId)
+          setTimeout(() => {
+            document.getElementById(lineId)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }, 60)
+          setTimeout(() => setFlashItem(null), 1800)
+          return
+        }
+      }
+      // Not covered by the walkthrough — fall through to the full view.
+      setView('full')
+    }
     const section = template.sections.find((s) => s.questions.some((qq) => qq.code === code))
     if (section) setOpenSections((o) => ({ ...o, [section.letter]: true }))
     setOpenDetails((d) => ({ ...d, [code]: true }))
@@ -205,6 +268,16 @@ export default function ChecklistPage() {
     setOpenSections((o) => ({ ...o, [letter]: true }))
     setTimeout(() => {
       document.getElementById(`section-${letter}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 60)
+  }
+
+  const jumpToArea = (ai: number) => {
+    setSectionSheet(false)
+    setQuery('')
+    setFilter('all')
+    setOpenAreas((o) => ({ ...o, [ai]: true }))
+    setTimeout(() => {
+      document.getElementById(`area-${ai}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 60)
   }
 
@@ -321,6 +394,65 @@ export default function ChecklistPage() {
     )
   }
 
+  // --- walkthrough rendering helpers ---------------------------------------
+
+  const lineFullyAnswered = (line: WalkLine) =>
+    line.codes.every((c) => (inspection.responses[c]?.assessment ?? '') !== '')
+  const lineMatchesFilter = (line: WalkLine) => {
+    if (filter === 'unanswered') return !lineFullyAnswered(line)
+    if (filter === 'flagged')
+      return line.codes.some((c) => isFlagged(inspection.responses[c]))
+    return true
+  }
+  const q = query.trim().toLowerCase()
+  const lineMatchesQuery = (line: WalkLine, areaTitle: string) =>
+    !q ||
+    line.label.toLowerCase().includes(q) ||
+    areaTitle.toLowerCase().includes(q) ||
+    line.codes.some(
+      (c) => c.toLowerCase().includes(q) || questionByCode.get(c)?.text.toLowerCase().includes(q),
+    )
+  const walkSearching = walkMode && (q !== '' || filter !== 'all')
+  const walkMatches = walkSearching
+    ? (walkthrough ?? [])
+        .map((area, ai) => ({
+          area,
+          ai,
+          lines: area.lines
+            .map((line, li) => ({ line, li }))
+            .filter(({ line }) => lineMatchesFilter(line) && lineMatchesQuery(line, area.title)),
+        }))
+        .filter((a) => a.lines.length > 0)
+    : []
+
+  const renderWalkLine = (ai: number, li: number, line: WalkLine) => {
+    const lineId = `wline-${ai}-${li}`
+    return (
+      <WalkthroughLine
+        key={lineId}
+        id={lineId}
+        line={line}
+        questions={line.codes.map((c) => questionByCode.get(c)!).filter(Boolean)}
+        responses={inspection.responses}
+        photos={line.codes.flatMap((c) => photosFor(c))}
+        expanded={expandedLines[lineId] ?? false}
+        flash={flashItem === lineId}
+        onStatus={(s) => setLineStatus(line, s)}
+        onToggleExpand={() => setExpandedLines((e) => ({ ...e, [lineId]: !(e[lineId] ?? false) }))}
+        onPatchPrimary={(patch) => setResponse(line.codes[0], patch)}
+        onCamera={() => {
+          itemTarget.current = line.codes[0]
+          itemCameraRef.current?.click()
+        }}
+        onGallery={() => {
+          itemTarget.current = line.codes[0]
+          itemGalleryRef.current?.click()
+        }}
+        onViewPhoto={setViewingPhoto}
+      />
+    )
+  }
+
   const assignQ = assignQuery.trim().toLowerCase()
   const assignSections = template.sections
     .map((section) => ({
@@ -381,13 +513,23 @@ export default function ChecklistPage() {
                 </button>
               )}
             </div>
+            {walkthrough && (
+              <button
+                className="jump-btn"
+                aria-label={walkMode ? 'Switch to full questionnaire' : 'Switch to walkthrough'}
+                title={walkMode ? 'Switch to full questionnaire' : 'Switch to area-by-area walkthrough'}
+                onClick={() => setView(walkMode ? 'full' : 'walk')}
+              >
+                {walkMode ? '📋 Full' : '🚶 Walk'}
+              </button>
+            )}
             <button
               className="jump-btn"
-              aria-label="Jump to section"
-              title="Jump to section"
+              aria-label={walkMode ? 'Jump to area' : 'Jump to section'}
+              title={walkMode ? 'Jump to area' : 'Jump to section'}
               onClick={() => setSectionSheet(true)}
             >
-              A→X
+              {walkMode ? '1→13' : 'A→X'}
             </button>
           </div>
           <div className="chip-row">
@@ -421,7 +563,24 @@ export default function ChecklistPage() {
           </div>
         )}
 
-        {searching ? (
+        {walkSearching ? (
+          <>
+            <div className="result-count">
+              {walkMatches.reduce((n, m) => n + m.lines.length, 0)} item
+              {walkMatches.reduce((n, m) => n + m.lines.length, 0) === 1 ? '' : 's'} found
+            </div>
+            {walkMatches.length === 0 && <div className="empty">Nothing matches. Try another word or filter.</div>}
+            {walkMatches.map(({ area, ai, lines }) => (
+              <div key={ai} className="card section-card">
+                <div className="section-head static">
+                  <span className="letter">{ai + 1}</span>
+                  {area.title}
+                </div>
+                {lines.map(({ line, li }) => renderWalkLine(ai, li, line))}
+              </div>
+            ))}
+          </>
+        ) : searching && !walkMode ? (
           <>
             <div className="result-count">
               {matches.reduce((n, m) => n + m.codes.length, 0)} question
@@ -474,28 +633,72 @@ export default function ChecklistPage() {
               </div>
             </div>
 
-            {template.sections.map((section) => {
-              const sectionAnswered = section.questions.filter((qq) =>
-                isAnswered(inspection.responses[qq.code]),
-              ).length
-              const open = openSections[section.letter] ?? false
-              return (
-                <div key={section.letter} id={`section-${section.letter}`} className="card section-card">
-                  <button
-                    className="section-head"
-                    onClick={() => setOpenSections((o) => ({ ...o, [section.letter]: !open }))}
-                  >
-                    <span className="chev">{open ? '▾' : '▸'}</span>
-                    <span className="letter">{section.letter}</span>
-                    {section.title}
-                    <span className="counts">
-                      {sectionAnswered}/{section.questions.length}
-                    </span>
-                  </button>
-                  {open && section.questions.map((qq) => renderQuestion(qq.code))}
-                </div>
-              )
-            })}
+            {walkMode ? (
+              <>
+                {(walkthrough ?? []).map((area, ai) => {
+                  const answeredLines = area.lines.filter(lineFullyAnswered).length
+                  const open = openAreas[ai] ?? false
+                  return (
+                    <div key={ai} id={`area-${ai}`} className="card section-card">
+                      <button
+                        className="section-head"
+                        onClick={() => setOpenAreas((o) => ({ ...o, [ai]: !open }))}
+                      >
+                        <span className="chev">{open ? '▾' : '▸'}</span>
+                        <span className="letter">{ai + 1}</span>
+                        {area.title}
+                        <span className="counts">
+                          {answeredLines}/{area.lines.length}
+                        </span>
+                      </button>
+                      {open && area.lines.map((line, li) => renderWalkLine(ai, li, line))}
+                    </div>
+                  )
+                })}
+                {uncovered.length > 0 && (
+                  <div className="card">
+                    <b style={{ fontSize: 14 }}>📋 Not covered by the walkthrough</b>
+                    <p className="note" style={{ margin: '4px 0 8px' }}>
+                      {uncovered.length} questions (mostly documentation) exist only in the full
+                      questionnaire —{' '}
+                      {uncoveredUnanswered > 0 ? `${uncoveredUnanswered} still unanswered.` : 'all answered ✓'}
+                    </p>
+                    <button
+                      className="btn block"
+                      onClick={() => {
+                        setView('full')
+                        setFilter('unanswered')
+                      }}
+                    >
+                      Open full questionnaire
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              template.sections.map((section) => {
+                const sectionAnswered = section.questions.filter((qq) =>
+                  isAnswered(inspection.responses[qq.code]),
+                ).length
+                const open = openSections[section.letter] ?? false
+                return (
+                  <div key={section.letter} id={`section-${section.letter}`} className="card section-card">
+                    <button
+                      className="section-head"
+                      onClick={() => setOpenSections((o) => ({ ...o, [section.letter]: !open }))}
+                    >
+                      <span className="chev">{open ? '▾' : '▸'}</span>
+                      <span className="letter">{section.letter}</span>
+                      {section.title}
+                      <span className="counts">
+                        {sectionAnswered}/{section.questions.length}
+                      </span>
+                    </button>
+                    {open && section.questions.map((qq) => renderQuestion(qq.code))}
+                  </div>
+                )
+              })
+            )}
 
             <div className="card">
               <div className="field">
@@ -579,21 +782,33 @@ export default function ChecklistPage() {
       />
       <input ref={itemGalleryRef} type="file" accept="image/*" multiple hidden onChange={onItemCapture} />
 
-      {/* Section jump sheet */}
+      {/* Section / area jump sheet */}
       {sectionSheet && (
-        <Modal title="Jump to section" onClose={() => setSectionSheet(false)}>
+        <Modal title={walkMode ? 'Jump to area' : 'Jump to section'} onClose={() => setSectionSheet(false)}>
           <div className="modal-body">
-            {template.sections.map((section) => {
-              const done = section.questions.filter((qq) => isAnswered(inspection.responses[qq.code])).length
-              return (
-                <button key={section.letter} className="assign-item" onClick={() => jumpToSection(section.letter)}>
-                  <span className="letter">{section.letter}</span> {section.title}
-                  <span className="jump-count">
-                    {done}/{section.questions.length}
-                  </span>
-                </button>
-              )
-            })}
+            {walkMode
+              ? (walkthrough ?? []).map((area, ai) => {
+                  const done = area.lines.filter(lineFullyAnswered).length
+                  return (
+                    <button key={ai} className="assign-item" onClick={() => jumpToArea(ai)}>
+                      <span className="letter">{ai + 1}</span> {area.title}
+                      <span className="jump-count">
+                        {done}/{area.lines.length}
+                      </span>
+                    </button>
+                  )
+                })
+              : template.sections.map((section) => {
+                  const done = section.questions.filter((qq) => isAnswered(inspection.responses[qq.code])).length
+                  return (
+                    <button key={section.letter} className="assign-item" onClick={() => jumpToSection(section.letter)}>
+                      <span className="letter">{section.letter}</span> {section.title}
+                      <span className="jump-count">
+                        {done}/{section.questions.length}
+                      </span>
+                    </button>
+                  )
+                })}
           </div>
         </Modal>
       )}
