@@ -1,4 +1,40 @@
-import type { Inspection, InspectionTemplate } from '../types'
+import type {
+  ComplianceAssessment,
+  Inspection,
+  InspectionTemplate,
+  QuestionResponse,
+} from '../types'
+
+// ---------------------------------------------------------------------------
+// Single source of truth for what counts as answered / non-compliant / a
+// report finding, and for the scoring scales. The Excel and Word exports,
+// the checklist filters, and the KPI math must all agree — change here only.
+// ---------------------------------------------------------------------------
+
+/** A question counts as answered once either control has a value. */
+export const isAnswered = (r?: QuestionResponse): boolean =>
+  !!r && (r.assessment !== '' || r.yesNo !== '')
+
+/** Non-compliant: the assessment itself flags a problem. */
+export const isFlagged = (r?: QuestionResponse): boolean =>
+  r?.assessment === 'No compliance' || r?.assessment === 'Partial compliance'
+
+/**
+ * Belongs in the report findings tables: any non-compliance, plus anything
+ * the inspector wrote up even under full compliance.
+ */
+export const isFinding = (r?: QuestionResponse): boolean =>
+  isFlagged(r) || !!r?.observation || !!r?.actionPlan
+
+/** Workbook points scale: Full = 2, Partial = 1, None = 0, otherwise null. */
+export const assessmentScore = (a: ComplianceAssessment | undefined): number | null =>
+  a === 'Full compliance' ? 2 : a === 'Partial compliance' ? 1 : a === 'No compliance' ? 0 : null
+
+/** Same scale expressed out of 100 (Full = 100, Partial = 50, None = 0). */
+export const assessmentPct = (a: ComplianceAssessment | undefined): number | null => {
+  const s = assessmentScore(a)
+  return s === null ? null : s * 50
+}
 
 export interface InspectionScore {
   /** 0–100, or null when nothing scoreable is answered yet. */
@@ -23,23 +59,12 @@ export function scoreInspection(template: InspectionTemplate, inspection: Inspec
       total++
       const resp = inspection.responses[q.code]
       if (!resp) continue
-      if (resp.assessment !== '' || resp.yesNo !== '') answered++
-      switch (resp.assessment) {
-        case 'Full compliance':
-          scored++
-          sum += 100
-          break
-        case 'Partial compliance':
-          scored++
-          sum += 50
-          flagged++
-          break
-        case 'No compliance':
-          scored++
-          flagged++
-          break
-        default:
-          break
+      if (isAnswered(resp)) answered++
+      if (isFlagged(resp)) flagged++
+      const pct = assessmentPct(resp.assessment)
+      if (pct !== null) {
+        scored++
+        sum += pct
       }
     }
   }

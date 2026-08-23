@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { saveAs } from 'file-saver'
 import { createBackup, db, deleteInspection, duplicateInspection, restoreBackup } from '../db'
 import { TEMPLATES, countItems, getTemplate } from '../templates'
+import { isAnswered } from '../lib/score'
 import { ConfirmSheet } from '../components/Modal'
 import { showToast } from '../components/Toast'
 import type { Inspection } from '../types'
@@ -122,9 +123,7 @@ export default function HomePage() {
           visible.map((ins) => {
             const t = getTemplate(ins.templateId)
             const total = t ? countItems(t) : 0
-            const answered = Object.values(ins.responses ?? {}).filter(
-              (r) => r && (r.assessment !== '' || r.yesNo !== ''),
-            ).length
+            const answered = Object.values(ins.responses ?? {}).filter(isAnswered).length
             return (
               <div key={ins.id} className="card inspection-row" onClick={() => navigate(`/inspection/${ins.id}`)}>
                 <div className="info">
