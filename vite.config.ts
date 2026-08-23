@@ -12,7 +12,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // jpeg/jpg must be included: buildWord fetches the bundled logo at
+        // export time, so leaving it out of the precache breaks offline export.
+        globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
       manifest: {

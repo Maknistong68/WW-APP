@@ -21,6 +21,7 @@ import QuestionItem from '../components/QuestionItem'
 import WalkthroughLine, { lineStatus } from '../components/WalkthroughLine'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toast'
+import { newer } from '../lib/sync'
 
 type Filter = 'all' | 'unanswered' | 'flagged'
 
@@ -71,6 +72,9 @@ export default function ChecklistPage() {
   const itemGalleryRef = useRef<HTMLInputElement>(null)
   const itemTarget = useRef<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
+  const pendingSave = useRef<Inspection | null>(null)
+  const captionTimer = useRef<ReturnType<typeof setTimeout>>()
+  const pendingCaption = useRef<{ photoId: number; caption: string } | null>(null)
   const lastScrollY = useRef(0)
 
   const photos = useLiveQuery(
@@ -78,9 +82,17 @@ export default function ChecklistPage() {
     [inspectionId],
   )
 
+  // The row is observed live so copies pulled by cloud sync reach the editor.
+  // Adoption only happens when the DB copy is genuinely newer: local edits
+  // stamp a fresh updatedAt on every change, so our own write echoes (and any
+  // older data) never overwrite unsaved keystrokes.
+  const dbInspection = useLiveQuery(() => db.inspections.get(inspectionId), [inspectionId])
   useEffect(() => {
-    void db.inspections.get(inspectionId).then((ins) => setInspection(ins ?? null))
-  }, [inspectionId])
+    if (!dbInspection) return
+    setInspection((prev) =>
+      !prev || newer(dbInspection.updatedAt, prev.updatedAt) ? dbInspection : prev,
+    )
+  }, [dbInspection])
 
   // F-07: collapse the toolbar while scrolling down, restore on scroll up.
   useEffect(() => {
@@ -98,18 +110,79 @@ export default function ChecklistPage() {
   const walkthrough = inspection ? getWalkthrough(inspection.templateId) : null
   const walkMode = view === 'walk' && walkthrough !== null
 
+  // Guarded write-through: never overwrite a DB copy newer than the state
+  // this edit came from (e.g. cloud sync pulled another device's record
+  // between the keystroke and the debounce firing) — the adoption effect
+  // above brings that newer copy into the editor instead.
+  const writeInspection = async (next: Inspection) => {
+    await db.transaction('rw', db.inspections, async () => {
+      const existing = await db.inspections.get(next.id!)
+      if (existing && newer(existing.updatedAt, next.updatedAt)) return
+      await db.inspections.put(next)
+    })
+  }
+
   const persist = (next: Inspection) => {
+    pendingSave.current = next
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      void db.inspections.put({ ...next, updatedAt: new Date().toISOString() })
+      pendingSave.current = null
+      void writeInspection(next)
     }, 400)
   }
-  useEffect(() => () => clearTimeout(saveTimer.current), [])
+
+  const flushSave = () => {
+    const pending = pendingSave.current
+    if (!pending) return
+    pendingSave.current = null
+    clearTimeout(saveTimer.current)
+    void writeInspection(pending)
+  }
+
+  // Photo captions are debounced the same way: a per-keystroke DB write would
+  // re-fire the photos live query and re-decode every visible thumbnail.
+  const setCaption = (photoId: number, caption: string) => {
+    pendingCaption.current = { photoId, caption }
+    clearTimeout(captionTimer.current)
+    captionTimer.current = setTimeout(flushCaption, 400)
+  }
+
+  const flushCaption = () => {
+    const pending = pendingCaption.current
+    if (!pending) return
+    pendingCaption.current = null
+    clearTimeout(captionTimer.current)
+    void db.photos.update(pending.photoId, {
+      caption: pending.caption,
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
+  // Flush (not discard) pending saves when leaving the page or when the app
+  // is backgrounded/closed, so edits from the last 400 ms are never lost.
+  useEffect(() => {
+    const flushAll = () => {
+      flushSave()
+      flushCaption()
+    }
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flushAll()
+    }
+    window.addEventListener('pagehide', flushAll)
+    document.addEventListener('visibilitychange', onHide)
+    return () => {
+      window.removeEventListener('pagehide', flushAll)
+      document.removeEventListener('visibilitychange', onHide)
+      flushAll()
+    }
+  }, [])
 
   const update = (mutate: (ins: Inspection) => Inspection) => {
     setInspection((prev) => {
       if (!prev) return prev
-      const next = mutate(prev)
+      // Stamping updatedAt here (not at write time) keeps the in-memory copy
+      // comparable against sync-pulled records in the adoption effect.
+      const next = { ...mutate(prev), updatedAt: new Date().toISOString() }
       persist(next)
       return next
     })
@@ -319,7 +392,10 @@ export default function ChecklistPage() {
       onAction: () => {
         const { id: _oldId, ...rest } = fresh
         void _oldId
-        void db.photos.add(rest)
+        // A fresh updatedAt lets the restore win over the deletion during
+        // sync, resurrecting the photo if the deletion already reached the
+        // cloud (sync marks deletions with their own timestamp).
+        void db.photos.add({ ...rest, updatedAt: new Date().toISOString() })
         if (fresh.uuid) {
           void db.tombstones.where('uuid').equals(fresh.uuid).delete()
         }
@@ -332,8 +408,7 @@ export default function ChecklistPage() {
     setExporting(kind)
     try {
       // export the latest state even if the debounce hasn't flushed yet
-      clearTimeout(saveTimer.current)
-      await db.inspections.put({ ...inspection, updatedAt: new Date().toISOString() })
+      flushSave()
       // Export libraries are heavy — load them only when actually exporting.
       const { blob, fileName } =
         kind === 'excel'
@@ -862,7 +937,13 @@ export default function ChecklistPage() {
 
       {/* Photo viewer */}
       {viewingPhoto && (
-        <Modal title="Photo" onClose={() => setViewingPhoto(null)}>
+        <Modal
+          title="Photo"
+          onClose={() => {
+            flushCaption()
+            setViewingPhoto(null)
+          }}
+        >
           <div className="viewer">
             <PhotoThumb blob={viewingPhoto.blob} />
             <div className="field" style={{ marginTop: 12 }}>
@@ -871,11 +952,7 @@ export default function ChecklistPage() {
                 defaultValue={viewingPhoto.caption}
                 placeholder="e.g. Blocked fire exit, Block B"
                 onChange={(e) => {
-                  if (viewingPhoto.id)
-                    void db.photos.update(viewingPhoto.id, {
-                      caption: e.target.value,
-                      updatedAt: new Date().toISOString(),
-                    })
+                  if (viewingPhoto.id) setCaption(viewingPhoto.id, e.target.value)
                 }}
               />
             </div>
@@ -883,6 +960,7 @@ export default function ChecklistPage() {
               <button
                 className="btn"
                 onClick={() => {
+                  flushCaption()
                   const p = viewingPhoto
                   setViewingPhoto(null)
                   setAssigningPhoto(p)
@@ -890,7 +968,14 @@ export default function ChecklistPage() {
               >
                 Move / reassign
               </button>
-              <button className="btn danger" onClick={() => void deletePhoto(viewingPhoto)}>
+              <button
+                className="btn danger"
+                onClick={() => {
+                  // flush first so Undo restores the latest caption
+                  flushCaption()
+                  void deletePhoto(viewingPhoto)
+                }}
+              >
                 Delete
               </button>
             </div>
