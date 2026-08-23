@@ -6,6 +6,7 @@ import {
   type WalkStatus,
   type WalkthroughLine as Line,
 } from '../types'
+import ObservationChips from './ObservationChips'
 import PhotoThumb from './PhotoThumb'
 import VoiceTextarea from './VoiceTextarea'
 
@@ -40,6 +41,7 @@ export default function WalkthroughLine({
   questions,
   responses,
   photos,
+  suggestions,
   expanded,
   flash,
   onStatus,
@@ -55,6 +57,7 @@ export default function WalkthroughLine({
   questions: Question[]
   responses: Record<string, QuestionResponse>
   photos: Photo[]
+  suggestions: string[]
   expanded: boolean
   flash: boolean
   onStatus: (status: WalkStatus) => void
@@ -66,6 +69,7 @@ export default function WalkthroughLine({
 }) {
   const status = lineStatus(line.codes, responses)
   const primary = responses[line.codes[0]]
+  const flagged = status === 'obs' || status === 'partial' || status === 'mixed'
   const showDetails =
     expanded || status === 'obs' || status === 'partial' || photos.length > 0 || !!primary?.observation
 
@@ -100,6 +104,13 @@ export default function WalkthroughLine({
           </div>
           <div className="field">
             <label>Observation</label>
+            {flagged && (
+              <ObservationChips
+                suggestions={suggestions}
+                value={primary?.observation ?? ''}
+                onChange={(observation) => onPatchPrimary({ observation })}
+              />
+            )}
             <VoiceTextarea
               value={primary?.observation ?? ''}
               placeholder="What did you observe? Type or tap 🎤 to dictate."
