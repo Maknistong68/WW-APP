@@ -6,6 +6,7 @@ import {
   type Question,
   type QuestionResponse,
 } from '../types'
+import ObservationChips from './ObservationChips'
 import PhotoThumb from './PhotoThumb'
 import VoiceTextarea from './VoiceTextarea'
 
@@ -28,6 +29,7 @@ export default function QuestionItem({
   question,
   resp,
   photos,
+  suggestions,
   detailsOpen,
   flash,
   onPatch,
@@ -39,6 +41,7 @@ export default function QuestionItem({
   question: Question
   resp: QuestionResponse
   photos: Photo[]
+  suggestions: string[]
   detailsOpen: boolean
   flash: boolean
   onPatch: (patch: Partial<QuestionResponse>) => void
@@ -47,6 +50,7 @@ export default function QuestionItem({
   onGallery: () => void
   onViewPhoto: (p: Photo) => void
 }) {
+  const flagged = resp.assessment === 'No compliance' || resp.assessment === 'Partial compliance'
   const showDetails =
     detailsOpen ||
     resp.assessment === 'No compliance' ||
@@ -88,6 +92,13 @@ export default function QuestionItem({
         <div className="item-details">
           <div className="field">
             <label>Observation</label>
+            {flagged && (
+              <ObservationChips
+                suggestions={suggestions}
+                value={resp.observation}
+                onChange={(observation) => onPatch({ observation })}
+              />
+            )}
             <VoiceTextarea
               value={resp.observation}
               placeholder="What did you observe? Type or tap 🎤 to dictate."

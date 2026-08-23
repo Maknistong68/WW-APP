@@ -22,6 +22,7 @@ import WalkthroughLine, { lineStatus } from '../components/WalkthroughLine'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toast'
 import { newer } from '../lib/sync'
+import { learnedSuggestions, suggestionsFor } from '../lib/suggestions'
 
 type Filter = 'all' | 'unanswered' | 'flagged'
 
@@ -56,6 +57,7 @@ export default function ChecklistPage() {
   )
   const [openAreas, setOpenAreas] = useState<Record<number, boolean>>({})
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({})
+  const [learned, setLearned] = useState<Map<string, string[]>>(() => new Map())
 
   const setView = (v: 'walk' | 'full') => {
     setViewState(v)
@@ -81,6 +83,12 @@ export default function ChecklistPage() {
     () => db.photos.where('inspectionId').equals(inspectionId).sortBy('createdAt'),
     [inspectionId],
   )
+
+  // Past observations for this question set, loaded once (not live): they
+  // feed the quick-pick chips and don't need to update mid-session.
+  useEffect(() => {
+    void learnedSuggestions(inspectionId).then(setLearned)
+  }, [inspectionId])
 
   // The row is observed live so copies pulled by cloud sync reach the editor.
   // Adoption only happens when the DB copy is genuinely newer: local edits
@@ -452,6 +460,7 @@ export default function ChecklistPage() {
         question={question}
         resp={inspection.responses[code] ?? EMPTY_RESPONSE}
         photos={photosFor(code)}
+        suggestions={suggestionsFor([code], learned)}
         detailsOpen={openDetails[code] ?? false}
         flash={flashItem === code}
         onPatch={(patch) => setResponse(code, patch)}
@@ -510,6 +519,7 @@ export default function ChecklistPage() {
         questions={line.codes.map((c) => questionByCode.get(c)!).filter(Boolean)}
         responses={inspection.responses}
         photos={line.codes.flatMap((c) => photosFor(c))}
+        suggestions={suggestionsFor(line.codes, learned)}
         expanded={expandedLines[lineId] ?? false}
         flash={flashItem === lineId}
         onStatus={(s) => setLineStatus(line, s)}
