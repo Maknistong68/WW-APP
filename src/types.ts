@@ -171,16 +171,3 @@ export const EMPTY_RESPONSE: QuestionResponse = {
   observation: '',
   actionPlan: '',
 }
-
-export const complianceScore = (a: ComplianceAssessment): number | null => {
-  switch (a) {
-    case 'Full compliance':
-      return 2
-    case 'Partial compliance':
-      return 1
-    case 'No compliance':
-      return 0
-    default:
-      return null
-  }
-}

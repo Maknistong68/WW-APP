@@ -14,6 +14,7 @@ import {
   WidthType,
 } from 'docx'
 import type { Inspection, InspectionTemplate, Photo } from '../types'
+import { isFinding, isFlagged } from '../lib/score'
 import { loadPhotos, longDate, questionPhotos, withSizes, wordFileName, type PhotoWithSize } from './common'
 import neomLogoUrl from '../assets/neom-logo.jpeg'
 import oxagonLogoUrl from '../assets/oxagon-logo.png'
@@ -82,9 +83,7 @@ export async function buildWord(
     for (const question of section.questions) {
       const resp = inspection.responses[question.code]
       if (!resp) continue
-      const flagged =
-        resp.assessment === 'No compliance' || resp.assessment === 'Partial compliance' || !!resp.observation
-      if (!flagged) continue
+      if (!isFinding(resp)) continue
       const base = resp.observation.trim() || question.text.trim().replace(/[.?]*$/, '')
       findings.push({
         code: question.code,
@@ -96,12 +95,7 @@ export async function buildWord(
   }
 
   const nonCompliantAreas = template.sections
-    .filter((s) =>
-      s.questions.some((qq) => {
-        const a = inspection.responses[qq.code]?.assessment
-        return a === 'No compliance' || a === 'Partial compliance'
-      }),
-    )
+    .filter((s) => s.questions.some((qq) => isFlagged(inspection.responses[qq.code])))
     .map((s) => s.title.trim().toLowerCase())
 
   const coveringList = template.sections.map((s) => s.title.trim().toLowerCase())

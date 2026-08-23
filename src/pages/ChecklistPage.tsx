@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useParams } from 'react-router-dom'
 import { saveAs } from 'file-saver'
 import { compressPhoto, db, logEvent, newUuid } from '../db'
-import { scoreInspection } from '../lib/score'
+import { isAnswered, isFlagged, scoreInspection } from '../lib/score'
 import { getTemplate, getWalkthrough, countItems } from '../templates'
 import {
   EMPTY_RESPONSE,
@@ -25,10 +25,6 @@ import { newer } from '../lib/sync'
 import { learnedSuggestions, suggestionsFor } from '../lib/suggestions'
 
 type Filter = 'all' | 'unanswered' | 'flagged'
-
-const isAnswered = (r?: QuestionResponse) => !!r && (r.assessment !== '' || r.yesNo !== '')
-const isFlagged = (r?: QuestionResponse) =>
-  r?.assessment === 'No compliance' || r?.assessment === 'Partial compliance'
 
 const MIME = {
   excel: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

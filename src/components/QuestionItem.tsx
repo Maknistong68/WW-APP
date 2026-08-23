@@ -6,6 +6,7 @@ import {
   type Question,
   type QuestionResponse,
 } from '../types'
+import { isFlagged } from '../lib/score'
 import ObservationChips from './ObservationChips'
 import PhotoThumb from './PhotoThumb'
 import VoiceTextarea from './VoiceTextarea'
@@ -50,14 +51,8 @@ export default function QuestionItem({
   onGallery: () => void
   onViewPhoto: (p: Photo) => void
 }) {
-  const flagged = resp.assessment === 'No compliance' || resp.assessment === 'Partial compliance'
-  const showDetails =
-    detailsOpen ||
-    resp.assessment === 'No compliance' ||
-    resp.assessment === 'Partial compliance' ||
-    photos.length > 0 ||
-    !!resp.observation ||
-    !!resp.actionPlan
+  const flagged = isFlagged(resp)
+  const showDetails = detailsOpen || flagged || photos.length > 0 || !!resp.observation || !!resp.actionPlan
 
   return (
     <div id={`item-${question.code}`} className={`item${flash ? ' flash' : ''}`}>

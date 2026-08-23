@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs'
 import type { Inspection, InspectionTemplate, Section } from '../types'
+import { assessmentPct, assessmentScore, isFinding } from '../lib/score'
 import {
   excelFileName,
   facilityPhotos,
@@ -159,7 +160,7 @@ export async function buildExcel(
     ['Occupants Number', numOrText(info.occupantsNumber)],
     ['Number of Rooms', numOrText(info.numberOfRooms)],
     ['Maximum number of occupancy', numOrText(info.maxOccupancy)],
-    ['facility occupancy level (as a percentage)', { formula: 'C15/C17' }],
+    ['facility occupancy level (as a percentage)', { formula: 'IFERROR(C15/C17,"")' }],
     ['Number of contractor(s) within the facility', numOrText(info.contractorsCount)],
     ['Name of Contractor(s)', info.contractorNames],
     ['Projects served by contractors in the facility', info.projectsServed],
@@ -490,15 +491,9 @@ export async function buildExcel(
     for (const question of section.questions) {
       const resp = inspection.responses[question.code]
       if (!resp) continue
-      const flagged =
-        resp.assessment === 'No compliance' ||
-        resp.assessment === 'Partial compliance' ||
-        !!resp.observation ||
-        !!resp.actionPlan
-      if (!flagged) continue
-      const score =
-        resp.assessment === 'Full compliance' ? 2 : resp.assessment === 'Partial compliance' ? 1 : resp.assessment === 'No compliance' ? 0 : '-'
-      const out100 = score === 2 ? 100 : score === 1 ? 50 : score === 0 ? 0 : '-'
+      if (!isFinding(resp)) continue
+      const score = assessmentScore(resp.assessment) ?? '-'
+      const out100 = assessmentPct(resp.assessment) ?? '-'
       const vals: ExcelJS.CellValue[] = [
         `${obsRef}.`,
         question.code,
