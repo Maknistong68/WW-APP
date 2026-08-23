@@ -97,12 +97,19 @@ export default function SettingsPage() {
       setLastSync(lastSyncAt())
       const up = r.pushed + r.photosUp
       const down = r.pulled + r.photosDown
-      showToast({
-        text:
-          up + down + r.deleted === 0
-            ? 'Already up to date'
-            : `Synced: ${up} sent, ${down} received${r.deleted ? `, ${r.deleted} removed` : ''}`,
-      })
+      if (r.failed > 0) {
+        showToast({
+          text: `Synced with ${r.failed} error${r.failed === 1 ? '' : 's'} — see activity log`,
+          duration: 8000,
+        })
+      } else {
+        showToast({
+          text:
+            up + down + r.deleted === 0
+              ? 'Already up to date'
+              : `Synced: ${up} sent, ${down} received${r.deleted ? `, ${r.deleted} removed` : ''}`,
+        })
+      }
     } catch (err) {
       showToast({ text: `Sync failed: ${err instanceof Error ? err.message : String(err)}`, duration: 8000 })
     } finally {

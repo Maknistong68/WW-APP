@@ -12,7 +12,20 @@ export default function App() {
   // Auto-sync when the app opens or connectivity returns (no-op until
   // cloud sync is configured in Settings).
   useEffect(() => {
-    const announce = (r: { pushed: number; pulled: number; photosUp: number; photosDown: number }) => {
+    const announce = (r: {
+      pushed: number
+      pulled: number
+      photosUp: number
+      photosDown: number
+      failed: number
+    }) => {
+      if (r.failed > 0) {
+        showToast({
+          text: `Cloud sync: ${r.failed} item${r.failed === 1 ? '' : 's'} failed — see activity log`,
+          duration: 6000,
+        })
+        return
+      }
       const moved = r.pushed + r.pulled + r.photosUp + r.photosDown
       if (moved > 0) showToast({ text: `Cloud sync: ${moved} item${moved === 1 ? '' : 's'} updated`, duration: 3500 })
     }
