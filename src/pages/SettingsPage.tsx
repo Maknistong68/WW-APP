@@ -11,6 +11,7 @@ import {
   syncNow,
 } from '../lib/sync'
 import { showToast } from '../components/Toast'
+import { canInstall, isIos, isStandalone, onInstallChange, promptInstall } from '../lib/installPrompt'
 
 const fmtTime = (iso: string) => {
   const d = new Date(iso)
@@ -27,8 +28,17 @@ export default function SettingsPage() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [lastSync, setLastSync] = useState(lastSyncAt())
+  const [installable, setInstallable] = useState(canInstall())
 
   const logs = useLiveQuery(() => db.logs.orderBy('time').reverse().limit(100).toArray())
+
+  useEffect(() => onInstallChange(() => setInstallable(canInstall())), [])
+
+  const doInstall = () => {
+    void promptInstall().then((accepted) => {
+      if (accepted) showToast({ text: 'App installed — find it on your home screen' })
+    })
+  }
 
   useEffect(() => {
     let unsub: (() => void) | undefined
@@ -126,6 +136,31 @@ export default function SettingsPage() {
         <h1>Settings</h1>
       </header>
       <main className="page">
+        <div className="section-label">App</div>
+        <div className="card">
+          {isStandalone() ? (
+            <p className="note" style={{ margin: 0 }}>
+              ✓ Installed — you're using the app from your home screen.
+            </p>
+          ) : installable ? (
+            <>
+              <p className="note" style={{ marginTop: 0 }}>
+                Install the app on this device: it opens full-screen from your home screen and works
+                fully offline.
+              </p>
+              <button className="btn primary block" onClick={doInstall}>
+                Install app
+              </button>
+            </>
+          ) : (
+            <p className="note" style={{ margin: 0 }}>
+              {isIos()
+                ? 'To install on iPhone/iPad: open this page in Safari, tap Share, then "Add to Home Screen".'
+                : 'To install: open your browser menu and choose "Install app" (or "Add to home screen").'}
+            </p>
+          )}
+        </div>
+
         <div className="section-label">Cloud sync (Supabase)</div>
         <div className="card">
           {!config ? (
