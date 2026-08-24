@@ -75,7 +75,9 @@ export async function buildWord(
   interface Finding {
     code: string
     text: string
-    remarks: string
+    observation: string
+    actionPlan: string
+    questionText: string
     photos: PhotoWithSize[]
   }
   const findings: Finding[] = []
@@ -88,10 +90,28 @@ export async function buildWord(
       findings.push({
         code: question.code,
         text: `${base.replace(/\.$/, '')} (Section ${question.code}).`,
-        remarks: resp.actionPlan,
+        observation: resp.observation.trim(),
+        actionPlan: resp.actionPlan.trim(),
+        questionText: question.text,
         photos: byCode.get(question.code) ?? [],
       })
     }
+  }
+
+  // Photo-less findings still need an evidence note: many requirements are
+  // documentary (records, training, certificates), where "no photo" really
+  // means the paperwork wasn't available — say that instead.
+  const evidenceNote = (f: Finding): string => {
+    const t = `${f.questionText} ${f.observation}`.toLowerCase()
+    if (/train|induction|drill|awareness/.test(t)) return 'NO TRAINING RECORDS PROVIDED'
+    if (/certificat|licen[cs]e|permit|approval|accredit/.test(t)) return 'NO CERTIFICATE / LICENSE PROVIDED'
+    if (/contract\b|contracted|agreement|proof of contract/.test(t)) return 'NO CONTRACT / AGREEMENT PROVIDED'
+    if (/\blog\b|logs\b|record|register|database|report|analysis|test(ing|ed)?\b/.test(t))
+      return 'NO RECORDS / LOGS PROVIDED'
+    if (/plan\b|policy|procedure|schedule|documented|documentation|document/.test(t))
+      return 'NO DOCUMENTATION PROVIDED'
+    if (/interview|complaint|grievance|feedback|verbal/.test(t)) return 'BASED ON WORKER INTERVIEWS'
+    return 'NO PHOTO'
   }
 
   const nonCompliantAreas = template.sections
@@ -242,13 +262,37 @@ export async function buildWord(
           }
           return paras
         })
-      : [new Paragraph({ children: [new TextRun('NO PHOTO')] })]
+      : [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: evidenceNote(f), bold: true })],
+          }),
+        ]
+    // Remarks: everything the inspector wrote — observation, action plan,
+    // and photo captions — each as its own paragraph.
+    const captions = f.photos
+      .map(({ photo }) => photo.caption.trim())
+      .filter(Boolean)
+    const remarkParas: Paragraph[] = []
+    if (f.observation) remarkParas.push(body(f.observation))
+    if (f.actionPlan)
+      remarkParas.push(
+        new Paragraph({
+          children: [new TextRun({ text: 'Action: ', bold: true }), new TextRun(f.actionPlan)],
+        }),
+      )
+    for (const c of captions) {
+      remarkParas.push(
+        new Paragraph({ children: [new TextRun({ text: `Photo: ${c}`, italics: true })] }),
+      )
+    }
+    if (remarkParas.length === 0) remarkParas.push(body(''))
     obsRows.push(
       new TableRow({
         children: [
           textCell(f.text, OBS_W),
           cell(photoParas, OBS_W),
-          textCell(f.remarks, OBS_W),
+          cell(remarkParas, OBS_W),
         ],
       }),
     )

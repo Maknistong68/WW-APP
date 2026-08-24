@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { db, logEvent, newUuid } from '../db'
 import { getTemplate } from '../templates'
@@ -14,6 +14,9 @@ const remember = (key: string, fallback = '') => {
     return fallback
   }
 }
+
+/** Unsubmitted new-inspection forms are drafted here so nothing typed is lost. */
+const draftKey = (templateId: string) => `ww.formDraft.${templateId}`
 
 const blankInfo = (): GeneralInfo => ({
   typeOfReview: 'Welfare Inspection',
@@ -42,7 +45,22 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
   const inspectionId = Number(id)
 
   const [existing, setExisting] = useState<Inspection | null>(null)
-  const [info, setInfo] = useState<GeneralInfo>(blankInfo)
+  const restoredDraft = useRef(false)
+  const dirty = useRef(false)
+  const [info, setInfo] = useState<GeneralInfo>(() => {
+    if (mode === 'new' && templateId) {
+      try {
+        const raw = localStorage.getItem(draftKey(templateId))
+        if (raw) {
+          restoredDraft.current = true
+          return { ...blankInfo(), ...(JSON.parse(raw) as Partial<GeneralInfo>) }
+        }
+      } catch {
+        // corrupt draft — fall through to a blank form
+      }
+    }
+    return blankInfo()
+  })
   const [loaded, setLoaded] = useState(mode === 'new')
   const [saving, setSaving] = useState(false)
 
@@ -57,6 +75,23 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
     })
   }, [mode, inspectionId])
 
+  useEffect(() => {
+    if (restoredDraft.current) {
+      showToast({ text: 'Draft restored — continue where you left off', duration: 3000 })
+    }
+  }, [])
+
+  // Draft every edit (new mode only) so backing out or closing the app
+  // mid-form loses nothing; the draft clears on submit.
+  useEffect(() => {
+    if (mode !== 'new' || !templateId || !dirty.current) return
+    try {
+      localStorage.setItem(draftKey(templateId), JSON.stringify(info))
+    } catch {
+      // private-mode storage failures are non-fatal
+    }
+  }, [info, mode, templateId])
+
   const template = mode === 'edit' ? getTemplate(existing?.templateId ?? '') : getTemplate(templateId ?? '')
 
   if (!loaded) return <main className="page"><div className="empty">Loading…</div></main>
@@ -68,40 +103,56 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
     )
   }
 
-  const set = (key: keyof GeneralInfo) => (e: { target: { value: string } }) =>
+  const set = (key: keyof GeneralInfo) => (e: { target: { value: string } }) => {
+    dirty.current = true
     setInfo((prev) => ({ ...prev, [key]: e.target.value }))
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (saving) return
     setSaving(true)
     try {
-      localStorage.setItem('ww.auditTeam', info.auditTeam)
-      localStorage.setItem('ww.region', info.region)
-    } catch {
-      // private-mode storage failures are non-fatal
+      try {
+        localStorage.setItem('ww.auditTeam', info.auditTeam)
+        localStorage.setItem('ww.region', info.region)
+      } catch {
+        // private-mode storage failures are non-fatal
+      }
+      const now = new Date().toISOString()
+      if (mode === 'edit' && existing) {
+        await db.inspections.put({ ...existing, info, updatedAt: now })
+        logEvent(existing.id!, 'Details edited', info.contractorNames)
+        showToast({ text: 'Inspection details updated' })
+        navigate(`/inspection/${existing.id}`, { replace: true })
+        return
+      }
+      const inspection: Inspection = {
+        templateId: template.id,
+        uuid: newUuid(),
+        status: 'draft',
+        createdAt: now,
+        updatedAt: now,
+        info,
+        responses: {},
+        notes: '',
+      }
+      const newId = await db.inspections.add(inspection)
+      try {
+        localStorage.removeItem(draftKey(template.id))
+      } catch {
+        // non-fatal
+      }
+      logEvent(newId, 'Inspection created', `${template.name} · ${info.contractorNames}`)
+      navigate(`/inspection/${newId}`, { replace: true })
+    } catch (err) {
+      showToast({
+        text: `Could not save: ${err instanceof Error ? err.message : String(err)}`,
+        duration: 8000,
+      })
+    } finally {
+      setSaving(false)
     }
-    const now = new Date().toISOString()
-    if (mode === 'edit' && existing) {
-      await db.inspections.put({ ...existing, info, updatedAt: now })
-      logEvent(existing.id!, 'Details edited', info.contractorNames)
-      showToast({ text: 'Inspection details updated' })
-      navigate(`/inspection/${existing.id}`, { replace: true })
-      return
-    }
-    const inspection: Inspection = {
-      templateId: template.id,
-      uuid: newUuid(),
-      status: 'draft',
-      createdAt: now,
-      updatedAt: now,
-      info,
-      responses: {},
-      notes: '',
-    }
-    const newId = await db.inspections.add(inspection)
-    logEvent(newId, 'Inspection created', `${template.name} · ${info.contractorNames}`)
-    navigate(`/inspection/${newId}`, { replace: true })
   }
 
   const field = (

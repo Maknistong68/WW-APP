@@ -21,12 +21,12 @@ export default function ObservationChips({
     onChange(next.join('; '))
   }
   return (
-    <div className="chip-row">
+    <div className="obs-chips">
       {suggestions.map((s) => (
         <button
           key={s}
           type="button"
-          className={`chip${selected(s) ? ' chip-on' : ''}`}
+          className={`obs-chip${selected(s) ? ' obs-chip-on' : ''}`}
           onClick={() => toggle(s)}
         >
           {selected(s) ? '✓' : '+'} {s}
