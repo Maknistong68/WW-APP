@@ -2,10 +2,33 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { db, logEvent, newUuid } from '../db'
 import { getTemplate } from '../templates'
+import Icon from '../components/Icon'
 import { showToast } from '../components/Toast'
 import type { GeneralInfo, Inspection } from '../types'
 
 const today = () => new Date().toISOString().slice(0, 10)
+
+/** "27.123456, 35.654321" (or any lat,lng pair in a string) → coordinates. */
+const parseCoords = (s: string): { lat: number; lng: number } | null => {
+  const m = s.match(/(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/)
+  if (!m) return null
+  const lat = Number(m[1])
+  const lng = Number(m[2])
+  if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+  return { lat, lng }
+}
+
+/** Pull coordinates out of a pasted Google Maps link (long URLs only —
+ *  maps.app.goo.gl short links don't carry them). */
+const coordsFromLink = (link: string): { lat: number; lng: number } | null => {
+  const at = link.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/)
+  if (at) return parseCoords(`${at[1]},${at[2]}`)
+  const q = link.match(/[?&](?:q|ll|query|destination)=(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/)
+  if (q) return parseCoords(`${q[1]},${q[2]}`)
+  const bang = link.match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/)
+  if (bang) return parseCoords(`${bang[1]},${bang[2]}`)
+  return null
+}
 
 const remember = (key: string, fallback = '') => {
   try {
@@ -63,6 +86,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
   })
   const [loaded, setLoaded] = useState(mode === 'new')
   const [saving, setSaving] = useState(false)
+  const [locating, setLocating] = useState(false)
 
   useEffect(() => {
     if (mode !== 'edit') return
@@ -106,6 +130,37 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
   const set = (key: keyof GeneralInfo) => (e: { target: { value: string } }) => {
     dirty.current = true
     setInfo((prev) => ({ ...prev, [key]: e.target.value }))
+  }
+
+  // The pinned map follows whatever location data exists: the coordinates
+  // field first (freshest after "Use my location"), else a pasted Maps link.
+  const pin = parseCoords(info.mapCoordinates) ?? coordsFromLink(info.googleMapsLink)
+
+  const useMyLocation = () => {
+    if (!('geolocation' in navigator)) {
+      showToast({ text: 'This device does not expose location to the browser.' })
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(6)
+        const lng = pos.coords.longitude.toFixed(6)
+        dirty.current = true
+        setInfo((prev) => ({
+          ...prev,
+          mapCoordinates: `${lat}, ${lng}`,
+          googleMapsLink: prev.googleMapsLink || `https://maps.google.com/?q=${lat},${lng}`,
+        }))
+        setLocating(false)
+        showToast({ text: 'Location captured — map pinned below', duration: 3000 })
+      },
+      (err) => {
+        setLocating(false)
+        showToast({ text: `Could not get location: ${err.message}`, duration: 6000 })
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+    )
   }
 
   const submit = async (e: FormEvent) => {
@@ -179,7 +234,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
     <>
       <header className="app-header">
         <button className="back" onClick={() => navigate(backTo)} aria-label="Back">
-          ‹
+          <Icon name="chevron-left" size={26} />
         </button>
         <h1>{mode === 'edit' ? 'Inspection details' : `New ${template.name}`}</h1>
       </header>
@@ -201,8 +256,47 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
             {field('Region', 'region', { placeholder: 'e.g. OXAGON' })}
             {field('Facility location', 'facilityLocation', { placeholder: 'e.g. Duba', required: true })}
             {field('Facility type', 'facilityType')}
-            {field('Map coordinates', 'mapCoordinates')}
+            {field('Map coordinates', 'mapCoordinates', { placeholder: 'e.g. 27.123456, 35.654321' })}
             {field('Link for Google Maps', 'googleMapsLink', { placeholder: 'https://…' })}
+            <div className="btn-row" style={{ marginTop: 0, marginBottom: 14 }}>
+              <button type="button" className="btn primary" disabled={locating} onClick={useMyLocation}>
+                <Icon name="locate" size={19} /> {locating ? 'Locating…' : 'Use my location'}
+              </button>
+              {(info.googleMapsLink || pin) && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() =>
+                    window.open(
+                      info.googleMapsLink || `https://maps.google.com/?q=${pin!.lat},${pin!.lng}`,
+                      '_blank',
+                      'noopener',
+                    )
+                  }
+                >
+                  <Icon name="external-link" size={19} /> Open in Maps
+                </button>
+              )}
+            </div>
+            {pin ? (
+              <>
+                <iframe
+                  className="map-embed"
+                  title="Pinned facility location"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://maps.google.com/maps?q=${pin.lat},${pin.lng}&z=15&output=embed`}
+                />
+                <p className="map-hint">
+                  <Icon name="map-pin" size={13} /> Pinned at {pin.lat.toFixed(6)}, {pin.lng.toFixed(6)} — updates
+                  as the coordinates or link change.
+                </p>
+              </>
+            ) : (
+              <p className="map-hint">
+                Tap “Use my location”, type coordinates, or paste a Google Maps link and the map pins itself here.
+              </p>
+            )}
             {field('Facility management', 'facilityManagement')}
             {field('Facility representative', 'facilityRepresentative')}
           </div>

@@ -7,6 +7,7 @@ import {
   type QuestionResponse,
 } from '../types'
 import { isFlagged } from '../lib/score'
+import Icon from './Icon'
 import ObservationChips from './ObservationChips'
 import PhotoThumb from './PhotoThumb'
 import VoiceTextarea from './VoiceTextarea'
@@ -31,6 +32,7 @@ export default function QuestionItem({
   resp,
   photos,
   suggestions,
+  remarkSuggestions,
   detailsOpen,
   flash,
   onPatch,
@@ -43,6 +45,7 @@ export default function QuestionItem({
   resp: QuestionResponse
   photos: Photo[]
   suggestions: string[]
+  remarkSuggestions: string[]
   detailsOpen: boolean
   flash: boolean
   onPatch: (patch: Partial<QuestionResponse>) => void
@@ -96,12 +99,19 @@ export default function QuestionItem({
             )}
             <VoiceTextarea
               value={resp.observation}
-              placeholder="What did you observe? Type or tap 🎤 to dictate."
+              placeholder="What did you observe? Type or tap the mic to dictate."
               onChange={(observation) => onPatch({ observation })}
             />
           </div>
           <div className="field">
             <label>Action plan / remarks</label>
+            {flagged && (
+              <ObservationChips
+                suggestions={remarkSuggestions}
+                value={resp.actionPlan}
+                onChange={(actionPlan) => onPatch({ actionPlan })}
+              />
+            )}
             <VoiceTextarea
               value={resp.actionPlan}
               placeholder="What must be done, by whom, by when?"
@@ -112,17 +122,22 @@ export default function QuestionItem({
             {photos.map((p) => (
               <PhotoThumb key={p.id} blob={p.blob} className="photo-thumb" onClick={() => onViewPhoto(p)} />
             ))}
-            <button className="add-photo" title="Take photo" onClick={onCamera}>
-              📷
+            <button className="add-photo" title="Take photo" aria-label="Take photo" onClick={onCamera}>
+              <Icon name="camera" size={26} />
             </button>
-            <button className="add-photo" title="Choose from gallery" onClick={onGallery}>
-              🖼
+            <button
+              className="add-photo"
+              title="Choose from gallery"
+              aria-label="Choose from gallery"
+              onClick={onGallery}
+            >
+              <Icon name="image" size={26} />
             </button>
           </div>
         </div>
       ) : (
         <button className="details-toggle" onClick={onOpenDetails}>
-          + Add observation / photo
+          <Icon name="plus" size={16} /> Add observation / photo
         </button>
       )}
     </div>

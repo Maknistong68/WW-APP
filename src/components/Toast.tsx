@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icon from './Icon'
 
 export interface ToastMessage {
   text: string
@@ -47,7 +48,7 @@ export default function ToastHost() {
         </button>
       )}
       <button className="toast-close" aria-label="Dismiss" onClick={() => setToast(null)}>
-        ✕
+        <Icon name="x" size={16} />
       </button>
     </div>
   )

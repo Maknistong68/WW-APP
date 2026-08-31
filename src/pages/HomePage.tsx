@@ -6,6 +6,7 @@ import { createBackup, db, deleteInspection, duplicateInspection, restoreBackup 
 import { TEMPLATES, countItems, getTemplate } from '../templates'
 import { isAnswered } from '../lib/score'
 import { ConfirmSheet } from '../components/Modal'
+import Icon from '../components/Icon'
 import { showToast } from '../components/Toast'
 import type { Inspection } from '../types'
 
@@ -79,7 +80,7 @@ export default function HomePage() {
           title="Contractor KPIs"
           aria-label="Contractor KPIs"
         >
-          📊
+          <Icon name="chart" size={26} />
         </button>
         <button
           className="icon-btn header-btn"
@@ -87,7 +88,7 @@ export default function HomePage() {
           title="Settings & cloud sync"
           aria-label="Settings and cloud sync"
         >
-          ⚙
+          <Icon name="settings" size={26} />
         </button>
       </header>
       <main className="page">
@@ -105,7 +106,9 @@ export default function HomePage() {
         <div className="section-label">My inspections</div>
         {(inspections?.length ?? 0) > 5 && (
           <div className="search-box" style={{ marginBottom: 10 }}>
-            <span className="search-icon" aria-hidden="true">🔎</span>
+            <span className="search-icon" aria-hidden="true">
+              <Icon name="search" size={19} />
+            </span>
             <input
               type="search"
               value={listQuery}
@@ -148,7 +151,7 @@ export default function HomePage() {
                     })
                   }}
                 >
-                  ⧉
+                  <Icon name="copy" size={22} />
                 </button>
                 <button
                   className="icon-btn"
@@ -159,7 +162,7 @@ export default function HomePage() {
                     setConfirmDelete(ins)
                   }}
                 >
-                  🗑
+                  <Icon name="trash" size={22} />
                 </button>
               </div>
             )
@@ -174,10 +177,10 @@ export default function HomePage() {
           </p>
           <div className="btn-row" style={{ marginTop: 4 }}>
             <button className="btn" disabled={busy} onClick={() => void doBackup()}>
-              {busy ? 'Working…' : '⬇ Save backup'}
+              <Icon name="download" size={19} /> {busy ? 'Working…' : 'Save backup'}
             </button>
             <button className="btn" disabled={busy} onClick={() => restoreRef.current?.click()}>
-              ⬆ Restore backup
+              <Icon name="upload" size={19} /> Restore backup
             </button>
           </div>
           <input ref={restoreRef} type="file" accept="application/json,.json" hidden onChange={doRestore} />

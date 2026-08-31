@@ -4,6 +4,7 @@ import {
   HeadingLevel,
   ImageRun,
   Packer,
+  PageBreak,
   Paragraph,
   ShadingType,
   Table,
@@ -123,29 +124,45 @@ export async function buildWord(
     items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
 
   const children: Array<Paragraph | Table> = [
-    // Cover: full-width NEOM logo + OXAGON logo (as in the template)
+    // Cover page (page 1 only): OXAGON logo top-right, NEOM artwork centered,
+    // then the report title, contractor – work order, and inspection date.
     new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      children: [
+        new ImageRun({
+          type: 'png',
+          data: oxagonLogo,
+          transformation: { width: 87, height: 90 },
+        }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 120 },
       children: [
         new ImageRun({
           type: 'jpg',
           data: neomLogo,
-          transformation: { width: 624, height: 768 },
-        }),
-        new ImageRun({
-          type: 'png',
-          data: oxagonLogo,
-          transformation: { width: 77, height: 80 },
+          transformation: { width: 480, height: 590 },
         }),
       ],
     }),
     new Paragraph({
       heading: HeadingLevel.TITLE,
+      alignment: AlignmentType.CENTER,
       children: [new TextRun(template.wordTitle)],
     }),
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
+      alignment: AlignmentType.CENTER,
       children: [new TextRun(`${contractor} – ${info.workOrder}`)],
     }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: longDate(info.reviewDate), bold: true })],
+    }),
+    // Everything after the cover starts on page 2.
+    new Paragraph({ children: [new PageBreak()] }),
     heading1('1.  Contents'),
     body('1.  Contents'),
     body('2.  Objective'),

@@ -21,8 +21,14 @@ import QuestionItem from '../components/QuestionItem'
 import WalkthroughLine, { lineStatus } from '../components/WalkthroughLine'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toast'
+import Icon from '../components/Icon'
 import { newer } from '../lib/sync'
-import { learnedSuggestions, suggestionsFor } from '../lib/suggestions'
+import {
+  learnedSuggestions,
+  remarkSuggestionsFor,
+  suggestionsFor,
+  type LearnedSuggestions,
+} from '../lib/suggestions'
 
 type Filter = 'all' | 'unanswered' | 'flagged'
 
@@ -53,7 +59,10 @@ export default function ChecklistPage() {
   )
   const [openAreas, setOpenAreas] = useState<Record<number, boolean>>({})
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({})
-  const [learned, setLearned] = useState<Map<string, string[]>>(() => new Map())
+  const [learned, setLearned] = useState<LearnedSuggestions>(() => ({
+    observations: new Map(),
+    remarks: new Map(),
+  }))
 
   const setView = (v: 'walk' | 'full') => {
     setViewState(v)
@@ -456,7 +465,8 @@ export default function ChecklistPage() {
         question={question}
         resp={inspection.responses[code] ?? EMPTY_RESPONSE}
         photos={photosFor(code)}
-        suggestions={suggestionsFor([code], learned)}
+        suggestions={suggestionsFor([code], learned.observations)}
+        remarkSuggestions={remarkSuggestionsFor([code], learned.remarks)}
         detailsOpen={openDetails[code] ?? false}
         flash={flashItem === code}
         onPatch={(patch) => setResponse(code, patch)}
@@ -515,7 +525,8 @@ export default function ChecklistPage() {
         questions={line.codes.map((c) => questionByCode.get(c)!).filter(Boolean)}
         responses={inspection.responses}
         photos={line.codes.flatMap((c) => photosFor(c))}
-        suggestions={suggestionsFor(line.codes, learned)}
+        suggestions={suggestionsFor(line.codes, learned.observations)}
+        remarkSuggestions={remarkSuggestionsFor(line.codes, learned.remarks)}
         expanded={expandedLines[lineId] ?? false}
         flash={flashItem === lineId}
         onStatus={(s) => setLineStatus(line, s)}
@@ -553,7 +564,7 @@ export default function ChecklistPage() {
       <div className={`top-stack${compact ? ' compact' : ''}`}>
         <header className="app-header">
           <button className="back" onClick={() => navigate('/')} aria-label="Back">
-            ‹
+            <Icon name="chevron-left" size={26} />
           </button>
           <h1>
             {template.shortName} · {inspection.info.contractorNames || inspection.info.facilityLocation}
@@ -564,7 +575,7 @@ export default function ChecklistPage() {
             title="Edit inspection details"
             onClick={() => navigate(`/inspection/${inspectionId}/edit`)}
           >
-            ✎
+            <Icon name="pencil" size={24} />
           </button>
         </header>
         <div className="progress-wrap">
@@ -580,7 +591,9 @@ export default function ChecklistPage() {
         <div className="toolbar">
           <div className="search-row">
             <div className="search-box">
-              <span className="search-icon" aria-hidden="true">🔎</span>
+              <span className="search-icon" aria-hidden="true">
+                <Icon name="search" size={19} />
+              </span>
               <input
                 type="search"
                 value={query}
@@ -590,7 +603,7 @@ export default function ChecklistPage() {
               />
               {query && (
                 <button className="clear-btn" onClick={() => setQuery('')} aria-label="Clear search">
-                  ✕
+                  <Icon name="x" size={18} />
                 </button>
               )}
             </div>
@@ -601,7 +614,8 @@ export default function ChecklistPage() {
                 title={walkMode ? 'Switch to full questionnaire' : 'Switch to area-by-area walkthrough'}
                 onClick={() => setView(walkMode ? 'full' : 'walk')}
               >
-                {walkMode ? '📋 Full' : '🚶 Walk'}
+                <Icon name={walkMode ? 'clipboard' : 'walk'} size={18} />
+                {walkMode ? 'Full' : 'Walk'}
               </button>
             )}
             <button
@@ -634,7 +648,9 @@ export default function ChecklistPage() {
       <main className="page">
         {unassigned.length > 0 && (
           <div className="card">
-            <b style={{ fontSize: 14 }}>📷 Photos waiting to be assigned</b>
+            <b className="card-title">
+              <Icon name="camera" size={20} /> Photos waiting to be assigned
+            </b>
             <div className="photo-row" style={{ marginTop: 8 }}>
               {unassigned.map((p) => (
                 <PhotoThumb key={p.id} blob={p.blob} className="photo-thumb" onClick={() => setAssigningPhoto(p)} />
@@ -681,7 +697,9 @@ export default function ChecklistPage() {
         ) : (
           <>
             <div className="card">
-              <b style={{ fontSize: 14 }}>🏕 Facility / site photos</b>
+              <b className="card-title">
+                <Icon name="tent" size={20} /> Facility / site photos
+              </b>
               <p className="note" style={{ margin: '4px 0 8px' }}>
                 General photos of the camp — exported into the General Information sheet.
               </p>
@@ -698,7 +716,7 @@ export default function ChecklistPage() {
                     itemCameraRef.current?.click()
                   }}
                 >
-                  📷
+                  <Icon name="camera" size={26} />
                 </button>
                 <button
                   className="add-photo"
@@ -709,7 +727,7 @@ export default function ChecklistPage() {
                     itemGalleryRef.current?.click()
                   }}
                 >
-                  🖼
+                  <Icon name="image" size={26} />
                 </button>
               </div>
             </div>
@@ -725,7 +743,9 @@ export default function ChecklistPage() {
                         className="section-head"
                         onClick={() => setOpenAreas((o) => ({ ...o, [ai]: !open }))}
                       >
-                        <span className="chev">{open ? '▾' : '▸'}</span>
+                        <span className="chev">
+                          <Icon name={open ? 'chevron-down' : 'chevron-right'} size={18} />
+                        </span>
                         <span className="letter">{ai + 1}</span>
                         {area.title}
                         <span className="counts">
@@ -738,7 +758,9 @@ export default function ChecklistPage() {
                 })}
                 {uncovered.length > 0 && (
                   <div className="card">
-                    <b style={{ fontSize: 14 }}>📋 Not covered by the walkthrough</b>
+                    <b className="card-title">
+                      <Icon name="clipboard" size={20} /> Not covered by the walkthrough
+                    </b>
                     <p className="note" style={{ margin: '4px 0 8px' }}>
                       {uncovered.length} questions (mostly documentation) exist only in the full
                       questionnaire —{' '}
@@ -768,7 +790,9 @@ export default function ChecklistPage() {
                       className="section-head"
                       onClick={() => setOpenSections((o) => ({ ...o, [section.letter]: !open }))}
                     >
-                      <span className="chev">{open ? '▾' : '▸'}</span>
+                      <span className="chev">
+                        <Icon name={open ? 'chevron-down' : 'chevron-right'} size={18} />
+                      </span>
                       <span className="letter">{section.letter}</span>
                       {section.title}
                       <span className="counts">
@@ -811,14 +835,15 @@ export default function ChecklistPage() {
                   })
                 }
               >
-                {inspection.status === 'completed' ? '↩ Reopen as draft' : '✔ Mark inspection complete'}
+                <Icon name={inspection.status === 'completed' ? 'undo' : 'check'} size={19} />
+                {inspection.status === 'completed' ? 'Reopen as draft' : 'Mark inspection complete'}
               </button>
               <div className="btn-row">
                 <button className="btn" disabled={exporting !== null} onClick={() => doExport('excel')}>
-                  {exporting === 'excel' ? 'Exporting…' : '⬇ Excel report'}
+                  <Icon name="table" size={19} /> {exporting === 'excel' ? 'Exporting…' : 'Excel report'}
                 </button>
                 <button className="btn" disabled={exporting !== null} onClick={() => doExport('word')}>
-                  {exporting === 'word' ? 'Exporting…' : '⬇ Word report'}
+                  <Icon name="file-text" size={19} /> {exporting === 'word' ? 'Exporting…' : 'Word report'}
                 </button>
               </div>
               <p className="note" style={{ marginTop: 10 }}>
@@ -838,10 +863,10 @@ export default function ChecklistPage() {
           title="Add photos from gallery"
           onClick={() => quickGalleryRef.current?.click()}
         >
-          🖼
+          <Icon name="image" size={24} />
         </button>
         <button className="fab" aria-label="Take photo" title="Take photo" onClick={() => quickCameraRef.current?.click()}>
-          📷
+          <Icon name="camera" size={30} />
         </button>
       </div>
       <input
@@ -917,7 +942,7 @@ export default function ChecklistPage() {
           <div className="modal-body">
             {!assignQ && (
               <button className="assign-item" onClick={() => void assignPhoto(FACILITY_PHOTOS)}>
-                🏕 <b>General facility / site photo</b>
+                <b>General facility / site photo</b>
               </button>
             )}
             {assignSections.map(({ section, questions }) => (
