@@ -7,6 +7,7 @@ import {
   type WalkthroughLine as Line,
 } from '../types'
 import Icon from './Icon'
+import { EvidenceChips } from './QuestionItem'
 import ObservationChips from './ObservationChips'
 import PhotoThumb from './PhotoThumb'
 import VoiceTextarea from './VoiceTextarea'
@@ -151,6 +152,12 @@ export default function WalkthroughLine({
               <Icon name="image" size={26} />
             </button>
           </div>
+          {flagged && photos.length === 0 && (
+            <EvidenceChips
+              value={primary?.evidenceNote ?? ''}
+              onChange={(evidenceNote) => onPatchPrimary({ evidenceNote })}
+            />
+          )}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import {
   ASSESSMENT_OPTIONS,
+  EVIDENCE_NOTES,
   YES_NO_OPTIONS,
   type ComplianceAssessment,
   type Photo,
@@ -25,6 +26,34 @@ const ASSESS_CLASS: Record<ComplianceAssessment, string> = {
   'Partial compliance': 'sel-partial',
   'No compliance': 'sel-none',
   'N/A': 'sel-na',
+}
+
+/** Single-select chips choosing the "no photo" evidence note for the report. */
+export function EvidenceChips({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (next: string) => void
+}) {
+  return (
+    <>
+      <div className="control-label">No photo? Evidence note for the report</div>
+      <div className="obs-chips">
+        {EVIDENCE_NOTES.map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={`obs-chip${value === n ? ' obs-chip-on' : ''}`}
+            onClick={() => onChange(value === n ? '' : n)}
+          >
+            {value === n ? '✓ ' : ''}
+            {n}
+          </button>
+        ))}
+      </div>
+    </>
+  )
 }
 
 export default function QuestionItem({
@@ -134,6 +163,12 @@ export default function QuestionItem({
               <Icon name="image" size={26} />
             </button>
           </div>
+          {flagged && photos.length === 0 && (
+            <EvidenceChips
+              value={resp.evidenceNote ?? ''}
+              onChange={(evidenceNote) => onPatch({ evidenceNote })}
+            />
+          )}
         </div>
       ) : (
         <button className="details-toggle" onClick={onOpenDetails}>

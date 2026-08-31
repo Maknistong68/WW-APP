@@ -19,7 +19,7 @@ import {
 import PhotoThumb from '../components/PhotoThumb'
 import QuestionItem from '../components/QuestionItem'
 import WalkthroughLine, { lineStatus } from '../components/WalkthroughLine'
-import Modal from '../components/Modal'
+import Modal, { ConfirmSheet } from '../components/Modal'
 import { showToast } from '../components/Toast'
 import Icon from '../components/Icon'
 import { newer } from '../lib/sync'
@@ -51,6 +51,7 @@ export default function ChecklistPage() {
   const [sectionSheet, setSectionSheet] = useState(false)
   const [flashItem, setFlashItem] = useState<string | null>(null)
   const [exporting, setExporting] = useState<null | 'excel' | 'word'>(null)
+  const [confirmFill, setConfirmFill] = useState(false)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [compact, setCompact] = useState(false)
@@ -249,6 +250,35 @@ export default function ChecklistPage() {
   }
 
   const questionByCode = new Map(template.sections.flatMap((s) => s.questions).map((q) => [q.code, q]))
+
+  // "Fill out everything": answer every remaining unanswered question as
+  // Yes / Full compliance in one tap (the usual field pattern — inspectors
+  // record only the exceptions, then bulk-complete the rest).
+  const fillRemaining = () => {
+    const codes = template.sections
+      .flatMap((s) => s.questions)
+      .map((q) => q.code)
+      .filter((code) => !isAnswered(inspection.responses[code]))
+    if (codes.length === 0) return
+    update((ins) => ({
+      ...ins,
+      responses: {
+        ...ins.responses,
+        ...Object.fromEntries(
+          codes.map((code) => [
+            code,
+            {
+              ...(ins.responses[code] ?? EMPTY_RESPONSE),
+              yesNo: 'Yes' as const,
+              assessment: 'Full compliance' as const,
+            },
+          ]),
+        ),
+      },
+    }))
+    logEvent(inspectionId, 'Remaining questions filled', `${codes.length} set to Full compliance`)
+    showToast({ text: `${codes.length} remaining question${codes.length === 1 ? '' : 's'} marked compliant` })
+  }
 
   const setLineStatus = (line: WalkLine, status: WalkStatus) => {
     const current = lineStatus(line.codes, inspection.responses)
@@ -597,7 +627,7 @@ export default function ChecklistPage() {
               <input
                 type="search"
                 value={query}
-                placeholder="Search questions (e.g. fire, bed, A7…)"
+                placeholder="Search questions…"
                 aria-label="Search questions"
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -825,8 +855,15 @@ export default function ChecklistPage() {
                   )
                 )
               })()}
+              {progress.answered < progress.total && (
+                <button className="btn block" onClick={() => setConfirmFill(true)}>
+                  <Icon name="check" size={19} /> Fill remaining {progress.total - progress.answered} as
+                  compliant
+                </button>
+              )}
               <button
                 className={`btn block ${inspection.status === 'completed' ? '' : 'primary'}`}
+                style={{ marginTop: 10 }}
                 onClick={() =>
                   update((ins) => {
                     const completed = ins.status !== 'completed'
@@ -964,6 +1001,22 @@ export default function ChecklistPage() {
             {assignSections.length === 0 && <div className="empty">No question matches “{assignQuery}”.</div>}
           </div>
         </Modal>
+      )}
+
+      {/* Bulk-fill confirmation */}
+      {confirmFill && (
+        <ConfirmSheet
+          title="Fill all remaining questions?"
+          message={`This marks the ${progress.total - progress.answered} unanswered question${
+            progress.total - progress.answered === 1 ? '' : 's'
+          } as Yes / Full compliance. Anything you already answered is untouched, and you can still change any answer afterwards.`}
+          confirmLabel="Mark all compliant"
+          onCancel={() => setConfirmFill(false)}
+          onConfirm={() => {
+            setConfirmFill(false)
+            fillRemaining()
+          }}
+        />
       )}
 
       {/* Photo viewer */}
