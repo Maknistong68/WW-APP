@@ -2,6 +2,7 @@ import {
   AlignmentType,
   Document,
   HeadingLevel,
+  HorizontalPositionRelativeFrom,
   ImageRun,
   Packer,
   PageBreak,
@@ -11,7 +12,9 @@ import {
   TableCell,
   TableRow,
   TextRun,
+  TextWrappingType,
   VerticalAlign,
+  VerticalPositionRelativeFrom,
   WidthType,
 } from 'docx'
 import type { Inspection, InspectionTemplate, Photo } from '../types'
@@ -56,6 +59,20 @@ async function fetchImage(url: string): Promise<ArrayBuffer> {
   return res.arrayBuffer()
 }
 
+/** Tiny solid-color PNG (stretched by Word) for the cover's cream panel. */
+async function solidPng(color: string): Promise<ArrayBuffer> {
+  const canvas = document.createElement('canvas')
+  canvas.width = 8
+  canvas.height = 8
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = color
+  ctx.fillRect(0, 0, 8, 8)
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob failed'))), 'image/png'),
+  )
+  return blob.arrayBuffer()
+}
+
 export async function buildWord(
   template: InspectionTemplate,
   inspection: Inspection,
@@ -70,7 +87,11 @@ export async function buildWord(
     byCode.set(code, [...(byCode.get(code) ?? []), e])
   }
 
-  const [neomLogo, oxagonLogo] = await Promise.all([fetchImage(neomLogoUrl), fetchImage(oxagonLogoUrl)])
+  const [neomLogo, oxagonLogo, creamPanel] = await Promise.all([
+    fetchImage(neomLogoUrl),
+    fetchImage(oxagonLogoUrl),
+    solidPng('#F9F8E9'),
+  ])
 
   // Findings: questions marked non-/partially compliant, or with an observation
   interface Finding {
@@ -123,43 +144,63 @@ export async function buildWord(
   const joinList = (items: string[]) =>
     items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
 
-  const children: Array<Paragraph | Table> = [
-    // Cover page (page 1 only): OXAGON logo top-right, NEOM artwork centered,
-    // then the report title, contractor – work order, and inspection date.
+  // Cover page — reproduces the official cover exactly, measured from
+  // "AL FAHD Workers Camp NonCompliance.docx": a cream panel and the NEOM
+  // artwork float behind the text, the OXAGON logo floats top-left, and
+  // ~29 blank lines push the centered title + contractor line down the page.
+  // All offsets are EMU (914400/inch) taken from the reference document.
+  const floatAtPage = (x: number, y: number, behind: boolean) => ({
+    horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: x },
+    verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: y },
+    wrap: { type: TextWrappingType.NONE },
+    behindDocument: behind,
+  })
+  const coverSpacer = (opts: { small?: boolean; before?: number } = {}) =>
     new Paragraph({
-      alignment: AlignmentType.RIGHT,
+      style: opts.small ? 'CoverSpacerSm' : 'CoverSpacer',
+      spacing: opts.before !== undefined ? { before: opts.before } : undefined,
+    })
+
+  const children: Array<Paragraph | Table> = [
+    new Paragraph({
+      style: 'CoverSpacerSm',
+      spacing: { before: 71 },
       children: [
+        // Cream background panel: 0.30" left, 1.05" top, 7.45" × 9.16"
         new ImageRun({
           type: 'png',
-          data: oxagonLogo,
-          transformation: { width: 87, height: 90 },
+          data: creamPanel,
+          transformation: { width: 715, height: 880 },
+          floating: floatAtPage(274320, 960120, true),
         }),
-      ],
-    }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 120 },
-      children: [
+        // NEOM artwork: 2.54" left, 1.74" top, 3.25" × 3.64"
         new ImageRun({
           type: 'jpg',
           data: neomLogo,
-          transformation: { width: 480, height: 590 },
+          transformation: { width: 312, height: 350 },
+          floating: floatAtPage(2322830, 1595291, true),
+        }),
+        // OXAGON logo top-left: 0.63" left, 0.22" top, 0.80" × 0.83"
+        new ImageRun({
+          type: 'png',
+          data: oxagonLogo,
+          transformation: { width: 77, height: 80 },
+          floating: floatAtPage(576580, 198755, false),
         }),
       ],
     }),
+    coverSpacer({ small: true }),
+    ...Array.from({ length: 27 }, () => coverSpacer()),
     new Paragraph({
       heading: HeadingLevel.TITLE,
       alignment: AlignmentType.CENTER,
-      children: [new TextRun(template.wordTitle)],
+      children: [new TextRun({ text: template.wordTitle, size: 48 })],
     }),
+    coverSpacer({ before: 227 }),
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
       alignment: AlignmentType.CENTER,
       children: [new TextRun(`${contractor} – ${info.workOrder}`)],
-    }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: longDate(info.reviewDate), bold: true })],
     }),
     // Everything after the cover starts on page 2.
     new Paragraph({ children: [new PageBreak()] }),
@@ -347,7 +388,20 @@ export async function buildWord(
           basedOn: 'Normal',
           next: 'Normal',
           run: { font: 'Arial', size: 56 },
-          paragraph: { spacing: { before: 240, after: 120 } },
+        },
+        {
+          id: 'CoverSpacer',
+          name: 'Cover Spacer',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: 'Arial', size: 26 },
+        },
+        {
+          id: 'CoverSpacerSm',
+          name: 'Cover Spacer Small',
+          basedOn: 'Normal',
+          next: 'Normal',
+          run: { font: 'Arial', size: 20 },
         },
         {
           id: 'Heading1',
@@ -365,7 +419,6 @@ export async function buildWord(
           next: 'Normal',
           quickFormat: true,
           run: { font: 'Arial', size: 26, color: BLUE },
-          paragraph: { spacing: { before: 200, after: 100 } },
         },
       ],
     },
