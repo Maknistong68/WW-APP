@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import Icon from './Icon'
 
 /**
  * Bottom-sheet modal: closes on backdrop tap and Escape, moves focus into the
@@ -47,7 +48,7 @@ export default function Modal({
           <b>{title}</b>
           {header}
           <button className="icon-btn" aria-label="Close" onClick={onClose}>
-            ✕
+            <Icon name="x" size={22} />
           </button>
         </div>
         {children}

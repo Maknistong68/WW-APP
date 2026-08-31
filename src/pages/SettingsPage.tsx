@@ -10,6 +10,7 @@ import {
   setSyncConfig,
   syncNow,
 } from '../lib/sync'
+import Icon from '../components/Icon'
 import { showToast } from '../components/Toast'
 import { canInstall, isIos, isStandalone, onInstallChange, promptInstall } from '../lib/installPrompt'
 
@@ -131,7 +132,7 @@ export default function SettingsPage() {
     <>
       <header className="app-header">
         <button className="back" onClick={() => navigate('/')} aria-label="Back">
-          ‹
+          <Icon name="chevron-left" size={26} />
         </button>
         <h1>Settings</h1>
       </header>
@@ -238,7 +239,7 @@ export default function SettingsPage() {
                 automatically when you open it with internet.
               </p>
               <button className="btn primary block" disabled={busy} onClick={() => void doSync()}>
-                {busy ? 'Syncing…' : '⇅ Sync now'}
+                <Icon name="refresh" size={19} /> {busy ? 'Syncing…' : 'Sync now'}
               </button>
               <div className="btn-row">
                 <button

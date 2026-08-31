@@ -6,6 +6,7 @@ import {
   type WalkStatus,
   type WalkthroughLine as Line,
 } from '../types'
+import Icon from './Icon'
 import ObservationChips from './ObservationChips'
 import PhotoThumb from './PhotoThumb'
 import VoiceTextarea from './VoiceTextarea'
@@ -42,6 +43,7 @@ export default function WalkthroughLine({
   responses,
   photos,
   suggestions,
+  remarkSuggestions,
   expanded,
   flash,
   onStatus,
@@ -58,6 +60,7 @@ export default function WalkthroughLine({
   responses: Record<string, QuestionResponse>
   photos: Photo[]
   suggestions: string[]
+  remarkSuggestions: string[]
   expanded: boolean
   flash: boolean
   onStatus: (status: WalkStatus) => void
@@ -113,12 +116,19 @@ export default function WalkthroughLine({
             )}
             <VoiceTextarea
               value={primary?.observation ?? ''}
-              placeholder="What did you observe? Type or tap 🎤 to dictate."
+              placeholder="What did you observe? Type or tap the mic to dictate."
               onChange={(observation) => onPatchPrimary({ observation })}
             />
           </div>
           <div className="field">
             <label>Action plan / remarks</label>
+            {flagged && (
+              <ObservationChips
+                suggestions={remarkSuggestions}
+                value={primary?.actionPlan ?? ''}
+                onChange={(actionPlan) => onPatchPrimary({ actionPlan })}
+              />
+            )}
             <VoiceTextarea
               value={primary?.actionPlan ?? ''}
               placeholder="What must be done, by whom, by when?"
@@ -129,11 +139,16 @@ export default function WalkthroughLine({
             {photos.map((p) => (
               <PhotoThumb key={p.id} blob={p.blob} className="photo-thumb" onClick={() => onViewPhoto(p)} />
             ))}
-            <button className="add-photo" title="Take photo" onClick={onCamera}>
-              📷
+            <button className="add-photo" title="Take photo" aria-label="Take photo" onClick={onCamera}>
+              <Icon name="camera" size={26} />
             </button>
-            <button className="add-photo" title="Choose from gallery" onClick={onGallery}>
-              🖼
+            <button
+              className="add-photo"
+              title="Choose from gallery"
+              aria-label="Choose from gallery"
+              onClick={onGallery}
+            >
+              <Icon name="image" size={26} />
             </button>
           </div>
         </div>

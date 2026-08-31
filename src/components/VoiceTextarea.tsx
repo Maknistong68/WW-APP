@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Icon from './Icon'
 
 // Minimal typing for the Web Speech API (not in all TS DOM libs).
 interface SpeechRecognitionLike {
@@ -91,10 +92,10 @@ export default function VoiceTextarea({
           title={listening ? 'Stop dictation' : 'Dictate'}
           onClick={toggle}
         >
-          {listening ? '⏹' : '🎤'}
+          <Icon name={listening ? 'stop' : 'mic'} size={19} />
         </button>
       )}
-      {listening && <div className="mic-hint">Listening… tap ⏹ to stop</div>}
+      {listening && <div className="mic-hint">Listening… tap the stop button when done</div>}
     </div>
   )
 }

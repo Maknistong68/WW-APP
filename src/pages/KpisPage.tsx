@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { db } from '../db'
 import { getTemplate } from '../templates'
 import { scoreInspection } from '../lib/score'
+import Icon from '../components/Icon'
 import type { Inspection } from '../types'
 
 interface ContractorKpi {
@@ -58,14 +59,16 @@ export default function KpisPage() {
     <>
       <header className="app-header">
         <button className="back" onClick={() => navigate('/')} aria-label="Back">
-          ‹
+          <Icon name="chevron-left" size={26} />
         </button>
         <h1>Contractor Welfare KPIs</h1>
       </header>
       <main className="page">
         {!kpis || kpis.totalInspections === 0 ? (
           <div className="empty">
-            <p style={{ fontSize: 40, margin: 0 }}>📊</p>
+            <div className="kpi-empty-icon">
+              <Icon name="chart" size={48} />
+            </div>
             <p>
               <b>No data yet.</b>
             </p>
