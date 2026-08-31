@@ -99,6 +99,8 @@ export async function buildWord(
     text: string
     observation: string
     actionPlan: string
+    /** Inspector-chosen "no photo" note; empty = fall back to the keyword guess. */
+    chosenEvidence: string
     questionText: string
     photos: PhotoWithSize[]
   }
@@ -114,16 +116,19 @@ export async function buildWord(
         text: `${base.replace(/\.$/, '')} (Section ${question.code}).`,
         observation: resp.observation.trim(),
         actionPlan: resp.actionPlan.trim(),
+        chosenEvidence: resp.evidenceNote?.trim() ?? '',
         questionText: question.text,
         photos: byCode.get(question.code) ?? [],
       })
     }
   }
 
-  // Photo-less findings still need an evidence note: many requirements are
-  // documentary (records, training, certificates), where "no photo" really
-  // means the paperwork wasn't available — say that instead.
+  // Photo-less findings still need an evidence note. The inspector's own
+  // quick-pick (chosenEvidence) wins; otherwise guess from the question:
+  // many requirements are documentary (records, training, certificates),
+  // where "no photo" really means the paperwork wasn't available.
   const evidenceNote = (f: Finding): string => {
+    if (f.chosenEvidence) return f.chosenEvidence
     const t = `${f.questionText} ${f.observation}`.toLowerCase()
     if (/train|induction|drill|awareness/.test(t)) return 'NO TRAINING RECORDS PROVIDED'
     if (/certificat|licen[cs]e|permit|approval|accredit/.test(t)) return 'NO CERTIFICATE / LICENSE PROVIDED'

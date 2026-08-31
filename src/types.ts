@@ -42,6 +42,12 @@ export interface QuestionResponse {
   observation: string
   /** Action plan / remarks — used in the Summary sheet and the Word report. */
   actionPlan: string
+  /**
+   * Inspector-chosen note for the Word report's Photos column when a finding
+   * has no photo (e.g. "NO TRAINING RECORDS PROVIDED"). Optional — older
+   * records don't have it, and the export falls back to a keyword guess.
+   */
+  evidenceNote?: string
 }
 
 export interface GeneralInfo {
@@ -170,4 +176,16 @@ export const EMPTY_RESPONSE: QuestionResponse = {
   assessment: '',
   observation: '',
   actionPlan: '',
+  evidenceNote: '',
 }
+
+/** Quick-pick "no photo" evidence notes for the Word report's Photos column. */
+export const EVIDENCE_NOTES: string[] = [
+  'NO PHOTO EVIDENCE',
+  'NO RECORDS / LOGS PROVIDED',
+  'NO TRAINING RECORDS PROVIDED',
+  'NO CERTIFICATE / LICENSE PROVIDED',
+  'NO CONTRACT / AGREEMENT PROVIDED',
+  'NO DOCUMENTATION PROVIDED',
+  'BASED ON WORKER INTERVIEWS',
+]
