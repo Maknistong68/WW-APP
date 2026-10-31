@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
-import Cover from '../components/Cover'
-import MediaRow from '../components/MediaRow'
+import IconTile from '../components/IconTile'
+import StatusChip from '../components/StatusChip'
+import ItemRow from '../components/ItemRow'
+import CardList from '../components/CardList'
 import Modal, { ConfirmSheet } from '../components/Modal'
 import { showToast } from '../components/Toast'
 import { ROLE_LABEL, normRole, useAuthInfo, type AccessStatus, type Role } from '../lib/auth'
@@ -154,27 +156,26 @@ export default function UsersPage() {
         if (!rows.length && status !== 'pending') return null
         return (
           <div key={status}>
-            <div className="section-label">
-              {title} · {rows.length}
-            </div>
             {rows.length === 0 ? (
-              <div className="list-foot">Nobody is waiting.</div>
+              <CardList title={title} count={0}>
+                <div className="list-foot" style={{ margin: '4px 18px 16px' }}>Nobody is waiting.</div>
+              </CardList>
             ) : (
-              <div className="list">
+              <CardList title={title} count={rows.length}>
                 {rows.map((p) => {
                   const self = p.email === me.email
                   return (
-                    <MediaRow
+                    <ItemRow
                       key={p.id}
-                      cover={<Cover section="users" seed={p.email} text={p.email} size={44} round />}
+                      tile={<IconTile text={p.email} tone={status === 'pending' ? 'warn' : status === 'rejected' ? 'none' : 'info'} size={52} />}
                       title={p.email}
                       sub={`${status === 'approved' ? ROLE_LABEL[p.role] : status === 'pending' ? 'New account' : 'No access'}${self ? ' · you' : ''} · joined ${shortDate(p.created_at.slice(0, 10))}`}
-                      trail={status === 'pending' ? <span className="status-chip warn">Review</span> : undefined}
+                      trail={status === 'pending' ? <StatusChip tone="warn">Review</StatusChip> : undefined}
                       onOpen={self ? undefined : () => setOpen(p)}
                     />
                   )
                 })}
-              </div>
+              </CardList>
             )}
           </div>
         )

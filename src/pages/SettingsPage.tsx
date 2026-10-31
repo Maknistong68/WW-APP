@@ -14,6 +14,7 @@ import {
 } from '../lib/sync'
 import Icon from '../components/Icon'
 import Page from '../components/Page'
+import { useThemeMode } from '../lib/theme'
 import PasswordInput from '../components/PasswordInput'
 import { RECOVERY_KEY, authErrorText, sendPasswordReset, signInWithPassword, signUpWithPassword } from '../lib/auth'
 import { showToast } from '../components/Toast'
@@ -27,6 +28,7 @@ const fmtTime = (iso: string) => {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
+  const [themeMode, setThemeMode] = useThemeMode()
   const [config, setConfig] = useState(getSyncConfig())
   const [url, setUrl] = useState(config?.url ?? '')
   const [anonKey, setAnonKey] = useState(config?.anonKey ?? '')
@@ -221,6 +223,21 @@ export default function SettingsPage() {
 
   return (
     <Page title="Settings" back="/library" backLabel="Library">
+        <div className="section-label">Appearance</div>
+        <div className="segmented" role="radiogroup" aria-label="Appearance">
+          {(
+            [
+              ['auto', 'Auto'],
+              ['light', 'Light'],
+              ['dark', 'Dark'],
+            ] as const
+          ).map(([key, label]) => (
+            <button key={key} role="radio" aria-checked={themeMode === key} className={themeMode === key ? 'on' : ''} onClick={() => setThemeMode(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="list-foot" style={{ marginTop: -8 }}>Auto follows your phone. Light is easiest to read in the sun.</div>
         <div className="section-label">Your data</div>
         <div className="list">
           <button className="row" onClick={() => navigate('/settings/log')}>

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import Icon from './Icon'
-import Cover from './Cover'
-import MediaRow from './MediaRow'
+import IconTile from './IconTile'
+import StatusChip from './StatusChip'
+import ItemRow from './ItemRow'
+import CardList from './CardList'
 import KpiSheet, { ManpowerSheet } from './KpiSheet'
 import { addMonths, monthLabel, monthOf } from '../lib/dates'
 import { auditPctFor, type AllData } from '../lib/kpiData'
@@ -56,21 +58,15 @@ export function SubjectList({
       {shown.length === 0 ? (
         <div className="list-foot">{rows.length ? 'Nothing matches.' : 'No active work orders.'}</div>
       ) : (
-        <div className="list">
+        <CardList>
           {shown.map(({ s, done, value }) => (
-            <MediaRow
+            <ItemRow
               key={s.key}
-              cover={<Cover section="contractors" seed={s.contractor.name} text={s.contractor.name} size={44} />}
+              tile={<IconTile text={s.contractor.name} tone={done ? 'good' : 'bad'} size={52} />}
               title={s.label}
               sub={value || (done ? 'Entered' : 'Not entered')}
               trail={
-                done ? (
-                  <span className="status-chip good">
-                    <Icon name="check" size={12} strokeWidth={2.4} /> Done
-                  </span>
-                ) : (
-                  <span className="status-chip bad">Missing</span>
-                )
+                done ? <StatusChip tone="good">Done</StatusChip> : <StatusChip tone="bad">Missing</StatusChip>
               }
               onOpen={onPick ? () => onPick(s) : undefined}
               onMore={
@@ -80,7 +76,7 @@ export function SubjectList({
               }
             />
           ))}
-        </div>
+        </CardList>
       )}
     </>
   )

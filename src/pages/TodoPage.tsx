@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Page from '../components/Page'
-import Icon from '../components/Icon'
-import Cover from '../components/Cover'
+import BigCard from '../components/BigCard'
+import IconTile from '../components/IconTile'
+import StatCard from '../components/StatCard'
+import StatusChip from '../components/StatusChip'
 import { showActions } from '../components/ActionSheet'
-import { coverGradient, type Section } from '../lib/art'
+import type { IconName } from '../components/Icon'
 import { useAllData } from '../lib/kpiData'
 import { buildTodo, type TodoCard } from '../lib/todo'
-import { useLongPress } from '../lib/useLongPress'
+import { todoTone, type Tone } from '../lib/tone'
 
 /** Short names on the cards. */
 const SHORT: Record<string, string> = {
@@ -24,10 +26,25 @@ const SHORT: Record<string, string> = {
   closeout: 'Audit close-out',
 }
 
+/** One clear icon per item. */
+const ICON: Record<string, IconName> = {
+  submission: 'file-text',
+  grievance: 'ticket',
+  closure: 'activity',
+  camps: 'tent',
+  accommodation: 'bed',
+  onboarding: 'user-plus',
+  offboarding: 'sign-out',
+  formal: 'users',
+  meeting: 'calendar',
+  quarterly: 'seal',
+  closeout: 'checklist',
+}
+
 /** What each card means (shown on long-press). */
 const HELP: Record<string, string> = {
   submission: 'WPS, manpower and salary declarations from every work order. Due by the 15th of the month.',
-  grievance: 'Tickets still open. Turns red when any is older than 30 days.',
+  grievance: 'Tickets still open. Red when any is older than 30 days.',
   closure: 'Share of this month’s tickets that are closed. Flagged below 70%.',
   camps: 'Every camp is inspected once per cycle (90 days). Red when a camp is overdue.',
   accommodation: 'Accommodation score per work order this month. Uses the month’s audit when nothing is typed.',
@@ -39,165 +56,99 @@ const HELP: Record<string, string> = {
   closeout: 'Findings from the quarterly audits, to be closed out within 30 days.',
 }
 
-/** Card colour per item. */
-const ART: Record<string, Section> = {
-  submission: 'kpi',
-  grievance: 'tickets',
-  closure: 'dashboard',
-  camps: 'camps',
-  accommodation: 'money',
-  onboarding: 'contractors',
-  offboarding: 'users',
-  formal: 'library',
-  meeting: 'home',
-  quarterly: 'kpi',
-  closeout: 'closeout',
-}
+type Group = 'bad' | 'warn' | 'todo' | 'done'
+const GROUPS: { key: Group; title: string; tone: Tone }[] = [
+  { key: 'bad', title: 'Overdue', tone: 'bad' },
+  { key: 'warn', title: 'Due soon', tone: 'warn' },
+  { key: 'todo', title: 'To do', tone: 'info' },
+  { key: 'done', title: 'Done', tone: 'good' },
+]
 
-type Filter = 'all' | 'alerts' | 'todo' | 'done'
+const groupOf = (c: TodoCard): Group => (c.alert?.level === 'bad' ? 'bad' : c.alert?.level === 'warn' ? 'warn' : c.todo > 0 ? 'todo' : 'done')
 
-const greeting = () => {
-  const h = new Date().getHours()
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
-}
-
-const toneOf = (c: TodoCard) => c.alert?.level ?? (c.todo === 0 ? 'done' : 'todo')
-
-function openSheet(c: TodoCard, go: () => void) {
-  showActions({
-    title: SHORT[c.key] ?? c.title,
-    sub: c.alert ? `${c.alert.text} · ${c.detail}` : c.detail,
-    cover: <Cover section={ART[c.key] ?? 'home'} seed={c.key} icon={c.icon} size={56} />,
-    note: HELP[c.key],
-    actions: [{ label: c.todo ? 'Open and fix' : 'Open', icon: 'arrow-right', onSelect: go }],
-  })
-}
-
-/** The one big card: the most urgent thing right now. */
-function UpNext({ c }: { c: TodoCard | undefined }) {
+function Item({ c }: { c: TodoCard }) {
   const navigate = useNavigate()
-  const press = useLongPress(c ? () => openSheet(c, () => navigate(c.to)) : undefined)
-  if (!c) {
-    return (
-      <div className="upnext calm" style={{ background: coverGradient('home', 'calm') }}>
-        <Icon name="check-circle" size={40} fill />
-        <div className="upnext-title">All clear</div>
-        <div className="upnext-sub">Nothing needs you right now.</div>
-      </div>
-    )
-  }
-  const tone = toneOf(c)
-  return (
-    <div
-      className="upnext"
-      role="button"
-      tabIndex={0}
-      style={{ background: coverGradient(ART[c.key] ?? 'home', c.key) }}
-      onClick={() => navigate(c.to)}
-      onKeyDown={(e) => e.key === 'Enter' && navigate(c.to)}
-      {...press}
-    >
-      <div className="upnext-kicker">Up next</div>
-      <div className="upnext-row">
-        <div className="upnext-text">
-          <div className="upnext-title">{SHORT[c.key] ?? c.title}</div>
-          <div className="upnext-sub">{c.detail}</div>
-          {c.alert && <span className={`status-chip ${tone} solid`}>{c.alert.text}</span>}
-        </div>
-        <button
-          className="play-btn"
-          aria-label={`Open ${SHORT[c.key] ?? c.title}`}
-          onClick={(e) => {
-            e.stopPropagation()
-            navigate(c.to)
-          }}
-        >
-          <Icon name="arrow-right" size={26} strokeWidth={2.4} />
-        </button>
-      </div>
-      <span className="upnext-icon" aria-hidden="true">
-        <Icon name={c.icon} size={120} fill />
-      </span>
-    </div>
-  )
-}
-
-/** A card in the grid: cover art with the count, the name under it. */
-function Card({ c, index }: { c: TodoCard; index: number }) {
-  const navigate = useNavigate()
-  const press = useLongPress(() => openSheet(c, () => navigate(c.to)))
-  const tone = toneOf(c)
+  const tone = todoTone(c)
   const name = SHORT[c.key] ?? c.title
+  const icon = ICON[c.key] ?? c.icon
+  const go = () => navigate(c.to)
   return (
-    <button
-      className="hcard"
-      style={{ animationDelay: `${Math.min(index, 11) * 30}ms` }}
-      aria-label={`${name}: ${c.todo === 0 ? 'done' : c.detail}${c.alert ? ` (${c.alert.text})` : ''}`}
-      onClick={() => navigate(c.to)}
-      {...press}
-    >
-      <span className="hcard-art" style={{ background: coverGradient(ART[c.key] ?? 'home', c.key) }}>
-        <Icon name={c.icon} size={34} fill />
-        {c.todo > 0 ? (
-          <span className={`hcard-badge ${tone}`}>{c.todo > 99 ? '99+' : c.todo}</span>
-        ) : (
-          <span className="hcard-badge done">
-            <Icon name="check" size={14} strokeWidth={2.4} />
-          </span>
-        )}
-      </span>
-      <span className="hcard-name">{name}</span>
-      <span className={`hcard-sub ${tone}`}>{c.alert ? c.alert.text : c.todo === 0 ? 'Done' : `${c.todo} to do`}</span>
-    </button>
+    <BigCard
+      tile={<IconTile icon={c.todo === 0 ? 'check-circle' : icon} tone={tone} size={64} />}
+      title={name}
+      sub={c.detail}
+      count={c.todo > 0 ? (c.todo > 99 ? '99+' : c.todo) : undefined}
+      countTone={tone}
+      label={`${name}: ${c.todo === 0 ? 'done' : c.detail}${c.alert ? ` (${c.alert.text})` : ''}`}
+      onOpen={go}
+      onMore={() =>
+        showActions({
+          title: name,
+          sub: c.alert ? `${c.alert.text} · ${c.detail}` : c.detail,
+          cover: <IconTile icon={icon} tone={tone} size={52} />,
+          note: HELP[c.key],
+          actions: [{ label: c.todo ? 'Open and fix' : 'Open', icon: 'arrow-right', onSelect: go }],
+        })
+      }
+    />
   )
 }
 
 /** Home: what needs doing this month, the most urgent first. */
 export default function TodoPage() {
   const d = useAllData()
-  const [filter, setFilter] = useState<Filter>('all')
+  const [only, setOnly] = useState<Group | null>(null)
+  const [showDone, setShowDone] = useState(false)
   const cards = useMemo(() => (d.loaded ? buildTodo(d) : []), [d])
-  const counts = {
-    alerts: cards.filter((c) => c.alert).length,
-    todo: cards.filter((c) => c.todo > 0).length,
-    done: cards.filter((c) => c.todo === 0).length,
-  }
-  const shown = cards.filter((c) =>
-    filter === 'alerts' ? !!c.alert : filter === 'todo' ? c.todo > 0 : filter === 'done' ? c.todo === 0 : true,
-  )
-  const next = cards.find((c) => c.alert) ?? cards.find((c) => c.todo > 0)
+  const count = (g: Group) => cards.filter((c) => groupOf(c) === g).length
   const date = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+  const toggle = (g: Group) => setOnly((o) => (o === g ? null : g))
 
   return (
-    <Page title={greeting()} section="home">
-      <div className="home-date">
-        {date}
-        {d.loaded ? ` · ${counts.alerts ? `${counts.alerts} need attention` : 'nothing urgent'}` : ''}
-      </div>
-      {d.loaded ? <UpNext c={next} /> : <div className="upnext skeleton" />}
+    <Page title="Today">
+      <div className="today-date">{date}</div>
 
-      <div className="segmented" role="tablist" aria-label="Show">
-        {(
-          [
-            ['all', 'All', cards.length],
-            ['alerts', 'Alerts', counts.alerts],
-            ['todo', 'To do', counts.todo],
-            ['done', 'Done', counts.done],
-          ] as const
-        ).map(([key, label, n]) => (
-          <button key={key} role="tab" aria-selected={filter === key} className={filter === key ? 'on' : ''} onClick={() => setFilter(key)}>
-            {label} {d.loaded && <b>{n}</b>}
-          </button>
-        ))}
+      <div className="stats">
+        <StatCard icon="alert" tone="bad" value={d.loaded ? count('bad') : '–'} label="Overdue" active={only === 'bad'} onClick={() => toggle('bad')} />
+        <StatCard icon="clock" tone="warn" value={d.loaded ? count('warn') : '–'} label="Due soon" active={only === 'warn'} onClick={() => toggle('warn')} />
+        <StatCard icon="check-circle" tone="good" value={d.loaded ? count('done') : '–'} label="Done" active={only === 'done'} onClick={() => toggle('done')} />
       </div>
 
-      <div className="hgrid">
-        {d.loaded
-          ? shown.map((c, i) => <Card key={c.key} c={c} index={i} />)
-          : Array.from({ length: 6 }, (_, i) => <div key={i} className="hcard skeleton" />)}
+      {!d.loaded ? (
+        <div className="today-list" style={{ marginTop: 22 }}>
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="skeleton" style={{ height: 96 }} />
+          ))}
+        </div>
+      ) : (
+        GROUPS.filter((g) => !only || only === g.key).map((g) => {
+          const items = cards.filter((c) => groupOf(c) === g.key)
+          if (!items.length) return null
+          const collapsed = g.key === 'done' && !only && !showDone
+          return (
+            <section key={g.key} className="today-group">
+              <h2>
+                {g.title} <StatusChip tone={g.tone}>{items.length}</StatusChip>
+              </h2>
+              {collapsed ? (
+                <button className="show-more" onClick={() => setShowDone(true)}>
+                  Show {items.length} done
+                </button>
+              ) : (
+                <div className="today-list stagger">
+                  {items.map((c) => (
+                    <Item key={c.key} c={c} />
+                  ))}
+                </div>
+              )}
+            </section>
+          )
+        })
+      )}
+      {d.loaded && !count('bad') && !count('warn') && !only && <div className="list-foot">Nothing overdue. Good work.</div>}
+      <div className="list-foot" style={{ textAlign: 'center', marginTop: 20 }}>
+        Hold a card to see what it means.
       </div>
-      {d.loaded && shown.length === 0 && <div className="list-foot">Nothing here.</div>}
-      <div className="list-foot hint">Hold a card to see what it means.</div>
     </Page>
   )
 }

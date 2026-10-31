@@ -1,0 +1,29 @@
+.chart-card { padding: 16px 16px 12px; margin-bottom: 14px; position: relative; }
+.chart-title { font-size: 18px; font-weight: 800; }
+.chart-sub { font-size: 14px; color: var(--muted); margin-bottom: 10px; }
+.chart-svg { display: block; width: 100%; touch-action: pan-y; overflow: visible; }
+.chart-svg .grid { stroke: var(--grid); stroke-width: 1; }
+.chart-svg .axis-text { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chart-svg .line { stroke: var(--chart); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.chart-svg .area { fill: var(--chart); opacity: 0.1; }
+.chart-svg .dot { fill: var(--chart); stroke: var(--card); stroke-width: 2; }
+.chart-svg .cross { stroke: var(--muted); stroke-width: 1; }
+.chart-svg .end-label { fill: var(--text); font-size: 12px; font-weight: 700; }
+.chart-svg .col.s0 { fill: var(--chart); }
+.chart-svg .col.s1 { fill: var(--chart-2); }
+.chart-svg .hover-band { fill: var(--press); opacity: 0.8; }
+.chart-legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); margin: -2px 0 6px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.chart-legend .swatch.s0 { background: var(--chart); }
+.chart-legend .swatch.s1 { background: var(--chart-2); }
+.chart-tip {
+  position: absolute; top: 44px; transform: translateX(-50%); pointer-events: none; white-space: nowrap;
+  background: var(--text); color: var(--bg); font-size: 13px; font-weight: 700; padding: 5px 9px; border-radius: 10px; font-variant-numeric: tabular-nums;
+}
+.bars { display: flex; flex-direction: column; gap: 12px; }
+.bar-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; font-size: 15px; }
+.bar-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.bar-value { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.bar-track { grid-column: 1 / -1; height: 10px; border-radius: 5px; background: var(--bg); }
+.bar-fill { height: 10px; background: var(--chart); border-radius: 5px; min-width: 4px; }

@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Cover from '../components/Cover'
-import MediaRow from '../components/MediaRow'
+import IconTile from '../components/IconTile'
+import StatusChip from '../components/StatusChip'
+import { closeoutTone } from '../lib/tone'
+import ItemRow from '../components/ItemRow'
+import CardList from '../components/CardList'
 import { showActions } from '../components/ActionSheet'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
@@ -14,23 +17,22 @@ import { useAllData } from '../lib/kpiData'
 import { kpiSubjects } from '../lib/subjects'
 
 
-const CHIP = { overdue: 'bad', due: 'warn', open: '', closed: 'good' } as const
 
 function Row({ c, onOpen }: { c: Closeout; onOpen?: () => void }) {
   const navigate = useNavigate()
   const sub = `${closeoutText(c, shortDate)} · audit ${c.kpi.auditDate ? shortDate(c.kpi.auditDate) : monthLabel(c.kpi.month)}`
   return (
-    <MediaRow
-      cover={<Cover section="closeout" seed={c.subject.contractor.name} text={c.subject.contractor.name} size={48} />}
+    <ItemRow
+      tile={<IconTile icon="seal" tone={closeoutTone(c.status)} size={52} />}
       title={c.subject.label}
       sub={sub}
-      trail={<span className={`status-chip ${CHIP[c.status]}`}>{pct(c.pct)}</span>}
+      trail={<StatusChip tone={closeoutTone(c.status)}>{pct(c.pct)}</StatusChip>}
       onOpen={onOpen}
       onMore={() =>
         showActions({
           title: c.subject.label,
           sub,
-          cover: <Cover section="closeout" seed={c.subject.contractor.name} text={c.subject.contractor.name} size={56} />,
+          cover: <IconTile icon="seal" tone={closeoutTone(c.status)} size={52} />,
           note: c.kpi.quarterlyAuditPct != null ? `Audit score ${pct(c.kpi.quarterlyAuditPct)}.` : undefined,
           actions: [
             ...(onOpen ? [{ label: 'Update closed findings', icon: 'pencil' as const, onSelect: onOpen, edit: true }] : []),
@@ -80,24 +82,22 @@ export default function CloseoutPage() {
         </div>
       ) : (
         <>
-          <div className="section-label">To close out · {open.length}</div>
           {open.length === 0 ? (
             <div className="list-foot">Every finding is closed out.</div>
           ) : (
-            <div className="list">
+            <CardList title="To close out" count={open.length}>
               {open.map((c) => (
                 <Row key={c.kpi.uuid} c={c} onOpen={canEdit ? () => setEditing(c) : undefined} />
               ))}
-            </div>
+            </CardList>
           )}
           {done.length > 0 && (
             <>
-              <div className="section-label">Closed</div>
-              <div className="list">
+              <CardList title="Closed" count={done.length}>
                 {done.map((c) => (
                   <Row key={c.kpi.uuid} c={c} onOpen={canEdit ? () => setEditing(c) : undefined} />
                 ))}
-              </div>
+              </CardList>
             </>
           )}
           {canEdit && <div className="list-foot">Tap one to update how many findings are closed.</div>}

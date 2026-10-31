@@ -8,7 +8,9 @@ import { showToast } from '../components/Toast'
 import TrendLine from '../components/charts/TrendLine'
 import BarList from '../components/charts/BarList'
 import MonthBars from '../components/charts/MonthBars'
-import MediaRow from '../components/MediaRow'
+import ItemRow from '../components/ItemRow'
+import CardList from '../components/CardList'
+import IconTile from '../components/IconTile'
 import { showActions } from '../components/ActionSheet'
 import { TicketRow, ticketSub } from './TicketsPage'
 import {
@@ -280,20 +282,19 @@ export default function DashboardPage() {
             />
           </div>
 
-          <div className="section-label">Needs attention</div>
           {attention.length === 0 ? (
-            <div className="list-foot">Nothing urgent.</div>
+            <CardList title="Needs attention">
+              <div className="list-foot" style={{ margin: '4px 18px 16px' }}>Nothing urgent.</div>
+            </CardList>
           ) : (
-            <div className="list">
+            <CardList title="Needs attention" count={attention.length}>
               {attention.map((a) => (
-                <MediaRow
+                <ItemRow
                   key={a.key}
-                  cover={
-                    <span className={`attn-ico ${a.tone}`} aria-label={a.tone === 'bad' ? 'Urgent' : 'Soon'}>
-                      <Icon name={a.tone === 'bad' ? 'alert' : 'clock'} size={22} fill />
-                    </span>
-                  }
-                  title={<span style={{ whiteSpace: 'normal' }}>{a.text}</span>}
+                  wrap
+                  tile={<IconTile icon={a.tone === 'bad' ? 'alert' : 'clock'} tone={a.tone} size={52} />}
+                  title={a.text}
+                  sub={a.tone === 'bad' ? 'Overdue' : 'Due soon'}
                   onOpen={() => navigate(a.to)}
                   onMore={() =>
                     showActions({
@@ -312,7 +313,7 @@ export default function DashboardPage() {
                   }
                 />
               ))}
-            </div>
+            </CardList>
           )}
 
           <Card title="Open system tickets" sub={`Per week · ${trend.length} weeks`}>

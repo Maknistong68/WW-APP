@@ -3,27 +3,28 @@ import Icon from './Icon'
 import { useLongPress } from '../lib/useLongPress'
 
 /**
- * Spotify-style row: cover, title, muted subtitle, trailing info and a ⋯
- * button. Tap opens; long-press or ⋯ opens the quick-action sheet.
+ * A list row inside a CardList: big tile, bold title, muted meta, trailing
+ * status and a ⋯ button. Tap opens; long-press or ⋯ opens the quick actions.
  */
-export default function MediaRow({
-  cover,
+export default function ItemRow({
+  tile,
   title,
   sub,
   trail,
   onOpen,
   onMore,
   selected,
-  className = '',
+  wrap = false,
 }: {
-  cover?: ReactNode
+  tile?: ReactNode
   title: ReactNode
   sub?: ReactNode
   trail?: ReactNode
   onOpen?: () => void
   onMore?: () => void
   selected?: boolean
-  className?: string
+  /** Let the title wrap to two lines instead of cutting it. */
+  wrap?: boolean
 }) {
   const press = useLongPress(onMore)
   const onKey = (e: KeyboardEvent) => {
@@ -34,7 +35,7 @@ export default function MediaRow({
   }
   return (
     <div
-      className={`mrow${onOpen ? ' tappable' : ''}${selected ? ' selected' : ''} ${className}`}
+      className={`irow${onOpen ? ' tappable' : ''}${selected ? ' selected' : ''}${wrap ? ' wrap' : ''}`}
       role={onOpen ? 'button' : undefined}
       tabIndex={onOpen ? 0 : undefined}
       aria-pressed={selected}
@@ -42,15 +43,15 @@ export default function MediaRow({
       onKeyDown={onOpen ? onKey : undefined}
       {...press}
     >
-      {cover}
-      <div className="mrow-main">
-        <div className="mrow-title">{title}</div>
-        {sub && <div className="mrow-sub">{sub}</div>}
+      {tile}
+      <div className="irow-main">
+        <div className="irow-title">{title}</div>
+        {sub && <div className="irow-sub">{sub}</div>}
       </div>
       {trail}
-      {onMore && (
+      {onMore ? (
         <button
-          className="mrow-more"
+          className="irow-more"
           aria-label="More actions"
           onClick={(e) => {
             e.stopPropagation()
@@ -59,7 +60,9 @@ export default function MediaRow({
         >
           <Icon name="dots" size={22} strokeWidth={2.4} />
         </button>
-      )}
+      ) : onOpen ? (
+        <Icon name="chevron-right" size={18} className="irow-chev" />
+      ) : null}
     </div>
   )
 }

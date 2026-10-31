@@ -2,8 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
-import Cover from '../components/Cover'
-import MediaRow from '../components/MediaRow'
+import IconTile from '../components/IconTile'
+import StatusChip from '../components/StatusChip'
+import { campTone } from '../lib/tone'
+import ItemRow from '../components/ItemRow'
+import CardList from '../components/CardList'
 import CampSheet from '../components/CampSheet'
 import { showActions } from '../components/ActionSheet'
 import { newUuid } from '../db'
@@ -16,7 +19,6 @@ import type { Camp } from '../types'
 export const ago = (days: number) => (days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`)
 
 export const TONE: Record<CampStatus, string> = { ok: 'ok', due: 'risk', expired: 'late', never: 'late' }
-const CHIP: Record<CampStatus, string> = { ok: 'good', due: 'warn', expired: 'bad', never: 'bad' }
 const CHIP_LABEL: Record<CampStatus, string> = { ok: 'Up to date', due: 'Due soon', expired: 'Overdue', never: 'Never' }
 const RANK: Record<CampStatus, number> = { never: 0, expired: 1, due: 2, ok: 3 }
 
@@ -78,22 +80,18 @@ export default function CampsPage() {
         </div>
       ) : (
         <>
-          <div className="section-label">
-            {rows.length} camp{rows.length === 1 ? '' : 's'}
-            {expired ? ` · ${expired} expired` : ''}
-          </div>
-          <div className="list">
+          <CardList title={`${rows.length} camp${rows.length === 1 ? '' : 's'}${expired ? ` · ${expired} overdue` : ''}`}>
             {rows.map(({ c, s }) => (
-              <MediaRow
+              <ItemRow
                 key={c.uuid}
-                cover={<Cover section="camps" seed={c.name} icon="tent" size={48} />}
+                tile={<IconTile icon="tent" tone={c.active ? campTone(s.status) : 'none'} size={52} />}
                 title={c.name}
                 sub={[s.lastDate ? `Last ${shortDate(s.lastDate)} · ${ago(s.daysSince ?? 0)}` : '', d.byUuid.get(c.contractorUuid)?.name ?? '', c.location]
                   .filter(Boolean)
                   .join(' · ') || 'No inspection yet'}
                 trail={
                   c.active ? (
-                    <span className={`status-chip ${CHIP[s.status]}`}>{CHIP_LABEL[s.status]}</span>
+                    <StatusChip tone={campTone(s.status)}>{CHIP_LABEL[s.status]}</StatusChip>
                   ) : (
                     <span className="row-trail">Inactive</span>
                   )
@@ -103,7 +101,7 @@ export default function CampsPage() {
                   showActions({
                     title: c.name,
                     sub: s.lastDate ? `Last inspected ${shortDate(s.lastDate)}` : 'Never inspected',
-                    cover: <Cover section="camps" seed={c.name} icon="tent" size={56} />,
+                    cover: <IconTile icon="tent" tone={campTone(s.status)} size={52} />,
                     actions: [
                       { label: 'Start inspection', icon: 'play', onSelect: () => navigate(`/new/accommodation?camp=${c.uuid}`), edit: true },
                       { label: 'Open inspection log', icon: 'clipboard', onSelect: () => navigate(`/camps/${c.uuid}`) },
@@ -113,7 +111,7 @@ export default function CampsPage() {
                 }
               />
             ))}
-          </div>
+          </CardList>
         </>
       )}
 

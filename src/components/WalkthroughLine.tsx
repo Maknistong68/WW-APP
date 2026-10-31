@@ -6,17 +6,23 @@ import {
   type WalkStatus,
   type WalkthroughLine as Line,
 } from '../types'
-import Icon from './Icon'
+import Icon, { type IconName } from './Icon'
 import { EvidenceChips } from './QuestionItem'
 import ObservationChips from './ObservationChips'
 import PhotoThumb from './PhotoThumb'
 import VoiceTextarea from './VoiceTextarea'
 
 const STATUS_LABEL: Record<WalkStatus, string> = {
-  ok: '✓ OK',
-  partial: '◐ Partial',
-  obs: '✗ OBS',
+  ok: 'OK',
+  partial: 'Partial',
+  obs: 'OBS',
   na: 'N/A',
+}
+const STATUS_ICON: Record<WalkStatus, IconName> = {
+  ok: 'check-circle',
+  partial: 'half',
+  obs: 'x-circle',
+  na: 'minus-circle',
 }
 const STATUS_CLASS: Record<WalkStatus, string> = {
   ok: 'sel-full',
@@ -86,13 +92,15 @@ export default function WalkthroughLine({
           {status === 'mixed' && <span className="badge draft" style={{ marginLeft: 6 }}>mixed</span>}
         </span>
       </button>
-      <div className="result-btns">
+      <div className="result-btns four">
         {(Object.keys(STATUS_LABEL) as WalkStatus[]).map((s) => (
           <button
             key={s}
             className={status === s ? STATUS_CLASS[s] : ''}
+            aria-pressed={status === s}
             onClick={() => onStatus(s)}
           >
+            <Icon name={STATUS_ICON[s]} size={22} fill={status === s} />
             {STATUS_LABEL[s]}
           </button>
         ))}

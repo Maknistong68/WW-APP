@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Icon, { type IconName } from './Icon'
+import { type IconName } from './Icon'
 import Modal from './Modal'
-import Cover from './Cover'
+import IconTile from './IconTile'
+import CardList from './CardList'
+import ItemRow from './ItemRow'
+import { campTone } from '../lib/tone'
 import TicketSheet from './TicketSheet'
 import CampSheet from './CampSheet'
 import { MonthStepper, SubjectEditor, SubjectList } from './SubjectPicker'
@@ -29,7 +32,6 @@ const CHOICES: { key: 'ticket' | 'kpi' | 'inspection' | 'camp'; label: string; s
 ]
 
 const RANK = { never: 0, expired: 1, due: 2, ok: 3 } as const
-const CREATE_SECTION = { ticket: 'tickets', kpi: 'kpi', inspection: 'camps', camp: 'money' } as const
 
 /** Create sheet (tab bar +): ticket, KPI month, inspection or camp. */
 export default function AddButton() {
@@ -75,7 +77,7 @@ export default function AddButton() {
             <div className="create-grid">
               {CHOICES.map((c) => (
                 <button key={c.key} className="create-card" onClick={() => choose(c.key)}>
-                  <Cover section={CREATE_SECTION[c.key]} icon={c.icon} size={52} />
+                  <IconTile icon={c.icon} tone="info" size={52} />
                   <span className="create-label">{c.label}</span>
                   <span className="create-sub">{c.sub}</span>
                 </button>
@@ -157,26 +159,18 @@ function InspectionStep({ onPick, onClose }: { onPick: (campUuid?: string) => vo
   return (
     <Modal title="Inspection · pick a camp" onClose={onClose}>
       <div className="sheet-body">
-        <div className="list">
+        <CardList>
           {camps.map(({ c, st }) => (
-            <button key={c.uuid} className="row" onClick={() => onPick(c.uuid)}>
-              <span className={`status-dot ${st.status === 'ok' ? 'good' : st.status === 'due' ? 'warn' : 'bad'}`} />
-              <span className="row-main">
-                <div className="row-title">{c.name}</div>
-                <div className="row-sub">
-                  {CAMP_STATUS_LABEL[st.status]}
-                  {st.daysSince !== null ? ` · last ${st.daysSince}d ago` : ''}
-                </div>
-              </span>
-              <span className="row-chev">
-                <Icon name="chevron-right" size={18} />
-              </span>
-            </button>
+            <ItemRow
+              key={c.uuid}
+              tile={<IconTile icon="tent" tone={campTone(st.status)} size={52} />}
+              title={c.name}
+              sub={`${CAMP_STATUS_LABEL[st.status]}${st.daysSince !== null ? ` · last ${st.daysSince}d ago` : ''}`}
+              onOpen={() => onPick(c.uuid)}
+            />
           ))}
-          <button className="row tint" onClick={() => onPick()}>
-            No camp · other site
-          </button>
-        </div>
+          <ItemRow tile={<IconTile icon="map-pin" tone="none" size={52} />} title="No camp" sub="Other site" onOpen={() => onPick()} />
+        </CardList>
       </div>
     </Modal>
   )

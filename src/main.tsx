@@ -6,7 +6,15 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { requestPersistentStorage } from './db'
 import './lib/installPrompt'
 import '@fontsource-variable/figtree'
-import './styles.css'
+import './styles/tokens.css'
+import './styles/base.css'
+import './styles/shell.css'
+import './styles/components.css'
+import './styles/screens.css'
+import './styles/charts.css'
+import './styles/inspection.css'
+import './styles/motion.css'
+import { initTheme } from './lib/theme'
 
 registerSW({ immediate: true })
 
@@ -27,6 +35,7 @@ if (window.location.hash.startsWith('#error=')) {
   window.location.hash = '#/settings'
 }
 void requestPersistentStorage()
+initTheme()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

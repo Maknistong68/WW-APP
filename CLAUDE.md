@@ -18,8 +18,9 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
   controls via `useAuthInfo().canEdit`. An admin cannot change their own role.
 - No Import and no bulk KPI entry: the history is already in Supabase. New data comes from the
   one + button (`src/components/AddButton.tsx`); Home tiles open `/missing/:item` lists.
-- Short, simple UI wording. Dark, Spotify-inspired design: follow `docs/DESIGN.md` (tokens,
-  MediaRow / AlbumHeader / long-press sheets, motion rules).
+- Short, simple UI wording. "Field tool" design: light by default (dark follows the phone),
+  colour = status only, big rounded cards and icon tiles. Follow `docs/DESIGN.md`; styles live in
+  `src/styles/` (tokens.css first), tone rules in `src/lib/tone.ts`.
 
 ## Checks before pushing
 ```bash

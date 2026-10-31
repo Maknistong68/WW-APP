@@ -22,8 +22,8 @@ export default defineConfig({
         short_name: 'WW Inspect',
         description:
           'Offline-first worker welfare inspection & audit checklists with photo observations and Excel/Word export.',
-        theme_color: '#121212',
-        background_color: '#121212',
+        theme_color: '#F2F4F3',
+        background_color: '#F2F4F3',
         display: 'standalone',
         orientation: 'portrait',
         start_url: './',

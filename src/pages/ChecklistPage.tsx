@@ -772,19 +772,27 @@ export default function ChecklistPage() {
                 {(walkthrough ?? []).map((area, ai) => {
                   const answeredLines = area.lines.filter(lineFullyAnswered).length
                   const open = openAreas[ai] ?? false
+                  const areaFlagged = area.lines.some((l) => l.codes.some((c) => isFlagged(inspection.responses[c])))
+                  const areaTone = areaFlagged
+                    ? 'bad'
+                    : answeredLines === area.lines.length
+                      ? 'good'
+                      : answeredLines > 0
+                        ? 'warn'
+                        : ''
                   return (
                     <div key={ai} id={`area-${ai}`} className="card section-card">
                       <button
                         className="section-head"
                         onClick={() => setOpenAreas((o) => ({ ...o, [ai]: !open }))}
                       >
-                        <span className="chev">
-                          <Icon name={open ? 'chevron-down' : 'chevron-right'} size={18} />
-                        </span>
-                        <span className="letter">{ai + 1}</span>
-                        {area.title}
+                        <span className={`letter ${areaTone}`}>{ai + 1}</span>
+                        <span className="section-title">{area.title}</span>
                         <span className="counts">
                           {answeredLines}/{area.lines.length}
+                        </span>
+                        <span className="chev">
+                          <Icon name={open ? 'chevron-down' : 'chevron-right'} size={20} />
                         </span>
                       </button>
                       {open && area.lines.map((line, li) => renderWalkLine(ai, li, line))}
@@ -819,19 +827,26 @@ export default function ChecklistPage() {
                   isAnswered(inspection.responses[qq.code]),
                 ).length
                 const open = openSections[section.letter] ?? false
+                const sectionTone = section.questions.some((qq) => isFlagged(inspection.responses[qq.code]))
+                  ? 'bad'
+                  : sectionAnswered === section.questions.length
+                    ? 'good'
+                    : sectionAnswered > 0
+                      ? 'warn'
+                      : ''
                 return (
                   <div key={section.letter} id={`section-${section.letter}`} className="card section-card">
                     <button
                       className="section-head"
                       onClick={() => setOpenSections((o) => ({ ...o, [section.letter]: !open }))}
                     >
-                      <span className="chev">
-                        <Icon name={open ? 'chevron-down' : 'chevron-right'} size={18} />
-                      </span>
-                      <span className="letter">{section.letter}</span>
-                      {section.title}
+                      <span className={`letter ${sectionTone}`}>{section.letter}</span>
+                      <span className="section-title">{section.title}</span>
                       <span className="counts">
                         {sectionAnswered}/{section.questions.length}
+                      </span>
+                      <span className="chev">
+                        <Icon name={open ? 'chevron-down' : 'chevron-right'} size={20} />
                       </span>
                     </button>
                     {open && section.questions.map((qq) => renderQuestion(qq.code))}

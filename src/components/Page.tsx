@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { openSidebar } from './Sidebar'
 import { useAuthInfo } from '../lib/auth'
-import { glowStyle, sectionOf, type Section } from '../lib/art'
 
 /**
- * Screen frame: the section's colour glows down from the top and fades into
- * the background; a big title; the bar turns solid with a small title once
- * you scroll. Top-level screens show your avatar (opens the profile drawer),
- * others a round back button.
+ * Screen frame: big title; the bar gets a hairline and a small title once you
+ * scroll. Main screens show your avatar (opens the profile drawer), others a
+ * round back button.
  */
 export default function Page({
   title,
@@ -17,7 +15,6 @@ export default function Page({
   backLabel = 'Back',
   actions,
   large = true,
-  section,
   album = false,
   children,
 }: {
@@ -27,8 +24,8 @@ export default function Page({
   backLabel?: string
   actions?: ReactNode
   large?: boolean
-  /** Colour of the header glow; defaults to the route's section. */
-  section?: Section
+  /** Kept for old call sites (no effect). */
+  section?: string
   /** Detail screen with its own big header in the body: no large title, bar still turns solid on scroll. */
   album?: boolean
   /** Kept for old call sites. */
@@ -36,12 +33,10 @@ export default function Page({
   children: ReactNode
 }) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
   const me = useAuthInfo()
   const sentinel = useRef<HTMLDivElement>(null)
   const watch = large || album
   const [compact, setCompact] = useState(!watch)
-  const tone = section ?? sectionOf(pathname)
 
   useEffect(() => {
     if (!watch) return
@@ -54,7 +49,6 @@ export default function Page({
 
   return (
     <div className="screen">
-      <div className="screen-glow" style={glowStyle(tone)} aria-hidden="true" />
       <header className={`nav-bar${compact ? ' compact' : ''}`}>
         <div className="nav-side">
           {back ? (

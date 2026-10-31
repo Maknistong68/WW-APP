@@ -7,7 +7,7 @@ import ContractorSheet, { WorkOrderSheet } from '../components/ContractorSheet'
 import KpiSheet, { ManpowerSheet, emptyKpi, emptyManpower } from '../components/KpiSheet'
 import { showToast } from '../components/Toast'
 import { TicketRow } from './TicketsPage'
-import { isOpen } from '../lib/aging'
+import { ageDays, isOpen } from '../lib/aging'
 import { addMonths, monthLabel, monthOf, shortDate } from '../lib/dates'
 import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
 import { auditPctFor, kpiForSubject, rollup, useAllData } from '../lib/kpiData'
@@ -17,8 +17,11 @@ import { subjectKpi, subjectManpower, type KpiSubject } from '../lib/subjects'
 import { newWorkOrder } from '../lib/useData'
 import type { WorkOrder } from '../types'
 import { useAuthInfo } from '../lib/auth'
-import AlbumHeader from '../components/AlbumHeader'
-import Cover from '../components/Cover'
+import Summary from '../components/Summary'
+import IconTile from '../components/IconTile'
+import StatusChip from '../components/StatusChip'
+import ActionBar from '../components/ActionBar'
+import { kpiTone } from '../lib/tone'
 
 function Ring({ value, status }: { value: number | null; status: string }) {
   const r = 30
@@ -105,27 +108,38 @@ export default function ContractorDetailPage() {
 
   return (
     <Page title={c.name} back="/contractors" backLabel="Contractors" album>
-      <AlbumHeader
-        cover={<Cover section="contractors" seed={c.name} text={c.name} size={156} />}
+      <Summary
+        tile={<IconTile text={c.name} tone={c.active ? kpiTone(topResult.status) : 'none'} size={64} />}
         title={c.name}
-        sub={`${data.wos.length} work order${data.wos.length === 1 ? '' : 's'} · ${open.length} open ticket${open.length === 1 ? '' : 's'}`}
-        meta={
-          <>
-            <span className={`status-chip ${c.active ? (topResult.status === 'none' ? '' : topResult.status) : ''}`}>
-              {c.active ? `KPI ${pct(topResult.overall)}` : 'Inactive'}
-            </span>
-            <span>{monthLabel(month)}</span>
-          </>
+        sub={c.active ? `KPI · ${monthLabel(month)}` : 'Inactive — not scored'}
+        chips={
+          c.active ? (
+            <StatusChip tone={kpiTone(topResult.status)}>{STATUS_LABEL[topResult.status]}</StatusChip>
+          ) : (
+            <StatusChip tone="none">Inactive</StatusChip>
+          )
         }
-        buttons={[
-          ...(canEdit ? [{ icon: 'pencil' as const, label: 'Edit contractor', onClick: () => setSheet('edit') }] : []),
-          ...(canEdit ? [{ icon: 'user-plus' as const, label: 'Add work order', onClick: () => setWoSheet(newWorkOrder(c.uuid)) }] : []),
+        facts={[
+          { label: 'Overall KPI', value: pct(topResult.overall), tone: topResult.status === 'none' ? undefined : topResult.status },
+          { label: 'Work orders', value: `${data.wos.filter((w) => w.active).length} / ${data.wos.length}` },
+          { label: 'Open tickets', value: open.length, tone: open.some((t) => ageDays(t) > 30) ? 'bad' : undefined },
+          { label: 'Formal workers', value: pct(topResult.formal) },
         ]}
+      />
+      <ActionBar
+        secondary={
+          canEdit
+            ? [
+                { icon: 'pencil', label: 'Edit contractor', onClick: () => setSheet('edit') },
+                { icon: 'user-plus', label: 'Add work order', onClick: () => setWoSheet(newWorkOrder(c.uuid)) },
+              ]
+            : []
+        }
         primary={
           canEdit && data.subjects.length > 0
             ? {
                 icon: 'gauge',
-                label: `Score ${monthLabel(month)}`,
+                label: `Score ${monthLabel(month).slice(0, 3)}${chosen?.workOrder ? ` · WO ${chosen.workOrder.number}` : ''}`,
                 onClick: () => {
                   if (!chosen && data.subjects.length > 1) {
                     showToast({ text: 'Pick a work order below, then score it' })

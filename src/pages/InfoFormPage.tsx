@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, logEvent, newUuid } from '../db'
 import { getTemplate } from '../templates'
 import Icon from '../components/Icon'
+import ActionBar from '../components/ActionBar'
 import { showToast } from '../components/Toast'
 import type { Camp, GeneralInfo, Inspection } from '../types'
 
@@ -93,6 +94,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
 
   const [existing, setExisting] = useState<Inspection | null>(null)
   const restoredDraft = useRef(false)
+  const formRef = useRef<HTMLFormElement>(null)
   const dirty = useRef(false)
   const [info, setInfo] = useState<GeneralInfo>(() => {
     if (mode === 'new' && templateId) {
@@ -275,7 +277,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
         <h1>{mode === 'edit' ? 'Inspection details' : `New ${template.name}`}</h1>
       </header>
       <main className="page">
-        <form onSubmit={submit}>
+        <form ref={formRef} onSubmit={submit}>
           <div className="card">
             <div className="section-label" style={{ marginTop: 0 }}>
               Review
@@ -379,10 +381,17 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
             {field('Project / Work Order', 'workOrder', { placeholder: 'e.g. 4800000882/1272' })}
           </div>
 
-          <button className="btn primary block" type="submit" disabled={saving}>
-            {mode === 'edit' ? 'Save changes' : 'Start inspection'}
-          </button>
+          {/* Enter key still submits; the visible button is in the action bar. */}
+          <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
         </form>
+        <ActionBar
+          primary={{
+            label: mode === 'edit' ? 'Save changes' : 'Start inspection',
+            icon: mode === 'edit' ? 'check' : 'play',
+            disabled: saving,
+            onClick: () => formRef.current?.requestSubmit(),
+          }}
+        />
       </main>
     </>
   )

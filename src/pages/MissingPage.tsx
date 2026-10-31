@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import Cover from '../components/Cover'
+import IconTile from '../components/IconTile'
 import { showActions } from '../components/ActionSheet'
 import Page from '../components/Page'
 import { MonthStepper, SubjectEditor, SubjectList } from '../components/SubjectPicker'
@@ -44,7 +44,7 @@ export default function MissingPage() {
           showActions({
             title: s.label,
             sub: `${def.title} · ${monthLabel(month)}`,
-            cover: <Cover section="contractors" seed={s.contractor.name} text={s.contractor.name} size={56} />,
+            cover: <IconTile text={s.contractor.name} tone="info" size={52} />,
             actions: [
               { label: 'Fill in', icon: 'pencil', onSelect: () => setEditing(s), edit: true },
               { label: 'Open contractor', icon: 'arrow-right', onSelect: () => navigate(`/contractors/${s.contractor.uuid}`) },

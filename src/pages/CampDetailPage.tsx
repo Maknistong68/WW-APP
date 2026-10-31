@@ -7,12 +7,14 @@ import CampSheet from '../components/CampSheet'
 import { CAMP_STATUS_LABEL, campInspections, campState } from '../lib/camps'
 import { addDays, shortDate } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
-import { ago } from './CampsPage'
 import { isFlagged, scoreInspection } from '../lib/score'
 import { getTemplate } from '../templates'
 import { useAuthInfo } from '../lib/auth'
-import AlbumHeader from '../components/AlbumHeader'
-import Cover from '../components/Cover'
+import Summary from '../components/Summary'
+import IconTile from '../components/IconTile'
+import StatusChip from '../components/StatusChip'
+import ActionBar from '../components/ActionBar'
+import { campTone } from '../lib/tone'
 
 /** One camp: status, inspection log, start a new inspection. */
 export default function CampDetailPage() {
@@ -42,41 +44,22 @@ export default function CampDetailPage() {
 
   return (
     <Page title={camp.name} back="/camps" backLabel="Camps" album>
-      <AlbumHeader
-        cover={<Cover section="camps" seed={camp.name} icon="tent" size={156} />}
+      <Summary
+        tile={<IconTile icon="tent" tone={campTone(state.status)} size={64} />}
         title={camp.name}
         sub={[contractor?.name, wo ? `WO ${wo.number}` : '', camp.location].filter(Boolean).join(' · ') || 'Camp'}
-        meta={
-          <>
-            <span className={`status-chip ${tone}`}>{CAMP_STATUS_LABEL[state.status]}</span>
-            <span>Every {camp.cycleDays || 90} days</span>
-          </>
-        }
-        buttons={canEdit ? [{ icon: 'pencil', label: 'Edit camp', onClick: () => setEditing(true) }] : []}
+        chips={<StatusChip tone={campTone(state.status)}>{CAMP_STATUS_LABEL[state.status]}</StatusChip>}
+        facts={[
+          { label: 'Last inspected', value: state.lastDate ? shortDate(state.lastDate) : '—' },
+          { label: 'Next due', value: nextDue ? shortDate(nextDue) : 'Now', tone: tone === 'good' ? undefined : tone },
+          { label: 'Cycle', value: `${camp.cycleDays || 90} days` },
+          { label: 'Inspections', value: log.length },
+        ]}
+      />
+      <ActionBar
+        secondary={canEdit ? [{ icon: 'pencil', label: 'Edit camp', onClick: () => setEditing(true) }] : []}
         primary={canEdit ? { icon: 'play', label: 'Start inspection', onClick: () => navigate(`/new/accommodation?camp=${camp.uuid}`) } : undefined}
       />
-
-      <div className="hero-row">
-        <div className="hero">
-          <div className={`hero-num ${tone}`} style={{ fontSize: 22 }}>
-            {CAMP_STATUS_LABEL[state.status]}
-          </div>
-          <div className="hero-label">Every {camp.cycleDays || 90} days</div>
-        </div>
-        <div className="hero">
-          <div className="hero-num" style={{ fontSize: 22 }}>
-            {state.lastDate ? shortDate(state.lastDate) : '—'}
-          </div>
-          <div className="hero-label">{state.daysSince !== null ? `Last · ${ago(state.daysSince)}` : 'Last inspection'}</div>
-        </div>
-        <div className="hero">
-          <div className={`hero-num ${tone}`} style={{ fontSize: 22 }}>
-            {nextDue ? shortDate(nextDue) : 'Now'}
-          </div>
-          <div className="hero-label">Next due</div>
-        </div>
-      </div>
-
 
       <div className="section-label">Inspection log · {log.length}</div>
       {log.length === 0 ? (

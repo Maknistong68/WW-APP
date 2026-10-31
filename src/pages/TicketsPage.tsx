@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { db } from '../db'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
-import Cover from '../components/Cover'
-import MediaRow from '../components/MediaRow'
+import IconTile from '../components/IconTile'
+import ItemRow from '../components/ItemRow'
+import CardList from '../components/CardList'
+import StatusChip from '../components/StatusChip'
+import ActionBar from '../components/ActionBar'
+import { ticketTone } from '../lib/tone'
 import { showActions } from '../components/ActionSheet'
 import { showToast } from '../components/Toast'
 import SwipeRow from '../components/SwipeRow'
@@ -13,8 +17,8 @@ import TicketSheet, { CloseTicketSheet } from '../components/TicketSheet'
 import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { memberCounts } from '../lib/groups'
-import { ageDays, ageTone, isOpen } from '../lib/aging'
-import { shortDate } from '../lib/dates'
+import { ageDays, isOpen } from '../lib/aging'
+import { monthLabel, shortDate } from '../lib/dates'
 import { contractorName, useContractors } from '../lib/useData'
 import { sar } from '../lib/money'
 import type { Contractor, Ticket, WorkOrder } from '../types'
@@ -48,7 +52,7 @@ export function copyTicketNo(t: Ticket) {
   )
 }
 
-/** Ticket row: the ticket number is the title. In select mode a tap ticks it. */
+/** Ticket row: the ticket number is the title, the tile shows its age. In select mode a tap ticks it. */
 export function TicketRow({
   t,
   sub,
@@ -68,6 +72,7 @@ export function TicketRow({
 }) {
   const navigate = useNavigate()
   const days = ageDays(t)
+  const tone = ticketTone(t)
   const open = () => navigate(`/tickets/${t.uuid}`)
   const more =
     onMore ??
@@ -75,22 +80,22 @@ export function TicketRow({
       showActions({
         title: t.ticketNo || 'Ticket',
         sub: sub ?? ticketSub(t),
-        cover: <Cover section="tickets" seed={t.ticketNo} icon="ticket" size={56} />,
+        cover: <IconTile icon="ticket" tone={tone} size={52} />,
         actions: [
           { label: 'Open ticket', icon: 'arrow-right', onSelect: open },
           { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
         ],
       }))
   return (
-    <MediaRow
+    <ItemRow
       selected={selected}
-      cover={
+      tile={
         onSelect ? (
           <span className={`select-dot${selected ? ' on' : ''}`} aria-hidden="true">
-            {selected && <Icon name="check" size={14} strokeWidth={3} />}
+            {selected && <Icon name="check" size={16} strokeWidth={3} />}
           </span>
         ) : (
-          <Cover section="tickets" seed={t.ticketNo} icon="ticket" size={48} />
+          <IconTile icon={isOpen(t) ? 'ticket' : 'check'} tone={tone} size={52} />
         )
       }
       title={
@@ -99,18 +104,42 @@ export function TicketRow({
           {group && <span className="group-chip">{group}</span>}
         </span>
       }
-      sub={sub ?? ticketSub(t)}
-      trail={
-        isOpen(t) ? (
-          <span className={`age-chip ${ageTone(days)}`}>{days}d</span>
-        ) : (
-          <span className="row-trail">{shortDate(t.closedAt)}</span>
-        )
+      sub={
+        <span className="irow-meta">
+          {isOpen(t) ? (
+            <StatusChip tone={tone} icon="clock">
+              {days}d
+            </StatusChip>
+          ) : (
+            <StatusChip tone="none" icon="check">
+              {shortDate(t.closedAt)}
+            </StatusChip>
+          )}
+          <span className="irow-meta-text">{sub ?? ticketSub(t)}</span>
+        </span>
       }
       onOpen={onSelect ?? open}
       onMore={onSelect ? undefined : more}
     />
   )
+}
+
+/** Open tickets by age (oldest group first); closed ones by the month they closed. */
+export function groupTickets(list: Ticket[]): { key: string; title: string; items: Ticket[] }[] {
+  const open = list.filter(isOpen)
+  const closed = list.filter((t) => !isOpen(t))
+  const groups = [
+    { key: 'late', title: 'Over 30 days', items: open.filter((t) => ageDays(t) > 30) },
+    { key: 'risk', title: '11–30 days', items: open.filter((t) => ageDays(t) > 10 && ageDays(t) <= 30) },
+    { key: 'ok', title: '0–10 days', items: open.filter((t) => ageDays(t) <= 10) },
+  ]
+  const byMonth = new Map<string, Ticket[]>()
+  for (const t of closed) {
+    const m = (t.closedAt || t.openedAt).slice(0, 7)
+    byMonth.set(m, [...(byMonth.get(m) ?? []), t])
+  }
+  const months = [...byMonth.entries()].map(([m, items]) => ({ key: m, title: `Closed · ${m ? monthLabel(m) : 'no date'}`, items }))
+  return [...groups, ...months].filter((g) => g.items.length > 0)
 }
 
 export default function TicketsPage() {
@@ -162,17 +191,12 @@ export default function TicketsPage() {
     setSelecting(false)
     setPicked(new Set())
   }
-  // Hide the global + while the select bar is up.
-  useEffect(() => {
-    document.body.classList.toggle('selecting', selecting)
-    return () => document.body.classList.remove('selecting')
-  }, [selecting])
   /** Long-press / ⋯ on a ticket. */
   const more = (t: Ticket) =>
     showActions({
       title: t.ticketNo || 'Ticket',
       sub: ticketSub(t, byUuid, woByUuid),
-      cover: <Cover section="tickets" seed={t.ticketNo} icon="ticket" size={56} />,
+      cover: <IconTile icon="ticket" tone={ticketTone(t)} size={52} />,
       actions: [
         { label: 'Open ticket', icon: 'arrow-right', onSelect: () => navigate(`/tickets/${t.uuid}`) },
         ...(isOpen(t) ? [{ label: 'Close ticket', icon: 'check-circle' as const, onSelect: () => setClosing(t), edit: true }] : []),
@@ -238,12 +262,13 @@ export default function TicketsPage() {
         <div className="empty-state">
           <Icon name="ticket" size={44} />
           <b>{tickets.length === 0 ? 'No tickets yet' : 'Nothing here'}</b>
-          {tickets.length === 0 ? (canEdit ? 'Tap + to log one.' : 'Nothing logged yet.') : 'Try another filter.'}
+          {tickets.length === 0 ? (canEdit ? 'Tap Create to log one.' : 'Nothing logged yet.') : 'Try another filter.'}
         </div>
       ) : (
         <>
-          <div className="list">
-            {visible.map((t) =>
+          {groupTickets(visible).map((g) => (
+            <CardList key={g.key} title={g.title} count={g.items.length}>
+            {g.items.map((t) =>
               selecting ? (
                 <TicketRow
                   key={t.uuid}
@@ -261,7 +286,8 @@ export default function TicketsPage() {
                 <TicketRow key={t.uuid} t={t} sub={ticketSub(t, byUuid, woByUuid)} group={groupLabel(t)} onMore={() => more(t)} />
               ),
             )}
-          </div>
+            </CardList>
+          ))}
           {visible.length > 0 && (
             <div className="list-foot">
               {visible.length} ticket{visible.length === 1 ? '' : 's'} · {workers} workers
@@ -271,16 +297,16 @@ export default function TicketsPage() {
         </>
       )}
 
-      {selecting && <div style={{ height: 70 }} />}
       {selecting && (
-        <div className="save-bar btn-row" style={{ marginTop: 0 }}>
-          <button className="btn" disabled={picked.size < 2} onClick={() => setTogether('combine')}>
-            Combine {picked.size >= 2 ? `(${picked.size})` : ''}
-          </button>
-          <button className="btn primary" disabled={picked.size < 2} onClick={() => setTogether('close')}>
-            {picked.size < 2 ? 'Tick 2 or more' : `Close together (${picked.size})`}
-          </button>
-        </div>
+        <ActionBar
+          secondary={[{ label: 'Combine', icon: 'checklist', onClick: () => setTogether('combine'), disabled: picked.size < 2 }]}
+          primary={{
+            label: picked.size < 2 ? 'Tick 2 or more' : `Close together (${picked.size})`,
+            icon: 'check-circle',
+            onClick: () => setTogether('close'),
+            disabled: picked.size < 2,
+          }}
+        />
       )}
       {together && (
         <CloseTogetherSheet

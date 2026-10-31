@@ -8,7 +8,7 @@ import {
   type QuestionResponse,
 } from '../types'
 import { isFlagged } from '../lib/score'
-import Icon from './Icon'
+import Icon, { type IconName } from './Icon'
 import ObservationChips from './ObservationChips'
 import PhotoThumb from './PhotoThumb'
 import VoiceTextarea from './VoiceTextarea'
@@ -20,6 +20,14 @@ const ASSESS_LABEL: Record<ComplianceAssessment, string> = {
   'No compliance': 'None',
   'N/A': 'N/A',
 }
+const ASSESS_ICON: Record<ComplianceAssessment, IconName> = {
+  '': 'info',
+  'Full compliance': 'check-circle',
+  'Partial compliance': 'half',
+  'No compliance': 'x-circle',
+  'N/A': 'minus-circle',
+}
+const YN_ICON: Record<string, IconName> = { Yes: 'check-circle', No: 'x-circle', 'N/A': 'minus-circle' }
 const ASSESS_CLASS: Record<ComplianceAssessment, string> = {
   '': '',
   'Full compliance': 'sel-full',
@@ -97,20 +105,24 @@ export default function QuestionItem({
           <button
             key={opt}
             className={resp.yesNo === opt ? `sel-yn-${opt === 'Yes' ? 'yes' : opt === 'No' ? 'no' : 'na'}` : ''}
+            aria-pressed={resp.yesNo === opt}
             onClick={() => onPatch({ yesNo: resp.yesNo === opt ? '' : opt })}
           >
+            <Icon name={YN_ICON[opt]} size={22} fill={resp.yesNo === opt} />
             {opt}
           </button>
         ))}
       </div>
       <div className="control-label">Compliance assessment</div>
-      <div className="result-btns">
+      <div className="result-btns four">
         {ASSESSMENT_OPTIONS.map((opt) => (
           <button
             key={opt}
             className={resp.assessment === opt ? ASSESS_CLASS[opt] : ''}
+            aria-pressed={resp.assessment === opt}
             onClick={() => onPatch({ assessment: resp.assessment === opt ? '' : opt })}
           >
+            <Icon name={ASSESS_ICON[opt]} size={22} fill={resp.assessment === opt} />
             {ASSESS_LABEL[opt]}
           </button>
         ))}

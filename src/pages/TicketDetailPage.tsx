@@ -12,13 +12,16 @@ import { shortDate } from '../lib/dates'
 import { priorityLabel } from '../lib/lists'
 import { removeRecord, saveRecord } from '../lib/records'
 import { contractorName, ticketLabel, useContractors, woName } from '../lib/useData'
-import { sar } from '../lib/money'
+import { sar, sarShort } from '../lib/money'
 import { groupOf, uncombine } from '../lib/groups'
 import Icon from '../components/Icon'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { TicketRow, copyTicketNo } from './TicketsPage'
-import AlbumHeader from '../components/AlbumHeader'
-import Cover from '../components/Cover'
+import Summary from '../components/Summary'
+import IconTile from '../components/IconTile'
+import StatusChip from '../components/StatusChip'
+import ActionBar from '../components/ActionBar'
+import { ticketTone } from '../lib/tone'
 import { showActions } from '../components/ActionSheet'
 import { useAuthInfo } from '../lib/auth'
 
@@ -59,6 +62,7 @@ export default function TicketDetailPage() {
   const isMember = !!t.parentUuid && group.main.uuid !== t.uuid
   const isMain = !isMember && group.members.length > 0
   const groupTotal = group.main.amountOwed
+  const tone = ticketTone(t)
   const reopen = () =>
     void saveRecord('tickets', { ...t, status: 'Open', closedAt: '' }, ticketLabel(t, byUuid), 'reopen').then(() =>
       showToast({ text: 'Ticket reopened' }),
@@ -67,7 +71,7 @@ export default function TicketDetailPage() {
     showActions({
       title: t.ticketNo || 'Ticket',
       sub: t.issue,
-      cover: <Cover section="tickets" seed={t.ticketNo} icon="ticket" size={56} />,
+      cover: <IconTile icon="ticket" tone={tone} size={52} />,
       actions: [
         ...(open
           ? [{ label: isMain ? `Close all ${group.all.length} together` : 'Close ticket', icon: 'check-circle' as const, onSelect: () => setSheet(isMain ? 'closeGroup' : 'close'), edit: true }]
@@ -81,33 +85,25 @@ export default function TicketDetailPage() {
 
   return (
     <Page title={t.ticketNo || 'Ticket'} back="/tickets" backLabel="Tickets" album>
-      <AlbumHeader
-        cover={<Cover section="tickets" seed={t.ticketNo} icon="ticket" size={156} />}
+      <Summary
+        tile={<IconTile icon={open ? 'ticket' : 'check'} tone={tone} size={64} />}
         title={t.ticketNo || 'Ticket'}
         sub={[t.issue || 'Ticket', contractorName(byUuid, t.contractorUuid)].filter(Boolean).join(' · ')}
-        meta={
+        chips={
           <>
-            <span className={`status-chip ${open ? (days > 30 ? 'bad' : days > 10 ? 'warn' : '') : 'good'}`}>
-              {open ? `${t.status} · ${days}d` : 'Closed'}
-            </span>
-            <span>
+            <StatusChip tone={tone}>{open ? (days > 30 ? 'Overdue' : days > 10 ? 'Due soon' : 'Open') : 'Closed'}</StatusChip>
+            <StatusChip tone="none" icon="calendar">
               Opened {shortDate(t.openedAt)}
               {t.closedAt ? ` · closed ${shortDate(t.closedAt)}` : ''}
-            </span>
+            </StatusChip>
           </>
         }
-        buttons={[
-          ...(canEdit ? [{ icon: 'pencil' as const, label: 'Edit', onClick: () => setSheet('edit') }] : []),
-          { icon: 'copy', label: 'Copy number', onClick: () => copyTicketNo(t) },
-          { icon: 'dots', label: 'More actions', onClick: more },
+        facts={[
+          { label: open ? 'Days open' : 'Days to close', value: days, tone: open ? (days > 30 ? 'bad' : days > 10 ? 'warn' : 'good') : undefined },
+          { label: 'Workers', value: t.workers || 0 },
+          { label: open ? 'SAR still owed' : 'SAR recovered', value: t.amountOwed ? sarShort(t.amountOwed) : '—', tone: open && t.amountOwed ? 'bad' : undefined },
+          { label: `Priority ${t.priority}`, value: priorityLabel(t.priority) },
         ]}
-        primary={
-          !canEdit
-            ? undefined
-            : open
-              ? { icon: 'check', label: isMain ? `Close all ${group.all.length} together` : 'Close ticket', onClick: () => setSheet(isMain ? 'closeGroup' : 'close') }
-              : { icon: 'undo', label: 'Reopen ticket', onClick: reopen }
-        }
       />
 
       <div className="info-card">
@@ -118,10 +114,8 @@ export default function TicketDetailPage() {
           value={t.amountOwed ? `${sar(t.amountOwed)}${isMain ? ` (${group.all.length} tickets)` : ''}` : ''}
         />
         <Field label="Source" value={t.source} />
-        <Field label="Workers" value={t.workers} />
         <Field label="Violations" value={t.violations} />
         <Field label="Category" value={t.category} />
-        <Field label="Priority" value={`${t.priority} · ${priorityLabel(t.priority)}`} />
         <Field label="Severity" value={t.severity} />
         <Field label="Channel" value={t.channel} />
         <Field label="Sub-contractor" value={t.subcontractor} />
@@ -177,6 +171,19 @@ export default function TicketDetailPage() {
 
       <History uuid={t.uuid} contractors={byUuid} />
 
+      <ActionBar
+        secondary={[
+          ...(canEdit ? [{ icon: 'pencil' as const, label: 'Edit', onClick: () => setSheet('edit') }] : []),
+          { icon: 'dots', label: 'More actions', onClick: more },
+        ]}
+        primary={
+          !canEdit
+            ? undefined
+            : open
+              ? { icon: 'check-circle', label: isMain ? `Close all ${group.all.length}` : 'Close ticket', onClick: () => setSheet(isMain ? 'closeGroup' : 'close') }
+              : { icon: 'undo', label: 'Reopen ticket', onClick: reopen }
+        }
+      />
       {sheet === 'edit' && <TicketSheet ticket={t} onClose={() => setSheet(null)} />}
       {sheet === 'close' && <CloseTicketSheet ticket={t} onClose={() => setSheet(null)} />}
       {sheet === 'closeGroup' && (

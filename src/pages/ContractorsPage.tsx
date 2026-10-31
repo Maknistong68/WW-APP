@@ -2,8 +2,11 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
-import Cover from '../components/Cover'
-import MediaRow from '../components/MediaRow'
+import IconTile from '../components/IconTile'
+import StatusChip from '../components/StatusChip'
+import { kpiTone } from '../lib/tone'
+import ItemRow from '../components/ItemRow'
+import CardList from '../components/CardList'
 import { showActions } from '../components/ActionSheet'
 import { SubjectEditor } from '../components/SubjectPicker'
 import { kpiSubjects, type KpiSubject } from '../lib/subjects'
@@ -37,7 +40,7 @@ export default function ContractorsPage() {
     showActions({
       title: c.name,
       sub: `KPI ${pct(kpis.get(c.uuid)?.overall)} · ${monthLabel(month)}`,
-      cover: <Cover section="contractors" seed={c.name} text={c.name} size={56} />,
+      cover: <IconTile text={c.name} tone={c.active ? kpiTone(kpis.get(c.uuid)?.status ?? 'none') : 'none'} size={52} />,
       actions: [
         { label: 'Open', icon: 'arrow-right', onSelect: () => navigate(`/contractors/${c.uuid}`) },
         ...subjects.slice(0, 4).map((s) => ({
@@ -57,14 +60,14 @@ export default function ContractorsPage() {
     const wos = wosOf(c.uuid)
     const on = wos.filter((w) => w.active).length
     return (
-      <MediaRow
+      <ItemRow
         key={c.uuid}
-        cover={<Cover section="contractors" seed={c.name} text={c.name} size={48} />}
+        tile={<IconTile text={c.name} tone={c.active ? kpiTone(r?.status ?? 'none') : 'none'} size={52} />}
         title={c.name}
         sub={`${wos.length ? `${on}/${wos.length} WO active · ` : ''}${open} open ticket${open === 1 ? '' : 's'}`}
         trail={
           c.active && r?.overall != null ? (
-            <span className={`status-chip ${r.status === 'none' ? '' : r.status}`}>{pct(r.overall)}</span>
+            <StatusChip tone={kpiTone(r.status)}>{pct(r.overall)}</StatusChip>
           ) : (
             <span className="row-trail">{c.active ? '—' : 'Inactive'}</span>
           )
@@ -100,12 +103,14 @@ export default function ContractorsPage() {
         </div>
       ) : (
         <>
-          <div className="section-label">Active · KPI {monthLabel(month)}</div>
-          <div className="list">{active.map(row)}</div>
+          <CardList title={`Active · KPI ${monthLabel(month)}`} count={active.length}>
+            {active.map(row)}
+          </CardList>
           {inactive.length > 0 && (
             <>
-              <div className="section-label">Inactive</div>
-              <div className="list">{inactive.map(row)}</div>
+              <CardList title="Inactive" count={inactive.length}>
+                {inactive.map(row)}
+              </CardList>
             </>
           )}
           <div className="list-foot">KPI this month: green 90%+ · amber 70%+ · red below 70%. Hold a contractor for more.</div>

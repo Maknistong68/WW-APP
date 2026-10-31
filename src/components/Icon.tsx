@@ -15,6 +15,7 @@ import {
   ChartBar,
   Check,
   CheckCircle,
+  CircleHalf,
   ClipboardText,
   Clock,
   CloudArrowUp,
@@ -36,6 +37,7 @@ import {
   ListChecks,
   MagnifyingGlass,
   MapPin,
+  MinusCircle,
   Microphone,
   PencilSimple,
   PersonSimpleWalk,
@@ -59,6 +61,7 @@ import {
   UsersThree,
   WarningCircle,
   X,
+  XCircle,
   type Icon as PhosphorIcon,
 } from '@phosphor-icons/react'
 
@@ -127,6 +130,9 @@ const ICONS = {
   bed: Bed,
   info: Info,
   checklist: ListChecks,
+  half: CircleHalf,
+  'x-circle': XCircle,
+  'minus-circle': MinusCircle,
 } satisfies Record<string, PhosphorIcon>
 
 export type IconName = keyof typeof ICONS
