@@ -75,6 +75,11 @@ export default function ContractorsPage() {
         </div>
       ) : (
         <>
+          <div className="list">
+            <button className="row tint" onClick={() => navigate(`/kpis/entry?m=${month}`)}>
+              <Icon name="pencil" size={18} /> Enter {monthLabel(month)} KPIs for all work orders
+            </button>
+          </div>
           <div className="section-label">Active · KPI {monthLabel(month)}</div>
           <div className="list">{active.map(row)}</div>
           {inactive.length > 0 && (

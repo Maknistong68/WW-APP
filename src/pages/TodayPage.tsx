@@ -133,11 +133,9 @@ export default function TodayPage() {
                   )
                 })}
               </div>
-              {s.missing.length > 5 && (
-                <button className="list-foot nav-btn" onClick={() => navigate('/contractors')}>
-                  See all {s.missing.length}
-                </button>
-              )}
+              <button className="list-foot nav-btn" onClick={() => navigate(`/kpis/entry?m=${month}&mode=docs`)}>
+                Tick documents for all {s.missing.length} →
+              </button>
             </>
           )}
         </>

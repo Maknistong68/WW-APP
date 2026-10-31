@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import { showToast } from './Toast'
-import { newUuid } from '../db'
 import { saveRecord } from '../lib/records'
 import { monthLabel } from '../lib/dates'
 import type { Contractor, KpiMonth, Manpower } from '../types'
@@ -40,24 +39,6 @@ function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange:
   )
 }
 
-export function emptyKpi(contractorUuid: string, workOrderUuid: string, month: string): KpiMonth {
-  return {
-    uuid: newUuid(),
-    updatedAt: '',
-    contractorUuid,
-    workOrderUuid,
-    month,
-    wps: false,
-    manpowerDecl: false,
-    salaryDecl: false,
-    accommodationPct: null,
-    onboardingPct: null,
-    offboarded: null,
-    offboardTotal: null,
-    meetingPct: null,
-    quarterlyAuditPct: null,
-  }
-}
 
 /** Monthly scoring: only what the app can't work out itself. */
 export default function KpiSheet({
@@ -130,19 +111,6 @@ export default function KpiSheet({
   )
 }
 
-export function emptyManpower(contractorUuid: string, workOrderUuid: string, month: string): Manpower {
-  return {
-    uuid: newUuid(),
-    updatedAt: '',
-    contractorUuid,
-    workOrderUuid,
-    month,
-    totalWorkers: 0,
-    illegalOrFreelance: 0,
-    visaExpiring30d: 0,
-    paidRecruitmentFees: 0,
-  }
-}
 
 /** Manpower declaration as counts only — no names or ID numbers. */
 export function ManpowerSheet({
@@ -190,3 +158,5 @@ export function ManpowerSheet({
     </Modal>
   )
 }
+
+export { emptyKpi, emptyManpower } from '../lib/bulkKpi'

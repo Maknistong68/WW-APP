@@ -260,6 +260,9 @@ export default function DashboardPage() {
 
       {view === 'kpis' && (
         <>
+          <button className="btn primary block" style={{ marginBottom: 4 }} onClick={() => navigate(`/kpis/entry?m=${kpiMonth}`)}>
+            <Icon name="pencil" size={18} /> Enter KPIs for all work orders
+          </button>
           <div className="section-label">Each KPI · {monthLabel(kpiMonth)}</div>
           <div className="list">
             <div className="row">

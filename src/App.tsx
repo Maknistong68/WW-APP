@@ -8,6 +8,7 @@ import ContractorDetailPage from './pages/ContractorDetailPage'
 import AuditsPage from './pages/AuditsPage'
 import DashboardPage from './pages/DashboardPage'
 import KpiDetailPage from './pages/KpiDetailPage'
+import BulkKpiPage from './pages/BulkKpiPage'
 import InfoFormPage from './pages/InfoFormPage'
 import ChecklistPage from './pages/ChecklistPage'
 import SettingsPage from './pages/SettingsPage'
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/contractors/:uuid" element={<ContractorDetailPage />} />
         <Route path="/audits" element={<AuditsPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/kpis/entry" element={<BulkKpiPage />} />
         <Route path="/kpis/:key" element={<KpiDetailPage />} />
         <Route path="/new/:templateId" element={<InfoFormPage mode="new" />} />
         <Route path="/inspection/:id" element={<ChecklistPage />} />
