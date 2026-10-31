@@ -30,5 +30,6 @@ npm run build   # strict tsc + vite build
 - Data model: `src/types.ts`; every write goes through `src/lib/records.ts` (activity log).
 - KPI rules: `src/lib/kpi.ts`; per-work-order subjects: `src/lib/subjects.ts`, `src/lib/kpiData.ts`.
 - Home tiles and their missing-lists: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
+- Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
 - Dashboard numbers: `src/lib/dashboard.ts`; charts in `src/components/charts/`.
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).

@@ -292,6 +292,14 @@ export interface KpiMonth extends RecordBase {
   quarterlyAuditPct: number | null
   /** Percentages typed straight into the old Excel KPI tracker (import only). */
   legacy?: { offboardingPct?: number | null; formalPct?: number | null }
+  /** Quarterly audit close-out (counts only). YYYY-MM-DD. */
+  auditDate?: string
+  /** Findings raised in the quarterly audit. */
+  auditFindings?: number | null
+  /** Findings the contractor has closed out. */
+  auditClosed?: number | null
+  /** YYYY-MM-DD; defaults to the audit date + 30 days. */
+  auditDueDate?: string
 }
 
 export interface Manpower extends RecordBase {

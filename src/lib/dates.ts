@@ -19,6 +19,11 @@ export function daysBetween(a: string, b: string): number {
   return Math.max(0, Math.round(dayNumber(b) - dayNumber(a)))
 }
 
+/** Days from a to b (YYYY-MM-DD); negative when b is before a. */
+export function daysDiff(a: string, b: string): number {
+  return Math.round(dayNumber(b) - dayNumber(a))
+}
+
 /** First and last day of a YYYY-MM month. */
 export function monthRange(month: string): { start: string; end: string } {
   const [y, m] = month.split('-').map(Number)

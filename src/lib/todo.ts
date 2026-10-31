@@ -4,6 +4,7 @@ import { addMonths, localDate, monthLabel, monthOf } from './dates'
 import { closurePct, submissionsComplete } from './kpi'
 import { auditPctFor, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectManpower, type KpiSubject } from './subjects'
+import { closeoutState, closeoutTotals, closeouts } from './closeout'
 import type { IconName } from '../components/Icon'
 
 // The Home screen: one card per item of the monthly routine. Data-driven so
@@ -130,7 +131,11 @@ export const SUBJECT_ITEMS: Record<SubjectItemKey, SubjectItem> = {
     done: (d, s, m) => quarterMonths(m).some((q) => kpiOf(d, s, q)?.quarterlyAuditPct != null),
     value: (d, s, m) => {
       const hit = quarterMonths(m).find((q) => kpiOf(d, s, q)?.quarterlyAuditPct != null)
-      return hit ? `${pctText(kpiOf(d, s, hit)?.quarterlyAuditPct)} · ${monthLabel(hit)}` : ''
+      if (!hit) return ''
+      const co = closeoutState(kpiOf(d, s, hit))
+      return [pctText(kpiOf(d, s, hit)?.quarterlyAuditPct), monthLabel(hit), co && `${co.closed}/${co.findings} findings closed`]
+        .filter(Boolean)
+        .join(' · ')
     },
   },
 }
@@ -254,6 +259,25 @@ export const TODO_ITEMS: Item[] = [
       detail: todo ? `${ofWo(todo, c.subjects.length)} not done this quarter` : 'Done for this quarter',
       alert: todo && lastMonth ? { level: 'warn', text: 'Quarter ends this month' } : undefined,
       to: missingLink('quarterly', c.month),
+    }
+  },
+  // 11. Quarterly audit close-out: findings still open, against the due date
+  (c) => {
+    const list = closeouts(c.subjects, c.d.kpis, c.today)
+    const t = closeoutTotals(list)
+    return {
+      key: 'closeout',
+      title: 'Audit close-out',
+      icon: 'clock',
+      todo: t.audits,
+      total: null,
+      detail: t.audits ? `${t.open} finding${t.open === 1 ? '' : 's'} open in ${t.audits} audit${t.audits === 1 ? '' : 's'}` : 'All audit findings closed',
+      alert: t.overdue
+        ? { level: 'bad', text: `${t.overdue} overdue` }
+        : t.due
+          ? { level: 'warn', text: `${t.due} due soon` }
+          : undefined,
+      to: '/closeouts',
     }
   },
 ]

@@ -17,6 +17,7 @@ import ActivityPage from './pages/ActivityPage'
 import Sidebar from './components/Sidebar'
 import AddButton from './components/AddButton'
 import MissingPage from './pages/MissingPage'
+import CloseoutPage from './pages/CloseoutPage'
 import LoginPage, { WaitingPage } from './pages/LoginPage'
 import UsersPage from './pages/UsersPage'
 import { AuthContext, canEditRole, useAuth, useAuthInfo } from './lib/auth'
@@ -90,6 +91,7 @@ function AppShell() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/kpis/:key" element={<KpiDetailPage />} />
         <Route path="/missing/:item" element={<MissingPage />} />
+        <Route path="/closeouts" element={<CloseoutPage />} />
         <Route path="/new/:templateId" element={<EditOnly><InfoFormPage mode="new" /></EditOnly>} />
         <Route path="/inspection/:id" element={<ChecklistPage />} />
         <Route path="/inspection/:id/edit" element={<EditOnly><InfoFormPage mode="edit" /></EditOnly>} />

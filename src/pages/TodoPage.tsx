@@ -19,6 +19,7 @@ const SHORT: Record<string, string> = {
   formal: 'Formal',
   meeting: 'Meeting',
   quarterly: 'Quarterly',
+  closeout: 'Close-out',
 }
 
 /** One icon tile with its name; the number of things to do on the corner, colour = urgency. */

@@ -30,6 +30,7 @@ import { itemStats, kpisForMonth, subjectKpis, useAllData } from '../lib/kpiData
 import { kpiSubjects } from '../lib/subjects'
 import { SUBMISSION_DUE_DAY } from '../lib/todo'
 import { CAMP_STATUS_LABEL } from '../lib/camps'
+import { closeoutTotals, closeouts } from '../lib/closeout'
 import { moneyStats, sar, sarShort } from '../lib/money'
 import { memberCounts } from '../lib/groups'
 import { logEvent } from '../db'
@@ -150,6 +151,7 @@ export default function DashboardPage() {
   const camps = useMemo(() => campsSummary(d.camps, d.inspections, today), [d.camps, d.inspections, today])
   const audits = useMemo(() => auditAverage(d.inspections, kpiMonth), [d.inspections, kpiMonth])
   const inspTrend = useMemo(() => inspectionsPerMonth(d.inspections, months6), [d.inspections, months6])
+  const co = useMemo(() => closeoutTotals(closeouts(subjectList, d.kpis, today)), [subjectList, d.kpis, today])
 
   // --- what needs attention (overview) --------------------------------------
   const attention = useMemo<Attention[]>(() => {
@@ -164,6 +166,8 @@ export default function DashboardPage() {
     if (lateCount) out.push({ key: 'late', tone: 'bad', text: `${lateCount} ticket${s(lateCount)} open over 30 days`, to: '/tickets?f=late' })
     if (lateOwed) out.push({ key: 'owed', tone: 'bad', text: `${sar(lateOwed)} owed, over 30 days`, to: '/dashboard?v=money' })
     if (critical) out.push({ key: 'kpi', tone: 'bad', text: `${critical} contractor${s(critical)} below 70% KPI`, to: '/dashboard?v=kpis' })
+    if (co.overdue) out.push({ key: 'closeout', tone: 'bad', text: `${co.overdue} audit close-out${s(co.overdue)} overdue`, to: '/closeouts' })
+    else if (co.due) out.push({ key: 'closeout', tone: 'warn', text: `${co.due} audit close-out${s(co.due)} due soon`, to: '/closeouts' })
     if (campsLate) out.push({ key: 'camps', tone: 'bad', text: `${campsLate} camp${s(campsLate)} overdue for inspection`, to: '/camps' })
     if (missingDocs.length)
       out.push({
@@ -176,7 +180,7 @@ export default function DashboardPage() {
     if (wf.illegal) out.push({ key: 'illegal', tone: 'warn', text: `${wf.illegal} illegal / freelance worker${s(wf.illegal)}`, to: '/dashboard?v=workers' })
     if (wf.visaExpiring) out.push({ key: 'visa', tone: 'warn', text: `${wf.visaExpiring} visa${s(wf.visaExpiring)} expiring within 30 days`, to: '/dashboard?v=workers' })
     return out.sort((a, b) => (a.tone === b.tone ? 0 : a.tone === 'bad' ? -1 : 1)).slice(0, 6)
-  }, [aging, byContractor, camps, missingDocs, wf, isNow, today, kpiMonth, thisMonth])
+  }, [aging, byContractor, camps, missingDocs, wf, co, isNow, today, kpiMonth, thisMonth])
 
   const doExport = async (kind: ExportKind) => {
     setExporting(false)
@@ -492,6 +496,14 @@ export default function DashboardPage() {
             })}
           </div>
           <div className="list-foot">Averages over {subjects.length} active work orders / contractors.</div>
+
+          <Card title="Quarterly audit close-out" sub={`${co.findings} finding${co.findings === 1 ? '' : 's'} logged · ${co.audits} audit${co.audits === 1 ? '' : 's'} still open`}>
+            <div className="hero-row" style={{ marginBottom: 0 }}>
+              <Hero value={co.open} label="Findings open" tone={co.open ? 'warn' : ''} onClick={() => navigate('/closeouts')} />
+              <Hero value={co.overdue} label="Overdue" tone={co.overdue ? 'bad' : ''} onClick={() => navigate('/closeouts')} />
+              <Hero value={pct(co.pct)} label="Closed out" tone={toneOf(kpiStatus(co.pct))} onClick={() => navigate('/closeouts')} />
+            </div>
+          </Card>
 
           <Card title="Overall KPI trend" sub={`Average · 6 months to ${monthLabel(kpiMonth)}`}>
             <MonthBars data={kpiTrend} series={['Overall KPI']} format={(v) => `${v}%`} />

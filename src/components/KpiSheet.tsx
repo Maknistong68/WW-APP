@@ -2,7 +2,8 @@ import { useState } from 'react'
 import Modal from './Modal'
 import { showToast } from './Toast'
 import { saveRecord } from '../lib/records'
-import { monthLabel } from '../lib/dates'
+import { monthLabel, shortDate } from '../lib/dates'
+import { CLOSEOUT_DAYS, closeoutState, closeoutText, defaultDue } from '../lib/closeout'
 import type { Contractor, KpiMonth, Manpower } from '../types'
 
 const num = (v: string): number | null => {
@@ -57,10 +58,14 @@ export default function KpiSheet({
 }) {
   const [k, setK] = useState(kpi)
   const set = <F extends keyof KpiMonth>(f: F, v: KpiMonth[F]) => setK((p) => ({ ...p, [f]: v }))
+  const closeout = closeoutState(k)
 
   const save = async () => {
     if (k.offboarded !== null && k.offboardTotal !== null && k.offboarded > k.offboardTotal) {
       return showToast({ text: 'Offboarded can’t be more than the total' })
+    }
+    if ((k.auditClosed ?? 0) > (k.auditFindings ?? 0)) {
+      return showToast({ text: 'Closed out can’t be more than the findings' })
     }
     await saveRecord('kpiMonths', k, `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
     showToast({ text: 'KPIs saved' })
@@ -93,6 +98,42 @@ export default function KpiSheet({
         </div>
         {k.accommodationPct === null && auditPct !== null && (
           <div className="list-foot">Accommodation empty → uses this month’s audit: {auditPct}%</div>
+        )}
+        <div className="section-label">Quarterly audit close-out</div>
+        <div className="list">
+          <label className="row">
+            <span className="row-label">Audit date</span>
+            <input
+              type="date"
+              value={k.auditDate ?? ''}
+              onChange={(e) => {
+                const date = e.target.value
+                // Keep the due date following the audit date until it is changed by hand.
+                const autoDue = !k.auditDueDate || k.auditDueDate === defaultDue(k.auditDate ?? '')
+                setK((p) => ({ ...p, auditDate: date, ...(autoDue ? { auditDueDate: defaultDue(date) } : {}) }))
+              }}
+            />
+          </label>
+          <label className="row">
+            <span className="row-label">Findings</span>
+            <input inputMode="numeric" placeholder="—" value={str(k.auditFindings ?? null)} onChange={(e) => set('auditFindings', num(e.target.value))} />
+          </label>
+          <label className="row">
+            <span className="row-label">Closed out</span>
+            <input inputMode="numeric" placeholder="—" value={str(k.auditClosed ?? null)} onChange={(e) => set('auditClosed', num(e.target.value))} />
+          </label>
+          <label className="row">
+            <span className="row-label">Due by</span>
+            <input type="date" value={k.auditDueDate ?? ''} onChange={(e) => set('auditDueDate', e.target.value)} />
+          </label>
+        </div>
+        {closeout ? (
+          <div className="list-foot">
+            <span className={`status-dot ${closeout.status === 'closed' ? 'good' : closeout.status === 'open' ? '' : closeout.status === 'due' ? 'warn' : 'bad'}`} />{' '}
+            {closeoutText(closeout, shortDate)}
+          </div>
+        ) : (
+          <div className="list-foot">Due {CLOSEOUT_DAYS} days after the audit unless you change it.</div>
         )}
         <div className="section-label">Offboarding</div>
         <div className="list">
