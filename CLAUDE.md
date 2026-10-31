@@ -11,6 +11,8 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
 - Never write the client's parent-company name anywhere in code, data or commits; it was
   purged from git history.
 - No worker personal data (names, Iqama, passport, phone). Manpower is stored as counts only.
+- Access: the app opens on Login; new accounts are **pending** until the admin approves them on
+  the Users page. Approved users share one data set (RLS via `private.is_approved()`).
 - Short, simple UI wording; Apple-style screens.
 
 ## Checks before pushing

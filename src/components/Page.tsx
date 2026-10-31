@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from './Icon'
+import { openSidebar } from './Sidebar'
 
 /**
  * iOS-style page: large title that collapses into a frosted nav bar on
@@ -44,6 +45,11 @@ export default function Page({
     <>
       <header className={`nav-bar${compact ? ' compact' : ''}`}>
         <div className="nav-side">
+          {!back && (
+            <button className="nav-btn" aria-label="Menu" onClick={openSidebar}>
+              <Icon name="menu" size={26} />
+            </button>
+          )}
           {back && (
             <button className="nav-btn" onClick={() => (back === '..' ? navigate(-1) : navigate(back))} aria-label={`Back to ${backLabel}`}>
               <Icon name="chevron-left" size={24} strokeWidth={2.4} />

@@ -40,8 +40,23 @@ export type IconName =
   | 'clock'
   | 'alert'
   | 'inbox'
+  | 'menu'
+  | 'shield'
 
 const PATHS: Record<IconName, ReactNode> = {
+  shield: (
+    <>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  menu: (
+    <>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+    </>
+  ),
   home: (
     <>
       <path d="M3 10.5 12 3l9 7.5" />

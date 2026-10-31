@@ -294,7 +294,8 @@ export async function syncNow(): Promise<SyncResult> {
     }
 
     const storage = c.storage.from('photos')
-    const photoPath = (uuid: string) => `${userId}/${uuid}.jpg`
+    // Shared team folder: any approved user can read and replace a photo.
+    const photoPath = (uuid: string) => `team/${uuid}.jpg`
 
     // push photos: new blobs + newer metadata
     for (const p of localPhotos) {

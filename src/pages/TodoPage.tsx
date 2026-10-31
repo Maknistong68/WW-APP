@@ -1,22 +1,56 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Page, { SettingsButton } from '../components/Page'
 import Icon from '../components/Icon'
 import TicketSheet from '../components/TicketSheet'
+import { showToast } from '../components/Toast'
 import { monthLabel, monthOf } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
-import { buildTodo } from '../lib/todo'
+import { buildTodo, type TodoCard } from '../lib/todo'
 import { newTicket } from '../lib/useData'
 import type { Ticket } from '../types'
 
-/** Home: one card per item of the monthly routine, alerts first. */
-export default function TodoPage() {
+/** One icon tile: the number of things to do on the corner, colour = urgency. */
+function Tile({ c }: { c: TodoCard }) {
   const navigate = useNavigate()
+  const timer = useRef<number | undefined>(undefined)
+  const held = useRef(false)
+  const tone = c.alert?.level ?? (c.todo === 0 ? 'done' : 'todo')
+  const name = `${c.title}: ${c.todo === 0 ? 'done' : c.detail}${c.alert ? ` (${c.alert.text})` : ''}`
+  const showName = () => showToast({ text: name, duration: 3500 })
+
+  return (
+    <button
+      className={`tile ${tone}`}
+      aria-label={name}
+      title={name}
+      onPointerDown={() => {
+        held.current = false
+        timer.current = window.setTimeout(() => {
+          held.current = true
+          showName()
+        }, 450)
+      }}
+      onPointerUp={() => window.clearTimeout(timer.current)}
+      onPointerLeave={() => window.clearTimeout(timer.current)}
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={() => {
+        if (held.current) return
+        navigate(c.to)
+      }}
+    >
+      <Icon name={c.todo === 0 ? 'check' : c.icon} size={30} strokeWidth={2} />
+      {c.todo > 0 && <span className={`tile-badge ${tone}`}>{c.todo > 99 ? '99+' : c.todo}</span>}
+    </button>
+  )
+}
+
+/** Home: the monthly routine as icon tiles, alerts first. */
+export default function TodoPage() {
   const d = useAllData()
   const [adding, setAdding] = useState<Ticket | null>(null)
   const cards = useMemo(() => (d.loaded ? buildTodo(d) : []), [d])
-  const left = cards.filter((c) => c.todo > 0).length
-  const today = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+  const alerts = cards.filter((c) => c.alert?.level === 'bad').length
 
   return (
     <Page
@@ -31,35 +65,16 @@ export default function TodoPage() {
       }
     >
       <div className="chart-sub" style={{ margin: '-6px 4px 14px', fontSize: 15 }}>
-        {today} · {monthLabel(monthOf())} · {left ? `${left} item${left === 1 ? '' : 's'} to do` : 'all done'}
+        {monthLabel(monthOf())} · {alerts ? `${alerts} need attention` : 'nothing urgent'}
       </div>
-
-      {cards.map((c) => {
-        const tone = c.alert?.level ?? (c.todo === 0 ? 'done' : '')
-        return (
-          <button key={c.key} className={`todo-card ${tone}`} onClick={() => navigate(c.to)}>
-            <span className="todo-icon">
-              <Icon name={c.todo === 0 ? 'check' : c.icon} size={22} />
-            </span>
-            <span className="todo-main">
-              <div className="todo-title">{c.title}</div>
-              <div className="todo-detail">{c.detail}</div>
-              {c.alert && <span className={`alert-pill ${c.alert.level}`}>{c.alert.text}</span>}
-            </span>
-            <span className="todo-count">
-              {c.todo === 0 ? (
-                <div className="todo-num done">Done</div>
-              ) : (
-                <>
-                  <div className="todo-num">{c.todo}</div>
-                  <div className="todo-of">{c.total !== null ? `of ${c.total}` : 'to do'}</div>
-                </>
-              )}
-            </span>
-          </button>
-        )
-      })}
-
+      <div className="tile-grid">
+        {cards.map((c) => (
+          <Tile key={c.key} c={c} />
+        ))}
+      </div>
+      <div className="list-foot" style={{ textAlign: 'center' }}>
+        Tap a tile to fix it · hold it to see what it is
+      </div>
       {adding && <TicketSheet ticket={adding} onClose={() => setAdding(null)} />}
     </Page>
   )

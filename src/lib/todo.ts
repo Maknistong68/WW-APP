@@ -104,7 +104,7 @@ export const TODO_ITEMS: Item[] = [
     return {
       key: 'closure',
       title: 'Ticket closure',
-      icon: 'check',
+      icon: 'activity',
       todo: open,
       total: null,
       detail: pct === null ? 'No tickets this month' : `${Math.round(pct)}% closed in ${monthLabel(c.month)}`,
@@ -134,7 +134,7 @@ export const TODO_ITEMS: Item[] = [
     const k = subjectKpi(s, c.d.kpis, c.month)
     return k?.accommodationPct != null || auditPctFor(s.contractor, c.d.inspections, c.month) !== null
   }),
-  enterItem('onboarding', 'Onboarding %', 'users', 'onboarding', (c, s) => subjectKpi(s, c.d.kpis, c.month)?.onboardingPct != null),
+  enterItem('onboarding', 'Onboarding %', 'download', 'onboarding', (c, s) => subjectKpi(s, c.d.kpis, c.month)?.onboardingPct != null),
   enterItem('offboarding', 'Offboarding', 'upload', 'offboarding', (c, s) => {
     const k = subjectKpi(s, c.d.kpis, c.month)
     return !!k && (k.offboardTotal != null || k.legacy?.offboardingPct != null)

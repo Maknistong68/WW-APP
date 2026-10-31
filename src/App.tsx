@@ -16,11 +16,46 @@ import ChecklistPage from './pages/ChecklistPage'
 import SettingsPage from './pages/SettingsPage'
 import ImportPage from './pages/ImportPage'
 import ActivityPage from './pages/ActivityPage'
-import TabBar from './components/TabBar'
+import Sidebar from './components/Sidebar'
+import LoginPage, { WaitingPage } from './pages/LoginPage'
+import UsersPage from './pages/UsersPage'
+import { AuthContext, useAuth } from './lib/auth'
 import ToastHost, { showToast } from './components/Toast'
 import { backgroundSync, type SyncResult } from './lib/sync'
 
 export default function App() {
+  const auth = useAuth()
+  if (auth.phase === 'loading') return null
+  if (auth.phase === 'signedOut') {
+    return (
+      <>
+        <LoginPage onDone={auth.refresh} />
+        <ToastHost />
+      </>
+    )
+  }
+  if (auth.phase === 'pending' || auth.phase === 'rejected') {
+    return (
+      <>
+        <WaitingPage
+          email={auth.email}
+          rejected={auth.phase === 'rejected'}
+          onRefresh={auth.refresh}
+          onSignOut={() => void auth.signOut()}
+        />
+        <ToastHost />
+      </>
+    )
+  }
+  return (
+    <AuthContext.Provider value={{ email: auth.email, role: auth.role, signOut: auth.signOut }}>
+      <AppShell />
+    </AuthContext.Provider>
+  )
+}
+
+/** The app itself, shown once signed in and approved (or in local-only mode). */
+function AppShell() {
   // Auto-sync when the app opens or connectivity returns (no-op until
   // cloud sync is configured in Settings).
   useEffect(() => {
@@ -61,10 +96,11 @@ export default function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/import" element={<ImportPage />} />
         <Route path="/settings/log" element={<ActivityPage />} />
+        <Route path="/users" element={<UsersPage />} />
         <Route path="/kpis" element={<Navigate to="/dashboard?v=kpis" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <TabBar />
+      <Sidebar />
       <ToastHost />
     </HashRouter>
   )

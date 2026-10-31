@@ -14,56 +14,11 @@ import {
 } from '../lib/sync'
 import Icon from '../components/Icon'
 import Page from '../components/Page'
+import PasswordInput from '../components/PasswordInput'
+import { RECOVERY_KEY, authErrorText, sendPasswordReset, signInWithPassword, signUpWithPassword } from '../lib/auth'
 import { showToast } from '../components/Toast'
 import { canInstall, isIos, isStandalone, onInstallChange, promptInstall } from '../lib/installPrompt'
 
-const RECOVERY_KEY = 'ww.passwordRecovery'
-
-/** Password field with a show / hide eye. */
-function PasswordInput({
-  value,
-  onChange,
-  autoComplete,
-}: {
-  value: string
-  onChange: (v: string) => void
-  autoComplete: string
-}) {
-  const [show, setShow] = useState(false)
-  return (
-    <div style={{ position: 'relative' }}>
-      <input
-        type={show ? 'text' : 'password'}
-        value={value}
-        autoComplete={autoComplete}
-        autoCapitalize="none"
-        autoCorrect="off"
-        spellCheck={false}
-        style={{ paddingRight: 48 }}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <button
-        type="button"
-        aria-label={show ? 'Hide password' : 'Show password'}
-        onClick={() => setShow(!show)}
-        style={{
-          position: 'absolute',
-          right: 6,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          border: 'none',
-          background: 'none',
-          fontSize: 20,
-          padding: 8,
-          cursor: 'pointer',
-          opacity: show ? 1 : 0.6,
-        }}
-      >
-        👁
-      </button>
-    </div>
-  )
-}
 
 const fmtTime = (iso: string) => {
   const d = new Date(iso)
@@ -174,13 +129,7 @@ export default function SettingsPage() {
     showToast({ text: 'Cloud sync disconnected. Your local data is untouched.' })
   }
 
-  const authError = (err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err)
-    if (/invalid login credentials/i.test(msg)) {
-      return 'Wrong email or password. Tap 👁 to check what is typed, or use "Forgot password".'
-    }
-    return msg
-  }
+  const authError = authErrorText
 
   const forgotPassword = async () => {
     const c = await getClient()
@@ -188,11 +137,7 @@ export default function SettingsPage() {
     if (!email.trim()) return showToast({ text: 'Type your email first, then tap Forgot password' })
     setBusy(true)
     try {
-      const { error } = await c.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}${window.location.pathname}`,
-      })
-      if (error) throw error
-      localStorage.setItem(RECOVERY_KEY, '1')
+      await sendPasswordReset(c, email)
       showToast({ text: 'Reset link sent — open it on this phone to set a new password.', duration: 9000 })
     } catch (err) {
       showToast({ text: authError(err), duration: 8000 })
@@ -229,20 +174,13 @@ export default function SettingsPage() {
     setBusy(true)
     try {
       if (create) {
-        const { error } = await c.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
-          // Confirmation link opens this app, not Supabase's default localhost URL.
-          options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
-        })
-        if (error) throw error
+        await signUpWithPassword(c, email, password)
         showToast({
           text: 'Account created. If Supabase asks for email confirmation, tap the link in your inbox, then sign in.',
           duration: 9000,
         })
       } else {
-        const { error } = await c.auth.signInWithPassword({ email: email.trim(), password: password.trim() })
-        if (error) throw error
+        await signInWithPassword(c, email, password)
         showToast({ text: 'Signed in' })
       }
     } catch (err) {

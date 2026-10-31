@@ -313,7 +313,7 @@ export interface WeeklyCount extends RecordBase {
   openTickets: number
 }
 
-export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import'
+export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import'
 export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'import'
 
 export interface ActivityChange {

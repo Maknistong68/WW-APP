@@ -96,3 +96,108 @@ create policy "own activity read" on public.activity_log
 drop policy if exists "own activity add" on public.activity_log;
 create policy "own activity add" on public.activity_log
   for insert with check ((select auth.uid()) = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Team access with admin approval. Every new account starts "pending"; the
+-- first account ever is the approved admin. Approved users share one data
+-- set (the policies below replace the per-user "own rows" ones). Safe to re-run.
+-- ---------------------------------------------------------------------------
+create table if not exists public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  email text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  role text not null default 'member' check (role in ('admin', 'member')),
+  created_at timestamptz not null default now(),
+  decided_at timestamptz
+);
+alter table public.profiles enable row level security;
+
+-- Helper functions live in a schema the API does not expose.
+create schema if not exists private;
+grant usage on schema private to authenticated;
+
+create or replace function private.is_approved() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.profiles p where p.id = (select auth.uid()) and p.status = 'approved')
+$$;
+
+create or replace function private.is_admin() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from public.profiles p where p.id = (select auth.uid()) and p.status = 'approved' and p.role = 'admin'
+  )
+$$;
+
+create or replace function private.handle_new_user() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare first_user boolean := not exists (select 1 from public.profiles);
+begin
+  insert into public.profiles (id, email, status, role, decided_at)
+  values (
+    new.id,
+    new.email,
+    case when first_user then 'approved' else 'pending' end,
+    case when first_user then 'admin' else 'member' end,
+    case when first_user then now() else null end
+  )
+  on conflict (id) do nothing;
+  return new;
+end $$;
+
+revoke all on function private.handle_new_user() from public, anon, authenticated;
+revoke all on function private.is_approved() from public, anon;
+revoke all on function private.is_admin() from public, anon;
+grant execute on function private.is_approved() to authenticated;
+grant execute on function private.is_admin() to authenticated;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
+  for each row execute function private.handle_new_user();
+
+-- Accounts that existed before approval was introduced: oldest = admin.
+insert into public.profiles (id, email, status, role, decided_at)
+select u.id, u.email, 'approved',
+       case when row_number() over (order by u.created_at) = 1 then 'admin' else 'member' end, now()
+from auth.users u
+on conflict (id) do nothing;
+
+drop policy if exists "own profile" on public.profiles;
+create policy "own profile" on public.profiles
+  for select to authenticated using (id = (select auth.uid()));
+drop policy if exists "admin reads profiles" on public.profiles;
+create policy "admin reads profiles" on public.profiles
+  for select to authenticated using ((select private.is_admin()));
+drop policy if exists "admin decides" on public.profiles;
+create policy "admin decides" on public.profiles
+  for update to authenticated using ((select private.is_admin())) with check ((select private.is_admin()));
+
+do $$
+declare t text;
+begin
+  foreach t in array array['inspections', 'photos', 'contractors', 'work_orders', 'camps', 'tickets', 'kpi_months', 'manpower', 'weekly_counts'] loop
+    execute format('drop policy if exists "own rows" on public.%I', t);
+    execute format('drop policy if exists "own inspections" on public.%I', t);
+    execute format('drop policy if exists "own photos" on public.%I', t);
+    execute format('drop policy if exists "team rows" on public.%I', t);
+    execute format(
+      'create policy "team rows" on public.%I for all to authenticated using ((select private.is_approved())) with check ((select private.is_approved()))',
+      t);
+  end loop;
+end $$;
+
+drop policy if exists "own activity read" on public.activity_log;
+drop policy if exists "own activity add" on public.activity_log;
+drop policy if exists "team activity read" on public.activity_log;
+create policy "team activity read" on public.activity_log
+  for select to authenticated using ((select private.is_approved()));
+drop policy if exists "team activity add" on public.activity_log;
+create policy "team activity add" on public.activity_log
+  for insert to authenticated with check ((select private.is_approved()) and user_id = (select auth.uid()));
+
+-- Photos: one shared folder "team/" for approved users.
+drop policy if exists "own photo files" on storage.objects;
+drop policy if exists "team photo files" on storage.objects;
+create policy "team photo files" on storage.objects
+  for all to authenticated
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.is_approved()))
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.is_approved()));
