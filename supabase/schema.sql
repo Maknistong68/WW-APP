@@ -1,6 +1,6 @@
 -- WW App cloud sync schema for Supabase.
 -- Run this once in your Supabase project: SQL Editor → New query → paste → Run.
--- Then in the app: Settings → Cloud sync → paste your Project URL and anon key.
+-- Safe to re-run. The app's built-in project (.env.production) already has it.
 
 -- Inspections: the whole inspection object is stored as JSON; last-write-wins
 -- by updated_at. Rows are soft-deleted so every device learns about deletions.
@@ -24,6 +24,8 @@ create table if not exists public.photos (
 );
 
 create index if not exists photos_inspection_idx on public.photos (inspection_uuid);
+create index if not exists inspections_user_idx on public.inspections (user_id);
+create index if not exists photos_user_idx on public.photos (user_id);
 
 -- Row Level Security: each user can only see and change their own rows.
 alter table public.inspections enable row level security;
@@ -31,11 +33,11 @@ alter table public.photos enable row level security;
 
 drop policy if exists "own inspections" on public.inspections;
 create policy "own inspections" on public.inspections
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 drop policy if exists "own photos" on public.photos;
 create policy "own photos" on public.photos
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- Private storage bucket for photo files, one folder per user.
 insert into storage.buckets (id, name, public)
@@ -45,10 +47,10 @@ on conflict (id) do nothing;
 drop policy if exists "own photo files" on storage.objects;
 create policy "own photo files" on storage.objects
   for all using (
-    bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text
+    bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text
   )
   with check (
-    bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text
+    bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text
   );
 
 -- ---------------------------------------------------------------------------
@@ -68,10 +70,11 @@ begin
          updated_at timestamptz not null,
          deleted boolean not null default false
        )', t);
+    execute format('create index if not exists %I on public.%I (user_id)', t || '_user_idx', t);
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists "own rows" on public.%I', t);
     execute format(
-      'create policy "own rows" on public.%I for all using (auth.uid() = user_id) with check (auth.uid() = user_id)',
+      'create policy "own rows" on public.%I for all using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id)',
       t);
   end loop;
 end $$;
@@ -85,10 +88,11 @@ create table if not exists public.activity_log (
   data jsonb not null
 );
 create index if not exists activity_log_time_idx on public.activity_log (time);
+create index if not exists activity_log_user_idx on public.activity_log (user_id);
 alter table public.activity_log enable row level security;
 drop policy if exists "own activity read" on public.activity_log;
 create policy "own activity read" on public.activity_log
-  for select using (auth.uid() = user_id);
+  for select using ((select auth.uid()) = user_id);
 drop policy if exists "own activity add" on public.activity_log;
 create policy "own activity add" on public.activity_log
-  for insert with check (auth.uid() = user_id);
+  for insert with check ((select auth.uid()) = user_id);
