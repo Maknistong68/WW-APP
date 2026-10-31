@@ -159,4 +159,4 @@ export function ManpowerSheet({
   )
 }
 
-export { emptyKpi, emptyManpower } from '../lib/bulkKpi'
+export { emptyKpi, emptyManpower } from '../lib/subjects'

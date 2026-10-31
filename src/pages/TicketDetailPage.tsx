@@ -17,6 +17,7 @@ import { groupOf, uncombine } from '../lib/groups'
 import Icon from '../components/Icon'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { TicketRow } from './TicketsPage'
+import { useAuthInfo } from '../lib/auth'
 
 function Field({ label, value }: { label: string; value: string | number }) {
   if (value === '' || value === null || value === undefined) return null
@@ -37,6 +38,7 @@ export default function TicketDetailPage() {
   const t = useLiveQuery(() => db.tickets.get(uuid).then((x) => x ?? null), [uuid])
   const allTickets = useLiveQuery(() => db.tickets.toArray())
   const [sheet, setSheet] = useState<'edit' | 'close' | 'closeGroup' | 'delete' | null>(null)
+  const { canEdit } = useAuthInfo()
 
   if (t === undefined) return null
   if (t === null) {
@@ -108,6 +110,7 @@ export default function TicketDetailPage() {
                 <Icon name="chevron-right" size={18} />
               </span>
             </button>
+            {canEdit && (
             <button
               className="row tint"
               onClick={() =>
@@ -118,6 +121,7 @@ export default function TicketDetailPage() {
             >
               Uncombine
             </button>
+            )}
           </div>
         </>
       )}
@@ -135,6 +139,7 @@ export default function TicketDetailPage() {
         </>
       )}
 
+      {canEdit && (
       <div className="list">
         {open ? (
           <button className="row tint" onClick={() => setSheet(isMain ? 'closeGroup' : 'close')}>
@@ -156,14 +161,17 @@ export default function TicketDetailPage() {
           Edit
         </button>
       </div>
+      )}
 
       <History uuid={t.uuid} contractors={byUuid} />
 
-      <div className="list" style={{ marginTop: 20 }}>
-        <button className="row destructive" onClick={() => setSheet('delete')}>
-          Delete ticket
-        </button>
-      </div>
+      {canEdit && (
+        <div className="list" style={{ marginTop: 20 }}>
+          <button className="row destructive" onClick={() => setSheet('delete')}>
+            Delete ticket
+          </button>
+        </div>
+      )}
 
       {sheet === 'edit' && <TicketSheet ticket={t} onClose={() => setSheet(null)} />}
       {sheet === 'close' && <CloseTicketSheet ticket={t} onClose={() => setSheet(null)} />}

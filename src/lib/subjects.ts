@@ -1,3 +1,4 @@
+import { newUuid } from '../db'
 import type { Contractor, KpiMonth, Manpower, Ticket, WorkOrder } from '../types'
 
 /**
@@ -48,3 +49,38 @@ export const subjectKpi = (s: KpiSubject, kpis: KpiMonth[], month: string) =>
 
 export const subjectManpower = (s: KpiSubject, rows: Manpower[], month: string) =>
   rows.find((m) => m.contractorUuid === s.contractor.uuid && (m.workOrderUuid || '') === woOf(s) && m.month === month)
+
+/** A blank KPI month for one subject. */
+export function emptyKpi(contractorUuid: string, workOrderUuid: string, month: string): KpiMonth {
+  return {
+    uuid: newUuid(),
+    updatedAt: '',
+    contractorUuid,
+    workOrderUuid,
+    month,
+    wps: false,
+    manpowerDecl: false,
+    salaryDecl: false,
+    accommodationPct: null,
+    onboardingPct: null,
+    offboarded: null,
+    offboardTotal: null,
+    meetingPct: null,
+    quarterlyAuditPct: null,
+  }
+}
+
+/** A blank manpower count for one subject. */
+export function emptyManpower(contractorUuid: string, workOrderUuid: string, month: string): Manpower {
+  return {
+    uuid: newUuid(),
+    updatedAt: '',
+    contractorUuid,
+    workOrderUuid,
+    month,
+    totalWorkers: 0,
+    illegalOrFreelance: 0,
+    visaExpiring30d: 0,
+    paidRecruitmentFees: 0,
+  }
+}

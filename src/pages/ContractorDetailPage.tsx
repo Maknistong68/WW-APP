@@ -16,6 +16,7 @@ import { saveRecord } from '../lib/records'
 import { subjectKpi, subjectManpower, type KpiSubject } from '../lib/subjects'
 import { newWorkOrder } from '../lib/useData'
 import type { WorkOrder } from '../types'
+import { useAuthInfo } from '../lib/auth'
 
 function Ring({ value, status }: { value: number | null; status: string }) {
   const r = 30
@@ -44,6 +45,7 @@ function Ring({ value, status }: { value: number | null; status: string }) {
 const ALL = '__all'
 
 export default function ContractorDetailPage() {
+  const { canEdit } = useAuthInfo()
   const { uuid = '' } = useParams()
   const navigate = useNavigate()
   const d = useAllData()
@@ -104,9 +106,11 @@ export default function ContractorDetailPage() {
       back="/contractors"
       backLabel="Contractors"
       actions={
-        <button className="nav-btn" onClick={() => setSheet('edit')}>
-          Edit
-        </button>
+        canEdit && (
+          <button className="nav-btn" onClick={() => setSheet('edit')}>
+            Edit
+          </button>
+        )
       }
     >
       {!c.active && (
@@ -124,6 +128,7 @@ export default function ContractorDetailPage() {
               <button
                 className="row-main"
                 style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', color: 'inherit', font: 'inherit' }}
+                disabled={!canEdit}
                 onClick={() => setWoSheet(w)}
               >
                 <div className="row-title">
@@ -138,14 +143,17 @@ export default function ContractorDetailPage() {
                 aria-label={`WO ${w.number} active`}
                 checked={w.active}
                 style={{ flex: 'none', width: 22, height: 22 }}
+                disabled={!canEdit}
                 onChange={() => toggleWo(w)}
               />
             </div>
           )
         })}
-        <button className="row tint" onClick={() => setWoSheet(newWorkOrder(c.uuid))}>
-          <Icon name="plus" size={18} /> Add work order
-        </button>
+        {canEdit && (
+          <button className="row tint" onClick={() => setWoSheet(newWorkOrder(c.uuid))}>
+            <Icon name="plus" size={18} /> Add work order
+          </button>
+        )}
       </div>
 
       <div className="segmented" style={{ gridTemplateColumns: '44px 1fr 44px', display: 'grid', gridAutoFlow: 'unset', marginTop: 14 }}>
@@ -214,7 +222,7 @@ export default function ContractorDetailPage() {
               </button>
             ))}
           </div>
-          {chosen ? (
+          {!canEdit ? null : chosen ? (
             <div className="list">
               <button className="row tint" onClick={() => setSheet('kpi')}>
                 Score {monthLabel(month)}

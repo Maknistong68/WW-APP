@@ -23,6 +23,7 @@ import Modal, { ConfirmSheet } from '../components/Modal'
 import { showToast } from '../components/Toast'
 import Icon from '../components/Icon'
 import { newer } from '../lib/sync'
+import { useAuthInfo } from '../lib/auth'
 import {
   learnedSuggestions,
   remarkSuggestionsFor,
@@ -41,6 +42,7 @@ export default function ChecklistPage() {
   const { id } = useParams()
   const inspectionId = Number(id)
   const navigate = useNavigate()
+  const { canEdit } = useAuthInfo()
 
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
@@ -192,6 +194,7 @@ export default function ChecklistPage() {
   }, [])
 
   const update = (mutate: (ins: Inspection) => Inspection) => {
+    if (!canEdit) return showToast({ text: 'View only — ask the admin for Editor access' })
     setInspection((prev) => {
       if (!prev) return prev
       // Stamping updatedAt here (not at write time) keeps the in-memory copy
@@ -330,6 +333,7 @@ export default function ChecklistPage() {
   }
 
   const onQuickCapture = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!canEdit) return
     const files = e.target.files
     if (!files?.length) return
     // Photo-first flow: capture now, then choose where it belongs.
@@ -339,6 +343,7 @@ export default function ChecklistPage() {
   }
 
   const onItemCapture = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!canEdit) return
     const files = e.target.files
     const itemId = itemTarget.current
     if (!files?.length || !itemId) return
@@ -855,13 +860,14 @@ export default function ChecklistPage() {
                   )
                 )
               })()}
-              {progress.answered < progress.total && (
+              {canEdit && progress.answered < progress.total && (
                 <button className="btn block" onClick={() => setConfirmFill(true)}>
                   <Icon name="check" size={19} /> Fill remaining {progress.total - progress.answered} as
                   compliant
                 </button>
               )}
               <button
+                hidden={!canEdit}
                 className={`btn block ${inspection.status === 'completed' ? '' : 'primary'}`}
                 style={{ marginTop: 10 }}
                 onClick={() =>
@@ -893,7 +899,7 @@ export default function ChecklistPage() {
       </main>
 
       {/* Photo-first flow: floating camera + gallery buttons */}
-      <div className="fab-stack">
+      <div className="fab-stack" hidden={!canEdit}>
         <button
           className="fab small"
           aria-label="Add photos from gallery"

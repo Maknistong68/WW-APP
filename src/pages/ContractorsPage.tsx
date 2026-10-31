@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Page, { SettingsButton } from '../components/Page'
+import Page from '../components/Page'
 import Icon from '../components/Icon'
 import ContractorSheet from '../components/ContractorSheet'
 import { isOpen } from '../lib/aging'
@@ -59,7 +59,6 @@ export default function ContractorsPage() {
           <button className="nav-btn" aria-label="New contractor" onClick={() => setAdding(newContractor())}>
             <Icon name="plus" size={26} />
           </button>
-          <SettingsButton />
         </>
       }
     >
@@ -71,15 +70,10 @@ export default function ContractorsPage() {
         <div className="empty-state">
           <Icon name="users" size={44} />
           <b>No contractors yet</b>
-          Tap + or import your history in Settings.
+          Tap + to add one.
         </div>
       ) : (
         <>
-          <div className="list">
-            <button className="row tint" onClick={() => navigate(`/kpis/entry?m=${month}`)}>
-              <Icon name="pencil" size={18} /> Enter {monthLabel(month)} KPIs for all work orders
-            </button>
-          </div>
           <div className="section-label">Active · KPI {monthLabel(month)}</div>
           <div className="list">{active.map(row)}</div>
           {inactive.length > 0 && (

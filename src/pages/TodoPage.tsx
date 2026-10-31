@@ -1,14 +1,11 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Page, { SettingsButton } from '../components/Page'
+import Page from '../components/Page'
 import Icon from '../components/Icon'
-import TicketSheet from '../components/TicketSheet'
 import { showToast } from '../components/Toast'
 import { monthLabel, monthOf } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
 import { buildTodo, type TodoCard } from '../lib/todo'
-import { newTicket } from '../lib/useData'
-import type { Ticket } from '../types'
 
 /** Short names under the tiles. */
 const SHORT: Record<string, string> = {
@@ -65,22 +62,11 @@ function Tile({ c }: { c: TodoCard }) {
 /** Home: the monthly routine as named icon tiles, alerts first. */
 export default function TodoPage() {
   const d = useAllData()
-  const [adding, setAdding] = useState<Ticket | null>(null)
   const cards = useMemo(() => (d.loaded ? buildTodo(d) : []), [d])
   const alerts = cards.filter((c) => c.alert?.level === 'bad').length
 
   return (
-    <Page
-      title="Home"
-      actions={
-        <>
-          <button className="nav-btn" aria-label="New ticket" onClick={() => setAdding(newTicket())}>
-            <Icon name="plus" size={26} />
-          </button>
-          <SettingsButton />
-        </>
-      }
-    >
+    <Page title="Home">
       <div className="chart-sub" style={{ margin: '-6px 4px 14px', fontSize: 15 }}>
         {monthLabel(monthOf())} · {alerts ? `${alerts} need attention` : 'nothing urgent'}
       </div>
@@ -92,7 +78,6 @@ export default function TodoPage() {
       <div className="list-foot" style={{ textAlign: 'center' }}>
         Tap to open · hold for details
       </div>
-      {adding && <TicketSheet ticket={adding} onClose={() => setAdding(null)} />}
     </Page>
   )
 }

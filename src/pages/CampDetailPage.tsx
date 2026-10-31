@@ -10,9 +10,11 @@ import { useAllData } from '../lib/kpiData'
 import { ago } from './CampsPage'
 import { isFlagged, scoreInspection } from '../lib/score'
 import { getTemplate } from '../templates'
+import { useAuthInfo } from '../lib/auth'
 
 /** One camp: status, inspection log, start a new inspection. */
 export default function CampDetailPage() {
+  const { canEdit } = useAuthInfo()
   const { uuid = '' } = useParams()
   const navigate = useNavigate()
   const d = useAllData()
@@ -42,9 +44,11 @@ export default function CampDetailPage() {
       back="/camps"
       backLabel="Camps"
       actions={
-        <button className="nav-btn" onClick={() => setEditing(true)}>
-          Edit
-        </button>
+        canEdit && (
+          <button className="nav-btn" onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        )
       }
     >
       <div className="hero-row">
@@ -68,9 +72,11 @@ export default function CampDetailPage() {
         </div>
       </div>
 
-      <button className="btn primary block" onClick={() => navigate(`/new/accommodation?camp=${camp.uuid}`)}>
-        <Icon name="clipboard" size={18} /> Start inspection
-      </button>
+      {canEdit && (
+        <button className="btn primary block" onClick={() => navigate(`/new/accommodation?camp=${camp.uuid}`)}>
+          <Icon name="clipboard" size={18} /> Start inspection
+        </button>
+      )}
 
       <div className="section-label">Inspection log · {log.length}</div>
       {log.length === 0 ? (

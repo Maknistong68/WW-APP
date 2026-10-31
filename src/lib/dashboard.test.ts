@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { missingSubmissions, openOn, overdueTickets, periodStats, weeklyTrend } from './dashboard'
+import {
+  campsSummary,
+  lastMonths,
+  missingSubmissions,
+  openAging,
+  openOn,
+  overdueTickets,
+  periodStats,
+  recoveredPerMonth,
+  ticketsPerMonth,
+  weeklyTrend,
+  workforce,
+} from './dashboard'
 import { kpiSubjects, subjectTickets } from './subjects'
-import type { Contractor, KpiMonth, Ticket, WorkOrder } from '../types'
+import type { Camp, Contractor, KpiMonth, Manpower, Ticket, WorkOrder } from '../types'
 
 const tk = (p: Partial<Ticket>): Ticket => ({
   uuid: Math.random().toString(),
@@ -96,5 +108,50 @@ describe('work-order subjects', () => {
     expect(subjectTickets(s1, ts, one)).toHaveLength(2)
     const s2 = kpiSubjects([c], two)[0]
     expect(subjectTickets(s2, ts, two)).toHaveLength(1)
+  })
+})
+
+describe('dashboard series', () => {
+  const t = (p: Partial<Ticket>) => ({ status: 'Open', openedAt: '', closedAt: '', workers: 1, amountOwed: 0, ...p }) as Ticket
+  it('months, opened vs closed, recovered money', () => {
+    expect(lastMonths('2026-02', 3)).toEqual(['2025-12', '2026-01', '2026-02'])
+    const tickets = [
+      t({ openedAt: '2026-01-05' }),
+      t({ openedAt: '2026-01-10', status: 'Closed', closedAt: '2026-02-01', amountOwed: 500 }),
+      t({ openedAt: '2026-02-03', status: 'Closed', closedAt: '2026-02-04' }),
+    ]
+    expect(ticketsPerMonth(tickets, ['2026-01', '2026-02']).map((p) => p.values)).toEqual([[2, 0], [1, 2]])
+    expect(recoveredPerMonth(tickets, ['2026-01', '2026-02']).map((p) => p.values[0])).toEqual([0, 500])
+  })
+  it('open tickets by age carry workers and money still owed', () => {
+    const rows = openAging(
+      [t({ openedAt: '2026-10-25', amountOwed: 100 }), t({ openedAt: '2026-07-01', workers: 3 }), t({ openedAt: '2026-01-01', status: 'Closed', closedAt: '2026-01-02' })],
+      '2026-10-31',
+    )
+    expect(rows.map((r) => r.count)).toEqual([1, 0, 0, 0, 1])
+    expect([rows[0].owed, rows[4].workers]).toEqual([100, 3])
+  })
+  it('workforce uses the latest declared month and flags missing ones', () => {
+    const c = { uuid: 'c', name: 'RPCO', active: true, aliases: [] } as unknown as Contractor
+    const d = { uuid: 'd', name: 'Other', active: true, aliases: [] } as unknown as Contractor
+    const subjects = [
+      { key: 'c', contractor: c, label: 'RPCO' },
+      { key: 'd', contractor: d, label: 'Other' },
+    ]
+    const mp = [
+      { contractorUuid: 'c', workOrderUuid: '', month: '2026-09', totalWorkers: 100, illegalOrFreelance: 5, visaExpiring30d: 2, paidRecruitmentFees: 0 },
+    ] as Manpower[]
+    const w = workforce(subjects, mp, '2026-10')
+    expect([w.month, w.total, w.illegal, Math.round(w.formalPct!), w.missing]).toEqual(['2026-09', 100, 5, 95, 2])
+    expect(workforce(subjects, [], '2026-10').formalPct).toBeNull()
+  })
+  it('camps to visit: never and expired first', () => {
+    const camps = [
+      { uuid: 'a', name: 'A', active: true, cycleDays: 90 },
+      { uuid: 'b', name: 'B', active: true, cycleDays: 90 },
+      { uuid: 'x', name: 'X', active: false, cycleDays: 90 },
+    ] as Camp[]
+    const s = campsSummary(camps, [], '2026-10-31')
+    expect([s.active, s.never, s.toVisit.length]).toEqual([2, 2, 2])
   })
 })

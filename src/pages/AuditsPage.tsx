@@ -6,9 +6,10 @@ import { TEMPLATES, countItems, getTemplate } from '../templates'
 import { isAnswered } from '../lib/score'
 import { ConfirmSheet } from '../components/Modal'
 import Icon from '../components/Icon'
-import Page, { SettingsButton } from '../components/Page'
+import Page from '../components/Page'
 import { showToast } from '../components/Toast'
 import type { Inspection } from '../types'
+import { useAuthInfo } from '../lib/auth'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -27,6 +28,7 @@ function friendlyDate(iso: string): string {
 
 export default function AuditsPage() {
   const navigate = useNavigate()
+  const { canEdit } = useAuthInfo()
   const inspections = useLiveQuery(() => db.inspections.orderBy('createdAt').reverse().toArray())
   const [listQuery, setListQuery] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<Inspection | null>(null)
@@ -40,9 +42,9 @@ export default function AuditsPage() {
   })
 
   return (
-    <Page title="All inspections" back="/camps" backLabel="Camps" actions={<SettingsButton />}>
-        <div className="section-label">Start a new inspection</div>
-        {TEMPLATES.map((t) => (
+    <Page title="All inspections" back="/camps" backLabel="Camps">
+        {canEdit && <div className="section-label">Start a new inspection</div>}
+        {canEdit && TEMPLATES.map((t) => (
           <button key={t.id} className="card template-card" onClick={() => navigate(`/new/${t.id}`)}>
             <h3>{t.name}</h3>
             <p>{t.description}</p>
@@ -86,6 +88,8 @@ export default function AuditsPage() {
                   </span>
                 </div>
                 <span className={`badge ${ins.status}`}>{ins.status === 'completed' ? 'Completed' : 'Draft'}</span>
+                {canEdit && (
+                <>
                 <button
                   className="icon-btn"
                   title="Repeat visit (copy details into a new inspection)"
@@ -113,6 +117,8 @@ export default function AuditsPage() {
                 >
                   <Icon name="trash" size={22} />
                 </button>
+                </>
+                )}
               </div>
             )
           })

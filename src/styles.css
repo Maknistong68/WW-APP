@@ -31,6 +31,8 @@
   --toolbar-bg: rgba(249, 249, 249, 0.86);
   --tabbar-h: 0px;
   --chart: #157347;
+  /* 2nd series (validated with the brand green: CVD ΔE 21, contrast ≥ 3:1) */
+  --chart-2: #2a78d6;
   --grid: #e5e5ea;
 }
 
@@ -63,6 +65,7 @@
     --shadow: none;
     --toolbar-bg: rgba(22, 22, 24, 0.86);
     --chart: #2fa84f;
+    --chart-2: #3987e5;
     --grid: #38383a;
   }
 }
@@ -530,6 +533,17 @@ button.icon-btn:active { background: var(--gray-bg); }
 }
 .fab:active { transform: scale(0.94); }
 .fab.small { width: 50px; height: 50px; background: var(--brand-dark); }
+/* The one + (Home, Tickets, Contractors, Camps, Dashboard) */
+.add-fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(env(safe-area-inset-bottom) + 24px);
+  width: 60px;
+  height: 60px;
+  z-index: 30;
+}
+body.selecting .add-fab { display: none; }
+.add-choice { min-height: 60px; }
 
 /* Modal (bottom sheet) */
 .modal-backdrop {
@@ -984,6 +998,24 @@ button.row:active { background: var(--gray-bg); }
 .chart-svg .dot { fill: var(--chart); stroke: var(--card); stroke-width: 2; }
 .chart-svg .cross { stroke: var(--muted); stroke-width: 1; }
 .chart-svg .end-label { fill: var(--text); font-size: 12px; font-weight: 600; }
+.chart-svg .col.s0 { fill: var(--chart); }
+.chart-svg .col.s1 { fill: var(--chart-2); }
+.chart-svg .hover-band { fill: var(--grid); opacity: 0.6; }
+.chart-legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); margin: -2px 0 6px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.chart-legend .swatch.s0 { background: var(--chart); }
+.chart-legend .swatch.s1 { background: var(--chart-2); }
+
+/* Dashboard */
+.segmented.scroll { display: flex; overflow-x: auto; scrollbar-width: none; }
+.segmented.scroll::-webkit-scrollbar { display: none; }
+.segmented.scroll button { flex: 1 0 auto; padding: 7px 5px; font-size: 12.5px; }
+button.hero { border: none; font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%; }
+button.hero:active { transform: scale(0.97); }
+.attn-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.attn-dot.bad { background: var(--red); }
+.attn-dot.warn { background: var(--amber-border); }
 .chart-tip {
   position: absolute;
   top: 44px;

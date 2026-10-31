@@ -1,16 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { db } from '../db'
-import Page, { SettingsButton } from '../components/Page'
+import Page from '../components/Page'
 import Icon from '../components/Icon'
 import SwipeRow from '../components/SwipeRow'
-import TicketSheet, { CloseTicketSheet } from '../components/TicketSheet'
+import { CloseTicketSheet } from '../components/TicketSheet'
+import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { memberCounts } from '../lib/groups'
 import { ageDays, ageTone, isOpen } from '../lib/aging'
 import { shortDate } from '../lib/dates'
-import { contractorName, newTicket, useContractors } from '../lib/useData'
+import { contractorName, useContractors } from '../lib/useData'
 import { sar } from '../lib/money'
 import type { Contractor, Ticket, WorkOrder } from '../types'
 
@@ -86,7 +87,7 @@ export default function TicketsPage() {
   const [params, setParams] = useSearchParams()
   const filter = (params.get('f') as Filter) || 'open'
   const [query, setQuery] = useState('')
-  const [editing, setEditing] = useState<Ticket | null>(null)
+  const { canEdit } = useAuthInfo()
   const [closing, setClosing] = useState<Ticket | null>(null)
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
@@ -129,6 +130,11 @@ export default function TicketsPage() {
     setSelecting(false)
     setPicked(new Set())
   }
+  // Hide the global + while the select bar is up.
+  useEffect(() => {
+    document.body.classList.toggle('selecting', selecting)
+    return () => document.body.classList.remove('selecting')
+  }, [selecting])
   const counts = useMemo(() => {
     const all = tickets ?? []
     const open = all.filter(isOpen)
@@ -149,15 +155,11 @@ export default function TicketsPage() {
             Done
           </button>
         ) : (
-          <>
+          canEdit && (
             <button className="nav-btn" onClick={() => setSelecting(true)}>
               Select
             </button>
-            <button className="nav-btn" aria-label="New ticket" onClick={() => setEditing(newTicket())}>
-              <Icon name="plus" size={26} />
-            </button>
-            <SettingsButton />
-          </>
+          )
         )
       }
     >
@@ -181,7 +183,7 @@ export default function TicketsPage() {
         <div className="empty-state">
           <Icon name="ticket" size={44} />
           <b>{tickets.length === 0 ? 'No tickets yet' : 'Nothing here'}</b>
-          {tickets.length === 0 ? 'Tap + to log one.' : 'Try another filter.'}
+          {tickets.length === 0 ? (canEdit ? 'Tap + to log one.' : 'Nothing logged yet.') : 'Try another filter.'}
         </div>
       ) : (
         <>
@@ -196,7 +198,7 @@ export default function TicketsPage() {
                   selected={picked.has(t.uuid)}
                   onSelect={() => toggle(t.uuid)}
                 />
-              ) : isOpen(t) ? (
+              ) : isOpen(t) && canEdit ? (
                 <SwipeRow key={t.uuid} actionLabel="Close" onAction={() => setClosing(t)}>
                   <TicketRow t={t} sub={ticketSub(t, byUuid, woByUuid)} group={groupLabel(t)} />
                 </SwipeRow>
@@ -208,7 +210,7 @@ export default function TicketsPage() {
           {visible.length > 0 && (
             <div className="list-foot">
               {visible.length} ticket{visible.length === 1 ? '' : 's'} · {workers} workers
-              {filter === 'open' && !selecting && ' · swipe left to close · Select to close several together'}
+              {filter === 'open' && !selecting && canEdit && ' · swipe left to close · Select to close several together'}
             </div>
           )}
         </>
@@ -236,7 +238,6 @@ export default function TicketsPage() {
           }}
         />
       )}
-      {editing && <TicketSheet ticket={editing} onClose={() => setEditing(null)} />}
       {closing && <CloseTicketSheet ticket={closing} onClose={() => setClosing(null)} />}
     </Page>
   )

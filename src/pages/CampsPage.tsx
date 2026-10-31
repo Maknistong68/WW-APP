@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Page, { SettingsButton } from '../components/Page'
+import Page from '../components/Page'
 import Icon from '../components/Icon'
-import CampSheet from '../components/CampSheet'
 import { newUuid } from '../db'
 import { CAMP_STATUS_LABEL, DEFAULT_CYCLE_DAYS, campState, campsFromAudits, type CampStatus } from '../lib/camps'
 import { shortDate } from '../lib/dates'
@@ -32,7 +31,6 @@ export default function CampsPage() {
   const navigate = useNavigate()
   const d = useAllData()
   const [query, setQuery] = useState('')
-  const [adding, setAdding] = useState<Camp | null>(null)
 
   // Old audits without a camp become camps once, so their history shows here.
   const seeded = useRef(false)
@@ -57,14 +55,6 @@ export default function CampsPage() {
   return (
     <Page
       title="Camps"
-      actions={
-        <>
-          <button className="nav-btn" aria-label="New camp" onClick={() => setAdding(newCamp())}>
-            <Icon name="plus" size={26} />
-          </button>
-          <SettingsButton />
-        </>
-      }
     >
       <label className="ios-search">
         <Icon name="search" size={18} />
@@ -125,7 +115,6 @@ export default function CampsPage() {
       </div>
       <div className="list-foot">Inspect every camp at least every 90 days. Due soon = last 14 days of the cycle.</div>
 
-      {adding && <CampSheet camp={adding} onClose={() => setAdding(null)} />}
     </Page>
   )
 }

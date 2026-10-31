@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Icon, { type IconName } from './Icon'
-import { useAuthInfo } from '../lib/auth'
+import { ROLE_LABEL, useAuthInfo } from '../lib/auth'
 import { campState } from '../lib/camps'
 import { overdueTickets } from '../lib/dashboard'
 import { useAllData } from '../lib/kpiData'
@@ -91,7 +91,7 @@ export default function Sidebar() {
             </button>
           ))}
         <div className="side-foot">
-          {me.email && <div>{me.email}{me.role === 'admin' ? ' · admin' : ''}</div>}
+          {me.email && <div>{me.email} · {ROLE_LABEL[me.role]}</div>}
           <div>{sync ? `Synced ${new Date(sync).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : 'Not synced yet'}</div>
           {me.email && (
             <button className="details-toggle" onClick={() => void me.signOut()}>

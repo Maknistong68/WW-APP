@@ -165,10 +165,12 @@ export async function syncNow(): Promise<SyncResult> {
     if (!session) throw new Error('Not signed in')
     if (!navigator.onLine) throw new Error('No internet connection')
     const userId = session.user.id
+    // Viewers only pull: the server refuses their writes anyway.
+    const readOnly = await isViewer(c, userId)
     // 1. Push tombstones (deletions made on this device). Stamping updated_at
     // gives the deletion a real timestamp, so a copy edited *after* the
     // deletion counts as newer and is resurrected by the push loops below.
-    const tombstones = await db.tombstones.toArray()
+    const tombstones = readOnly ? [] : await db.tombstones.toArray()
     for (const t of tombstones) {
       try {
         const table =
@@ -215,7 +217,7 @@ export async function syncNow(): Promise<SyncResult> {
 
     // push local-new / local-newer (the upsert's deleted: false also
     // resurrects a remotely-deleted record when the local copy is newer)
-    for (const ins of localIns) {
+    for (const ins of readOnly ? [] : localIns) {
       if (!ins.uuid || !localInsMap.has(ins.uuid)) continue
       const remote = remoteInsMap.get(ins.uuid)
       if (remote && !newer(ins.updatedAt, remote.updated_at)) continue
@@ -298,7 +300,7 @@ export async function syncNow(): Promise<SyncResult> {
     const photoPath = (uuid: string) => `team/${uuid}.jpg`
 
     // push photos: new blobs + newer metadata
-    for (const p of localPhotos) {
+    for (const p of readOnly ? [] : localPhotos) {
       if (!p.uuid || !localPhotoMap.has(p.uuid)) continue
       const insUuid = insUuidById.get(p.inspectionId)
       if (!insUuid) continue
@@ -382,13 +384,13 @@ export async function syncNow(): Promise<SyncResult> {
     // 4. Co-pilot records + activity log
     for (const table of Object.keys(REMOTE_TABLE) as RecordTable[]) {
       try {
-        await syncRecordTable(c, userId, table, result, fail)
+        await syncRecordTable(c, userId, table, result, fail, readOnly)
       } catch (err) {
         fail(`Sync ${table}`, err)
       }
     }
     try {
-      await syncActivity(c, userId, result)
+      await syncActivity(c, userId, result, readOnly)
     } catch (err) {
       fail('Sync activity log', err)
     }
@@ -425,6 +427,7 @@ async function syncRecordTable(
   table: RecordTable,
   result: SyncResult,
   fail: (what: string, err: unknown) => void,
+  readOnly = false,
 ): Promise<void> {
   const remoteName = REMOTE_TABLE[table]
   const local = db.table(table) as unknown as {
@@ -445,6 +448,7 @@ async function syncRecordTable(
   }
 
   const toPush = [...localMap.values()].filter((l) => {
+    if (readOnly) return false
     const r = remoteMap.get(l.uuid)
     return !r || newer(l.updatedAt, r.updated_at)
   })
@@ -486,8 +490,8 @@ async function syncRecordTable(
 }
 
 /** Activity log is append-only: push unsent entries, pull ones this device lacks. */
-async function syncActivity(c: SupabaseClient, userId: string, result: SyncResult): Promise<void> {
-  const unsent = (await db.activity.toArray()).filter((a) => !a.synced)
+async function syncActivity(c: SupabaseClient, userId: string, result: SyncResult, readOnly = false): Promise<void> {
+  const unsent = readOnly ? [] : (await db.activity.toArray()).filter((a) => !a.synced)
   for (let i = 0; i < unsent.length; i += 200) {
     const batch = unsent.slice(i, i + 200)
     const { error } = await c.from('activity_log').upsert(
@@ -514,6 +518,18 @@ async function syncActivity(c: SupabaseClient, userId: string, result: SyncResul
     const rows = ((data ?? []) as { data: ActivityEntry }[]).map((r) => ({ ...r.data, synced: true }))
     await db.activity.bulkPut(rows)
     result.records += rows.length
+  }
+}
+
+/** True when this account may only read (role "viewer"). Falls back to the remembered role. */
+async function isViewer(c: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await c.from('profiles').select('role').eq('id', userId).maybeSingle()
+  if (data) return (data as { role: string }).role === 'viewer'
+  try {
+    const cached = JSON.parse(localStorage.getItem('ww.access') ?? 'null') as { uid: string; role: string } | null
+    return !!cached && cached.uid === userId && cached.role === 'viewer'
+  } catch {
+    return false
   }
 }
 

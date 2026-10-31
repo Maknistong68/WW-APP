@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import TodoPage from './pages/TodoPage'
 import CampsPage from './pages/CampsPage'
@@ -10,16 +10,16 @@ import ContractorDetailPage from './pages/ContractorDetailPage'
 import AuditsPage from './pages/AuditsPage'
 import DashboardPage from './pages/DashboardPage'
 import KpiDetailPage from './pages/KpiDetailPage'
-import BulkKpiPage from './pages/BulkKpiPage'
 import InfoFormPage from './pages/InfoFormPage'
 import ChecklistPage from './pages/ChecklistPage'
 import SettingsPage from './pages/SettingsPage'
-import ImportPage from './pages/ImportPage'
 import ActivityPage from './pages/ActivityPage'
 import Sidebar from './components/Sidebar'
+import AddButton from './components/AddButton'
+import MissingPage from './pages/MissingPage'
 import LoginPage, { WaitingPage } from './pages/LoginPage'
 import UsersPage from './pages/UsersPage'
-import { AuthContext, useAuth } from './lib/auth'
+import { AuthContext, canEditRole, useAuth, useAuthInfo } from './lib/auth'
 import ToastHost, { showToast } from './components/Toast'
 import { backgroundSync, type SyncResult } from './lib/sync'
 
@@ -48,7 +48,7 @@ export default function App() {
     )
   }
   return (
-    <AuthContext.Provider value={{ email: auth.email, role: auth.role, signOut: auth.signOut }}>
+    <AuthContext.Provider value={{ email: auth.email, role: auth.role, canEdit: canEditRole(auth.role), signOut: auth.signOut }}>
       <AppShell />
     </AuthContext.Provider>
   )
@@ -88,20 +88,26 @@ function AppShell() {
         <Route path="/contractors/:uuid" element={<ContractorDetailPage />} />
         <Route path="/audits" element={<AuditsPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/kpis/entry" element={<BulkKpiPage />} />
         <Route path="/kpis/:key" element={<KpiDetailPage />} />
-        <Route path="/new/:templateId" element={<InfoFormPage mode="new" />} />
+        <Route path="/missing/:item" element={<MissingPage />} />
+        <Route path="/new/:templateId" element={<EditOnly><InfoFormPage mode="new" /></EditOnly>} />
         <Route path="/inspection/:id" element={<ChecklistPage />} />
-        <Route path="/inspection/:id/edit" element={<InfoFormPage mode="edit" />} />
+        <Route path="/inspection/:id/edit" element={<EditOnly><InfoFormPage mode="edit" /></EditOnly>} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/settings/import" element={<ImportPage />} />
         <Route path="/settings/log" element={<ActivityPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/kpis" element={<Navigate to="/dashboard?v=kpis" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Sidebar />
+      <AddButton />
       <ToastHost />
     </HashRouter>
   )
+}
+
+/** Viewers can't open add/edit forms. */
+function EditOnly({ children }: { children: ReactNode }) {
+  const { canEdit } = useAuthInfo()
+  return canEdit ? <>{children}</> : <Navigate to="/" replace />
 }

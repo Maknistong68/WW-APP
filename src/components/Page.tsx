@@ -68,13 +68,3 @@ export default function Page({
     </>
   )
 }
-
-/** Gear button that opens Settings (top-right of each tab). */
-export function SettingsButton() {
-  const navigate = useNavigate()
-  return (
-    <button className="nav-btn" onClick={() => navigate('/settings')} aria-label="Settings">
-      <Icon name="settings" size={24} />
-    </button>
-  )
-}

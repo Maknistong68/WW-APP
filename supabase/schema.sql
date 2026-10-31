@@ -106,7 +106,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
-  role text not null default 'member' check (role in ('admin', 'member')),
+  role text not null default 'editor',
   created_at timestamptz not null default now(),
   decided_at timestamptz
 );
@@ -137,7 +137,7 @@ begin
     new.id,
     new.email,
     case when first_user then 'approved' else 'pending' end,
-    case when first_user then 'admin' else 'member' end,
+    case when first_user then 'admin' else 'editor' end,
     case when first_user then now() else null end
   )
   on conflict (id) do nothing;
@@ -157,7 +157,7 @@ create trigger on_auth_user_created after insert on auth.users
 -- Accounts that existed before approval was introduced: oldest = admin.
 insert into public.profiles (id, email, status, role, decided_at)
 select u.id, u.email, 'approved',
-       case when row_number() over (order by u.created_at) = 1 then 'admin' else 'member' end, now()
+       case when row_number() over (order by u.created_at) = 1 then 'admin' else 'editor' end, now()
 from auth.users u
 on conflict (id) do nothing;
 
@@ -201,3 +201,88 @@ create policy "team photo files" on storage.objects
   for all to authenticated
   using (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.is_approved()))
   with check (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.is_approved()));
+
+-- ---------------------------------------------------------------------------
+-- Roles: admin / editor / viewer. Viewers read everything but cannot write.
+-- Safe to re-run.
+-- ---------------------------------------------------------------------------
+alter table public.profiles drop constraint if exists profiles_role_check;
+update public.profiles set role = 'editor' where role = 'member';
+alter table public.profiles alter column role set default 'editor';
+alter table public.profiles add constraint profiles_role_check check (role in ('admin', 'editor', 'viewer'));
+
+create or replace function private.can_edit() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid()) and p.status = 'approved' and p.role in ('admin', 'editor')
+  )
+$$;
+revoke all on function private.can_edit() from public, anon;
+grant execute on function private.can_edit() to authenticated;
+
+create or replace function private.handle_new_user() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare first_user boolean := not exists (select 1 from public.profiles);
+begin
+  insert into public.profiles (id, email, status, role, decided_at)
+  values (
+    new.id,
+    new.email,
+    case when first_user then 'approved' else 'pending' end,
+    case when first_user then 'admin' else 'editor' end,
+    case when first_user then now() else null end
+  )
+  on conflict (id) do nothing;
+  return new;
+end $$;
+revoke all on function private.handle_new_user() from public, anon, authenticated;
+
+-- An admin cannot change their own role or access, so the team keeps an admin.
+create or replace function private.guard_own_profile() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.id = (select auth.uid()) and (new.role is distinct from old.role or new.status is distinct from old.status) then
+    raise exception 'You cannot change your own role or access';
+  end if;
+  return new;
+end $$;
+revoke all on function private.guard_own_profile() from public, anon, authenticated;
+drop trigger if exists guard_own_profile on public.profiles;
+create trigger guard_own_profile before update on public.profiles
+  for each row execute function private.guard_own_profile();
+
+do $$
+declare t text;
+begin
+  foreach t in array array['inspections', 'photos', 'contractors', 'work_orders', 'camps', 'tickets', 'kpi_months', 'manpower', 'weekly_counts'] loop
+    execute format('drop policy if exists "team rows" on public.%I', t);
+    execute format('drop policy if exists "team read" on public.%I', t);
+    execute format('drop policy if exists "team add" on public.%I', t);
+    execute format('drop policy if exists "team change" on public.%I', t);
+    execute format('drop policy if exists "team remove" on public.%I', t);
+    execute format('create policy "team read" on public.%I for select to authenticated using ((select private.is_approved()))', t);
+    execute format('create policy "team add" on public.%I for insert to authenticated with check ((select private.can_edit()))', t);
+    execute format('create policy "team change" on public.%I for update to authenticated using ((select private.can_edit())) with check ((select private.can_edit()))', t);
+    execute format('create policy "team remove" on public.%I for delete to authenticated using ((select private.can_edit()))', t);
+  end loop;
+end $$;
+
+drop policy if exists "team activity add" on public.activity_log;
+create policy "team activity add" on public.activity_log
+  for insert to authenticated with check ((select private.can_edit()) and user_id = (select auth.uid()));
+
+drop policy if exists "team photo files" on storage.objects;
+drop policy if exists "team photo read" on storage.objects;
+drop policy if exists "team photo add" on storage.objects;
+drop policy if exists "team photo change" on storage.objects;
+drop policy if exists "team photo remove" on storage.objects;
+create policy "team photo read" on storage.objects for select to authenticated
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.is_approved()));
+create policy "team photo add" on storage.objects for insert to authenticated
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.can_edit()));
+create policy "team photo change" on storage.objects for update to authenticated
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.can_edit()))
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.can_edit()));
+create policy "team photo remove" on storage.objects for delete to authenticated
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.can_edit()));

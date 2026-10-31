@@ -223,15 +223,6 @@ export default function SettingsPage() {
     <Page title="Settings" back=".." backLabel="Back">
         <div className="section-label">Your data</div>
         <div className="list">
-          <button className="row" onClick={() => navigate('/settings/import')}>
-            <span className="row-icon">
-              <Icon name="inbox" size={18} />
-            </span>
-            <span className="row-main">Import history</span>
-            <span className="row-chev">
-              <Icon name="chevron-right" size={18} />
-            </span>
-          </button>
           <button className="row" onClick={() => navigate('/settings/log')}>
             <span className="row-icon">
               <Icon name="activity" size={18} />

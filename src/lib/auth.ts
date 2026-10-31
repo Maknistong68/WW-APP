@@ -9,7 +9,18 @@ export const RECOVERY_KEY = 'ww.passwordRecovery'
 const ACCESS_KEY = 'ww.access'
 
 export type AccessStatus = 'pending' | 'approved' | 'rejected'
-export type Role = 'admin' | 'member'
+export type Role = 'admin' | 'editor' | 'viewer'
+
+export const ROLE_LABEL: Record<Role, string> = { admin: 'Admin', editor: 'Editor', viewer: 'Viewer' }
+
+/** Older profiles said "member" (= could edit). Anything unknown is read-only. */
+export function normRole(r: unknown): Role {
+  if (r === 'admin' || r === 'editor' || r === 'viewer') return r
+  return r === 'member' ? 'editor' : 'viewer'
+}
+
+/** Admins and editors add and change data; viewers only look. */
+export const canEditRole = (r: Role) => r !== 'viewer'
 
 export type AuthPhase = 'loading' | 'local' | 'signedOut' | AccessStatus
 
@@ -79,16 +90,16 @@ export function resolvePhase(
   cached: CachedAccess | null,
 ): { phase: AuthPhase; role: Role } {
   if (!hasCloud) return { phase: 'local', role: 'admin' }
-  if (!session) return { phase: 'signedOut', role: 'member' }
-  if (profile) return { phase: profile.status, role: profile.role }
-  if (cached) return { phase: cached.status, role: cached.role }
+  if (!session) return { phase: 'signedOut', role: 'viewer' }
+  if (profile) return { phase: profile.status, role: normRole(profile.role) }
+  if (cached) return { phase: cached.status, role: normRole(cached.role) }
   // Signed in but the profile can't be read (offline): let them in; nothing
   // syncs without approval because the server refuses it.
-  return { phase: 'approved', role: 'member' }
+  return { phase: 'approved', role: 'viewer' }
 }
 
 export function useAuth(): AuthState & { refresh: () => void; signOut: () => Promise<void> } {
-  const [state, setState] = useState<AuthState>({ phase: 'loading', session: null, email: '', role: 'member' })
+  const [state, setState] = useState<AuthState>({ phase: 'loading', session: null, email: '', role: 'viewer' })
   const [tick, setTick] = useState(0)
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
@@ -148,9 +159,11 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
 export interface AuthInfo {
   email: string
   role: Role
+  /** Admin or editor. */
+  canEdit: boolean
   signOut: () => Promise<void>
 }
 
 /** Who is signed in, for the sidebar and admin pages. */
-export const AuthContext = createContext<AuthInfo>({ email: '', role: 'member', signOut: async () => {} })
+export const AuthContext = createContext<AuthInfo>({ email: '', role: 'viewer', canEdit: false, signOut: async () => {} })
 export const useAuthInfo = () => useContext(AuthContext)
