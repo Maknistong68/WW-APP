@@ -60,8 +60,9 @@ export async function buildKpiPack(d: AllData, month: string): Promise<{ blob: B
       ['Open over 30 days', t.over30AtEnd],
       ['Workers affected (opened)', t.workersOpened],
       ['Average days to close', t.avgDaysToClose === null ? null : Math.round(t.avgDaysToClose)],
-      ['Money owed on tickets opened (SAR)', Math.round(m.total)],
-      ['  of which still open (SAR)', Math.round(m.outstanding)],
+      ['Money total, tickets opened (SAR)', Math.round(m.total)],
+      ['Still owed (SAR)', Math.round(m.outstanding)],
+      ['Recovered (SAR)', Math.round(m.settled)],
     ],
     [34, 14],
   )

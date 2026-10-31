@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  extractAmount,
   cleanCategory,
   cleanChannel,
   cleanIssue,
@@ -52,5 +53,16 @@ describe('import cleaners', () => {
     expect(m.get('ASIM Jan')).toBe('Asim Jan')
     expect(m.get('Mohamed  Ibrahim')).toBe('Mohammed Ibrahim')
     expect(m.get('Muhammed Heera')).toBe('Muhammad Heera')
+  })
+})
+
+describe('money in free text', () => {
+  it('finds SAR amounts in every spelling seen in the files', () => {
+    expect(extractAmount('not been paid for 3 months by Subcon JAD, total amount of 25553/SAR.')).toBe(25553)
+    expect(extractAmount('non-payment for 3 months (SAR 25,553). Issue communicated')).toBe(25553)
+    expect(extractAmount('Illegal Deductions (1050 sar for being absent 3 days)')).toBe(1050)
+    expect(extractAmount('paid SR 500 and 200 riyals')).toBe(500)
+    expect(extractAmount('Salary not received for 2 months')).toBeNull()
+    expect(extractAmount('')).toBeNull()
   })
 })

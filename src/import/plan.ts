@@ -236,7 +236,7 @@ export function planToRecords(plan: ImportPlan, existing: ExistingRecords, now =
       severity: r.severity,
       workers: r.workers,
       violations: r.violations,
-      amountOwed: null,
+      amountOwed: r.amountOwed,
       assignedTo: r.assignedTo,
       status: r.status,
       openedAt: r.openedAt,

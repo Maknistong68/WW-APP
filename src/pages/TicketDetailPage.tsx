@@ -66,7 +66,7 @@ export default function TicketDetailPage() {
       <div className="list">
         <Field label="Contractor" value={contractorName(byUuid, t.contractorUuid)} />
         <Field label="Work order" value={woName(woByUuid.get(t.workOrderUuid))} />
-        <Field label="Money owed" value={t.amountOwed ? sar(t.amountOwed) : ''} />
+        <Field label={open ? 'Money still owed' : 'Money recovered'} value={t.amountOwed ? sar(t.amountOwed) : ''} />
         <Field label="Source" value={t.source} />
         <Field label="Workers" value={t.workers} />
         <Field label="Violations" value={t.violations} />

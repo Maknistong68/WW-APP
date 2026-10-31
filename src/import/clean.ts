@@ -199,3 +199,19 @@ export function unifyNames(raws: string[]): Map<string, string> {
   }
   return out
 }
+
+/**
+ * Money mentioned in free text: "SAR 25,553", "25553/SAR", "1050 sar",
+ * "SR 500", "500 riyals". Returns the largest amount found, or null.
+ */
+export function extractAmount(raw: unknown): number | null {
+  const text = cellText(raw)
+  if (!text) return null
+  const re = /(?:\b(?:SAR|SR)\.?\s*([\d,]+(?:\.\d+)?))|(?:([\d,]+(?:\.\d+)?)\s*\/?\s*(?:SAR|SR|riyals?|ryals?)\b)/gi
+  let best: number | null = null
+  for (const m of text.matchAll(re)) {
+    const n = Number((m[1] ?? m[2] ?? '').replace(/,/g, ''))
+    if (Number.isFinite(n) && n > 0 && (best === null || n > best)) best = n
+  }
+  return best
+}

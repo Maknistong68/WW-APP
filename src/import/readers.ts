@@ -7,6 +7,7 @@ import {
   cleanPriority,
   cleanSeverity,
   cleanStatus,
+  extractAmount,
   isYes,
   parseDate,
   parseSheetDate,
@@ -44,6 +45,8 @@ export interface RawTicket {
   closedAt: string
   /** closedAt worked out from the weekly tabs, not typed in the file */
   closedEstimated: boolean
+  /** SAR amount found in the description / updates text, if any */
+  amountOwed: number | null
   contractorAction: string
   wwAction: string
 }
@@ -124,6 +127,9 @@ const HEADERS: Record<string, string> = {
   actiontakenbycontracto: 'contractorAction',
   actiontakenbycontractor: 'contractorAction',
   actiontakebyoxagonww: 'wwAction',
+  // Free-text columns: read only to find a money amount, never stored.
+  violation: 'desc',
+  updates: 'updates',
   actiontakenbyoxagonww: 'wwAction',
 }
 
@@ -173,6 +179,8 @@ function rowTicket(row: unknown[], cols: Map<string, number>, source: 'System' |
     openedAt: parseDate(get('openedAt')),
     closedAt: status === 'Closed' ? closedAt : '',
     closedEstimated: false,
+    amountOwed:
+      extractAmount(get('desc')) ?? extractAmount(get('updates')) ?? extractAmount(get('issue')) ?? extractAmount(get('sub')),
     contractorAction: cellText(get('contractorAction')),
     wwAction: cellText(get('wwAction')),
   }
@@ -187,6 +195,7 @@ function mergeTicket(a: RawTicket, b: RawTicket): RawTicket {
   return {
     ...best,
     workers: Math.max(a.workers, b.workers),
+    amountOwed: best.amountOwed ?? a.amountOwed ?? b.amountOwed,
     openedAt: [a.openedAt, b.openedAt].filter(Boolean).sort()[0] ?? '',
     contractor: best.contractor || a.contractor || b.contractor,
   }
@@ -256,6 +265,7 @@ export function readViolationLog(grids: Grid[]): ReadResult {
       continue
     }
     for (const f of FILL) if (!t[f]) t[f] = w[f]
+    if (t.amountOwed === null) t.amountOwed = w.amountOwed
     if (!t.workers) t.workers = w.workers
     if (w.openedAt && (!t.openedAt || w.openedAt < t.openedAt)) t.openedAt = w.openedAt
   }

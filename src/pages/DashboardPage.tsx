@@ -197,26 +197,27 @@ export default function DashboardPage() {
           <div className="hero-row">
             <div className="hero">
               <div className={`hero-num${money.outstanding ? ' bad' : ''}`}>{sarShort(money.outstanding)}</div>
-              <div className="hero-label">SAR owed · open</div>
+              <div className="hero-label">SAR still owed</div>
             </div>
             <div className="hero">
               <div className="hero-num">{sarShort(money.settled)}</div>
-              <div className="hero-label">SAR on closed</div>
+              <div className="hero-label">SAR recovered</div>
             </div>
             <div className="hero">
               <div className="hero-num">{sarShort(money.total)}</div>
               <div className="hero-label">
-                SAR involved · {money.withAmount} ticket{money.withAmount === 1 ? '' : 's'}
+                SAR total · {money.withAmount} ticket{money.withAmount === 1 ? '' : 's'}
               </div>
             </div>
           </div>
           <div className="list-foot" style={{ marginTop: 0 }}>
-            {month ? `Tickets opened in ${monthLabel(month)}` : 'All tickets'} with a money-owed amount.
+            Still owed = open tickets · Recovered = closed tickets ·{' '}
+            {month ? `tickets opened in ${monthLabel(month)}` : 'all tickets'}
           </div>
 
           <div className="chart-card">
-            <div className="chart-title">Owed by contractor</div>
-            <div className="chart-sub">SAR · tickets</div>
+            <div className="chart-title">Money by contractor</div>
+            <div className="chart-sub">Total SAR · tickets</div>
             <BarList
               format={sar}
               data={money.byKey((t) => t.contractorUuid).map((m) => ({
@@ -229,8 +230,8 @@ export default function DashboardPage() {
             />
           </div>
           <div className="chart-card">
-            <div className="chart-title">Owed by issue</div>
-            <div className="chart-sub">SAR · tickets</div>
+            <div className="chart-title">Money by issue</div>
+            <div className="chart-sub">Total SAR · tickets</div>
             <BarList
               format={sar}
               data={money.byKey((t) => t.issue).map((m) => ({
@@ -241,7 +242,7 @@ export default function DashboardPage() {
               }))}
             />
           </div>
-          <div className="section-label">Largest amounts</div>
+          <div className="section-label">Tickets with money · largest first</div>
           {money.withAmount === 0 ? (
             <div className="list-foot">No ticket has a money-owed amount yet — add it when you log or edit a ticket.</div>
           ) : (

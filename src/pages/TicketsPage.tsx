@@ -15,7 +15,7 @@ import type { Contractor, Ticket, WorkOrder } from '../types'
 type Filter = 'open' | 'late' | 'closed' | 'all'
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'open', label: 'Open' },
-  { key: 'late', label: '30+ days' },
+  { key: 'late', label: '30+d' },
   { key: 'closed', label: 'Closed' },
   { key: 'all', label: 'All' },
 ]
@@ -85,6 +85,16 @@ export default function TicketsPage() {
   }, [tickets, filter, query, byUuid, woByUuid])
 
   const workers = visible.reduce((s, t) => s + (t.workers || 0), 0)
+  const counts = useMemo(() => {
+    const all = tickets ?? []
+    const open = all.filter(isOpen)
+    return {
+      open: open.length,
+      late: open.filter((t) => ageDays(t) > 30).length,
+      closed: all.length - open.length,
+      all: all.length,
+    } as Record<Filter, number>
+  }, [tickets])
 
   return (
     <Page
@@ -109,7 +119,7 @@ export default function TicketsPage() {
             className={filter === f.key ? 'on' : ''}
             onClick={() => setParams(f.key === 'open' ? {} : { f: f.key }, { replace: true })}
           >
-            {f.label}
+            {f.label} {tickets ? <b style={{ fontVariantNumeric: 'tabular-nums' }}>{counts[f.key]}</b> : null}
           </button>
         ))}
       </div>
