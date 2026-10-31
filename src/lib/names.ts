@@ -46,6 +46,25 @@ export function sameCompany(a: string, b: string): boolean {
   const jb = nameTokens(b).join('')
   if (ja === jb) return true
   if (Math.min(ja.length, jb.length) >= 5 && lev(ja, jb) <= 1) return true
+  // initials: "AM Tamimi" = "Abdul Mohsin Al Tamimi"
+  return acronymMatch(nameTokens(a), nameTokens(b)) || acronymMatch(nameTokens(b), nameTokens(a))
+}
+
+const PARTICLES = new Set(['al', 'el', 'bin', 'ibn'])
+const core = (t: string[]) => t.filter((w) => !PARTICLES.has(w)).sort().join(' ')
+
+function acronymMatch(short: string[], long: string[]): boolean {
+  for (let k = 0; k < short.length; k++) {
+    const s = short[k]
+    if (s.length < 2 || s.length > 4 || !/^[a-z]+$/.test(s)) continue
+    for (let i = 0; i + s.length <= long.length; i++) {
+      const run = long.slice(i, i + s.length)
+      if (run.map((w) => w[0]).join('') !== s) continue
+      const restShort = core(short.filter((_, j) => j !== k))
+      const restLong = core([...long.slice(0, i), ...long.slice(i + s.length)])
+      if (restShort && restShort === restLong) return true
+    }
+  }
   return false
 }
 

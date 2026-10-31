@@ -80,8 +80,8 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
             <span className="row-label">Contractor</span>
             <select value={t.contractorUuid} onChange={(e) => set('contractorUuid', e.target.value)}>
               <option value="">Choose…</option>
-              {contractors
-                .filter((c) => c.active || c.uuid === t.contractorUuid)
+              {[...contractors]
+                .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name))
                 .map((c) => (
                   <option key={c.uuid} value={c.uuid}>
                     {c.name}

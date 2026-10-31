@@ -58,7 +58,7 @@ export default function ContractorSheet({
             <input value={c.workOrder} onChange={(e) => setC({ ...c, workOrder: e.target.value })} />
           </label>
           <label className="row">
-            <span className="row-label">Active</span>
+            <span className="row-label">Track KPIs</span>
             <input
               type="checkbox"
               checked={c.active}

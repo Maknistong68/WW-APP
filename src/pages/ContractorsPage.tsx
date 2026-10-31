@@ -69,11 +69,11 @@ export default function ContractorsPage() {
         </div>
       ) : (
         <>
-          <div className="section-label">Active · KPI {monthLabel(month)}</div>
+          <div className="section-label">KPI tracked · {monthLabel(month)}</div>
           <div className="list">{active.map(row)}</div>
           {inactive.length > 0 && (
             <>
-              <div className="section-label">Inactive</div>
+              <div className="section-label">Not tracked · tickets only</div>
               <div className="list">{inactive.map(row)}</div>
             </>
           )}

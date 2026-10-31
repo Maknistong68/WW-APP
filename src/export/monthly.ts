@@ -148,6 +148,7 @@ export async function buildMonthlyWord(d: AllData, month: string): Promise<{ blo
   const kpiRows = d.contractors
     .filter((c) => c.active)
     .map((c) => ({ c, r: kmap.get(c.uuid)! }))
+    .filter(({ r }) => r.overall !== null)
     .sort((a, b) => (a.r.overall ?? 101) - (b.r.overall ?? 101))
 
   const doc = new Document({
@@ -186,7 +187,7 @@ export async function buildMonthlyWord(d: AllData, month: string): Promise<{ blo
                 kpiRows.map(({ c, r }) => [c.name, pct(r.overall), STATUS_LABEL[r.status]]),
                 [5360, 2000, 2000],
               )
-            : new Paragraph('No active contractors.'),
+            : new Paragraph('No KPI data for this month.'),
           new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 280 }, children: [new TextRun('Open over 30 days')] }),
           late.length
             ? table(

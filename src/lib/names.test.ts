@@ -12,6 +12,8 @@ describe('contractor names', () => {
     expect(sameCompany('El Seif-Power China-Hassan Allam JV', 'El Seif-Hassan Allam- Power china JV')).toBe(true)
     expect(sameCompany('RPCO', 'PPCO')).toBe(false)
     expect(sameCompany('SIBS', 'Specialist Independent Building Services')).toBe(false)
+    expect(sameCompany('AM Tamimi', 'Abdul Mohsin Al Tamimi')).toBe(true)
+    expect(sameCompany('AM Tamimi', 'Tamimi Group')).toBe(false)
   })
   it('finds a contractor mentioned in free text', () => {
     expect(mentions('Al Fahad Trading – Camp 3', ['Alfahd'])).toBe(true)

@@ -121,7 +121,8 @@ export async function applyPlan(plan: ImportPlan): Promise<ImportSummary> {
       if (uuid === NEW) {
         uuid = newUuid()
         const name = g.newName.trim() || g.variants[0]
-        byUuid.set(uuid, { uuid, updatedAt: now, name, workOrder: '', active: true, aliases: [], notes: '' })
+        // Only the KPI System's master list is KPI-tracked; ticket-only companies start untracked.
+        byUuid.set(uuid, { uuid, updatedAt: now, name, workOrder: '', active: false, aliases: [], notes: '' })
         summary.contractors++
       }
       const c = byUuid.get(uuid)!

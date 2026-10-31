@@ -33,6 +33,7 @@ export default function DashboardPage() {
       .map((c) => ({ c, r: m.get(c.uuid)! }))
       .sort((a, b) => (a.r.overall ?? 101) - (b.r.overall ?? 101))
   }, [d, kpiMonth])
+  const scored = kpis.filter((k) => k.r.overall !== null)
 
   const doExport = async (kind: 'excel' | 'word') => {
     setExporting(false)
@@ -125,7 +126,7 @@ export default function DashboardPage() {
             key: c.key,
             label: c.label,
             value: c.count,
-            detail: `${c.workers} workers`,
+            detail: `${c.workers} worker${c.workers === 1 ? "" : "s"}`,
             onClick: d.byUuid.has(c.key) ? () => navigate(`/contractors/${c.key}`) : undefined,
           }))}
         />
@@ -135,19 +136,19 @@ export default function DashboardPage() {
         <div className="chart-title">By issue</div>
         <div className="chart-sub">Tickets opened · workers</div>
         <BarList
-          data={stats.byIssue.map((c) => ({ key: c.key, label: c.label, value: c.count, detail: `${c.workers} workers` }))}
+          data={stats.byIssue.map((c) => ({ key: c.key, label: c.label, value: c.count, detail: `${c.workers} worker${c.workers === 1 ? "" : "s"}` }))}
         />
       </div>
 
       <div className="chart-card">
         <div className="chart-title">Contractor KPIs</div>
         <div className="chart-sub">{monthLabel(kpiMonth)} · worst first</div>
-        {kpis.length === 0 ? (
-          <div className="note">No active contractors yet.</div>
+        {scored.length === 0 ? (
+          <div className="note">No KPI data for this month yet.</div>
         ) : (
           <table className="kpi-table">
             <tbody>
-              {kpis.map(({ c, r }) => (
+              {scored.map(({ c, r }) => (
                 <tr key={c.uuid} onClick={() => navigate(`/contractors/${c.uuid}`)} style={{ cursor: 'pointer' }}>
                   <td>{c.name}</td>
                   <td className="num">{pct(r.overall)}</td>
@@ -159,6 +160,11 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
+        )}
+        {kpis.length > scored.length && (
+          <div className="chart-sub" style={{ marginTop: 8, marginBottom: 0 }}>
+            {kpis.length - scored.length} tracked contractor{kpis.length - scored.length === 1 ? '' : 's'} with no data
+          </div>
         )}
       </div>
 

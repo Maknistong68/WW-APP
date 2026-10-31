@@ -69,7 +69,7 @@ export const FIELD_LABELS: Record<string, string> = {
   notes: 'Notes',
   name: 'Name',
   workOrder: 'Work order',
-  active: 'Active',
+  active: 'Track KPIs',
   aliases: 'Other names',
   wps: 'WPS',
   manpowerDecl: 'Manpower declaration',
