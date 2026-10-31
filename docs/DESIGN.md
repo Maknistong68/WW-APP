@@ -69,3 +69,25 @@ one green action per screen.
 - Screens slide 8px (forward / back) or fade (tabs). Sheets and the action bar rise; Home cards
   stagger in.
 - `prefers-reduced-motion` switches it all off.
+
+## 3D "Living site" (Dashboard → 3D)
+A read-only, animated 3D view of the same data (three.js via @react-three/fiber), loaded only when
+opened. The model is `src/lib/city.ts` (pure, tested); the scene is `src/three/`.
+
+| Data | In 3D |
+|---|---|
+| Contractor | plot with its name on the street |
+| Work order | tower; height = workers declared |
+| 8 KPI items | 8 glowing floors (bottom → top: submission, accommodation, onboarding, offboarding, grievance, formal, closure, meeting) |
+| Overall KPI | roof beacon; critical towers pulse and shoot a red beam |
+| WPS / manpower / salary | 3 roof lights (red blinking = missing); a drone lands when all three are in |
+| Illegal / freelance workers | red smoke from the roof |
+| Open tickets | orbs circling the plot: low green 0–10d, middle amber 11–30d, high red > 30d; lines join combined tickets |
+| Money owed (tickets) | gold coin stack (√SAR); recovered money flies to the vault |
+| Audit close-out | cubes at the tower base (green = closed, flashing = overdue) |
+| Camps | tents with a countdown ring of days left; scan beam when inspected that month |
+| Open tickets overall | the backlog tide: water rises with the backlog and floods the streets in the worst month |
+| Site KPI | sky: clear / haze / storm |
+
+Rules: positions never change between months (only values animate); colours are the status
+tokens; reduced motion stops idle motion; no WebGL → a message and a link to the 2D dashboard.

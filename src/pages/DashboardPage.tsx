@@ -32,12 +32,12 @@ import { addMonths, localDate, monthLabel, monthOf } from '../lib/dates'
 import { KPI_PARTS, STATUS_LABEL, closurePct, kpiStatus, pct } from '../lib/kpi'
 import { itemStats, kpisForMonth, subjectKpis, useAllData } from '../lib/kpiData'
 import { kpiSubjects } from '../lib/subjects'
-import { SUBMISSION_DUE_DAY } from '../lib/todo'
 import { CAMP_STATUS_LABEL } from '../lib/camps'
 import { closeoutTotals, closeouts } from '../lib/closeout'
 import { moneyStats, sar, sarShort } from '../lib/money'
 import { memberCounts } from '../lib/groups'
 import { logEvent } from '../db'
+import { buildAttention } from '../lib/attention'
 
 type View = 'overview' | 'tickets' | 'money' | 'kpis' | 'workers' | 'camps'
 const VIEWS: { key: View; label: string }[] = [
@@ -97,12 +97,6 @@ function Card({ title, sub, children }: { title: string; sub?: string; children:
   )
 }
 
-interface Attention {
-  key: string
-  tone: 'bad' | 'warn'
-  text: string
-  to: string
-}
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -117,7 +111,6 @@ export default function DashboardPage() {
   const allowAll = ALL_TIME.includes(view)
   const month = allowAll ? picked : (picked ?? thisMonth)
   const kpiMonth = picked ?? thisMonth
-  const isNow = kpiMonth === thisMonth
 
   // --- tickets & money -------------------------------------------------------
   const stats = useMemo(() => periodStats(d.tickets, month, d.byUuid), [d.tickets, d.byUuid, month])
@@ -158,33 +151,7 @@ export default function DashboardPage() {
   const co = useMemo(() => closeoutTotals(closeouts(subjectList, d.kpis, today)), [subjectList, d.kpis, today])
 
   // --- what needs attention (overview) --------------------------------------
-  const attention = useMemo<Attention[]>(() => {
-    const late = aging.slice(2)
-    const lateCount = late.reduce((s, r) => s + r.count, 0)
-    const lateOwed = late.reduce((s, r) => s + r.owed, 0)
-    const critical = byContractor.filter(({ r }) => r.status === 'bad').length
-    const campsLate = camps.expired + camps.never
-    const docsLate = isNow ? Number(today.slice(8, 10)) > SUBMISSION_DUE_DAY : kpiMonth < thisMonth
-    const s = (n: number) => (n === 1 ? '' : 's')
-    const out: Attention[] = []
-    if (lateCount) out.push({ key: 'late', tone: 'bad', text: `${lateCount} ticket${s(lateCount)} open over 30 days`, to: '/tickets?f=late' })
-    if (lateOwed) out.push({ key: 'owed', tone: 'bad', text: `${sar(lateOwed)} owed, over 30 days`, to: '/dashboard?v=money' })
-    if (critical) out.push({ key: 'kpi', tone: 'bad', text: `${critical} contractor${s(critical)} below 70% KPI`, to: '/dashboard?v=kpis' })
-    if (co.overdue) out.push({ key: 'closeout', tone: 'bad', text: `${co.overdue} audit close-out${s(co.overdue)} overdue`, to: '/closeouts' })
-    else if (co.due) out.push({ key: 'closeout', tone: 'warn', text: `${co.due} audit close-out${s(co.due)} due soon`, to: '/closeouts' })
-    if (campsLate) out.push({ key: 'camps', tone: 'bad', text: `${campsLate} camp${s(campsLate)} overdue for inspection`, to: '/camps' })
-    if (missingDocs.length)
-      out.push({
-        key: 'docs',
-        tone: docsLate ? 'bad' : 'warn',
-        text: `${missingDocs.length} missing WPS / MP / salary${docsLate ? '' : ` · due ${SUBMISSION_DUE_DAY}th`}`,
-        to: `/missing/submission?m=${kpiMonth}`,
-      })
-    if (camps.due) out.push({ key: 'due', tone: 'warn', text: `${camps.due} camp${s(camps.due)} due for inspection soon`, to: '/camps' })
-    if (wf.illegal) out.push({ key: 'illegal', tone: 'warn', text: `${wf.illegal} illegal / freelance worker${s(wf.illegal)}`, to: '/dashboard?v=workers' })
-    if (wf.visaExpiring) out.push({ key: 'visa', tone: 'warn', text: `${wf.visaExpiring} visa${s(wf.visaExpiring)} expiring within 30 days`, to: '/dashboard?v=workers' })
-    return out.sort((a, b) => (a.tone === b.tone ? 0 : a.tone === 'bad' ? -1 : 1)).slice(0, 6)
-  }, [aging, byContractor, camps, missingDocs, wf, co, isNow, today, kpiMonth, thisMonth])
+  const attention = useMemo(() => buildAttention(d, kpiMonth, today), [d, kpiMonth, today])
 
   const doExport = async (kind: ExportKind) => {
     setExporting(false)
@@ -211,9 +178,14 @@ export default function DashboardPage() {
     <Page
       title="Dashboard"
       actions={
-        <button className="nav-btn" aria-label="Export" onClick={() => setExporting(true)}>
-          <Icon name="download" size={24} />
-        </button>
+        <>
+          <button className="nav-btn" aria-label="Open the 3D view" onClick={() => navigate('/dashboard/3d')}>
+            <Icon name="cube" size={24} /> 3D
+          </button>
+          <button className="nav-btn" aria-label="Export" onClick={() => setExporting(true)}>
+            <Icon name="download" size={24} />
+          </button>
+        </>
       }
     >
       <div className="segmented scroll" role="tablist">

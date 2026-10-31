@@ -21,6 +21,7 @@ import {
   CloudArrowUp,
   Copy,
   Crosshair,
+  Cube,
   DotsThree,
   DownloadSimple,
   Eye,
@@ -39,6 +40,7 @@ import {
   MapPin,
   MinusCircle,
   Microphone,
+  Pause,
   PencilSimple,
   PersonSimpleWalk,
   Play,
@@ -47,6 +49,7 @@ import {
   SealCheck,
   ShareNetwork,
   ShieldCheck,
+  Stack,
   SignOut,
   Sparkle,
   Stop,
@@ -133,6 +136,9 @@ const ICONS = {
   half: CircleHalf,
   'x-circle': XCircle,
   'minus-circle': MinusCircle,
+  cube: Cube,
+  pause: Pause,
+  stack: Stack,
 } satisfies Record<string, PhosphorIcon>
 
 export type IconName = keyof typeof ICONS

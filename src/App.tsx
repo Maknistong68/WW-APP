@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, type ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import TodoPage from './pages/TodoPage'
 import CampsPage from './pages/CampsPage'
@@ -20,6 +20,9 @@ import TabBar from './components/TabBar'
 import ActionSheetHost from './components/ActionSheet'
 import RouteTransition from './components/RouteTransition'
 import LibraryPage from './pages/LibraryPage'
+
+// The 3D view (three.js) loads only when opened, so the app stays light.
+const City3DPage = lazy(() => import('./pages/City3DPage'))
 import MissingPage from './pages/MissingPage'
 import CloseoutPage from './pages/CloseoutPage'
 import LoginPage, { WaitingPage } from './pages/LoginPage'
@@ -95,6 +98,14 @@ function AppShell() {
         <Route path="/contractors/:uuid" element={<ContractorDetailPage />} />
         <Route path="/audits" element={<AuditsPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route
+          path="/dashboard/3d"
+          element={
+            <Suspense fallback={<div className="city-loading">Loading 3D…</div>}>
+              <City3DPage />
+            </Suspense>
+          }
+        />
         <Route path="/kpis/:key" element={<KpiDetailPage />} />
         <Route path="/missing/:item" element={<MissingPage />} />
         <Route path="/closeouts" element={<CloseoutPage />} />

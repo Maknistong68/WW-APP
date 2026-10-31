@@ -27,7 +27,7 @@ const TABS: Tab[] = [
 ]
 
 /** Hidden while filling in an inspection (full-screen work). */
-const HIDE = ['/new/', '/inspection/']
+const HIDE = ['/new/', '/inspection/', '/dashboard/3d']
 
 /** Spotify-style bottom bar: Home · Tickets · Create · Dashboard · Library. */
 export default function TabBar() {

@@ -1,0 +1,90 @@
+/* 3D "Living site" overlay. The canvas fills the screen; controls float on top. */
+.city { position: fixed; inset: 0; z-index: 5; background: var(--bg); overflow: hidden; touch-action: none; }
+.city canvas { display: block; }
+.city-loading, .city-fallback {
+  position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 24px; text-align: center; background: var(--bg); color: var(--muted); font-weight: 700;
+}
+.city-fallback h1 { margin: 6px 0 0; color: var(--text); font-size: 22px; }
+.city-fallback p { margin: 0 0 8px; max-width: 320px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.city-top {
+  position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 6px;
+  padding: calc(env(safe-area-inset-top) + 10px) 12px 6px; pointer-events: none;
+}
+.city-top > * { pointer-events: auto; }
+.city-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 44px; height: 44px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--card); color: var(--text);
+  font: 800 15px var(--font); cursor: pointer; box-shadow: var(--shadow);
+}
+.city-btn.icon { padding: 0; width: 42px; min-width: 42px; }
+.city-btn.on { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.city-btn:active { transform: scale(0.95); }
+.city-title { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; padding: 0 4px; }
+.city-title b { font-size: 16px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 8px var(--bg); }
+.city-title span { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 8px var(--bg); }
+
+.city-layers {
+  position: absolute; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 62px);
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 4px 12px;
+}
+.city-layers::-webkit-scrollbar { display: none; }
+.city-layers button {
+  flex: none; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px dashed var(--line);
+  background: var(--card); color: var(--faint); font: 700 13px var(--font); cursor: pointer; text-decoration: line-through;
+}
+.city-layers button.on { background: var(--brand-tint); border: 1.5px solid var(--brand); color: var(--brand); text-decoration: none; }
+
+.city-caption {
+  position: absolute; left: 50%; top: calc(env(safe-area-inset-top) + 112px); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; max-width: min(92vw, 520px); padding: 10px 10px 10px 14px;
+  border-radius: 18px; background: var(--card); border: 1px solid var(--border); box-shadow: 0 8px 28px rgb(0 0 0 / 0.18);
+  font-weight: 700; color: var(--text); animation: toastIn var(--motion-300) var(--ease-out);
+}
+.city-caption.bad svg { color: var(--bad); }
+.city-caption.warn svg { color: var(--warn); }
+.city-caption.good { color: var(--good); }
+.city-caption button { flex: none; min-height: 36px; padding: 0 12px; border: none; border-radius: 12px; background: var(--brand); color: var(--brand-ink); font: 800 14px var(--font); cursor: pointer; }
+
+.city-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 12px calc(env(safe-area-inset-bottom) + 12px); pointer-events: none; }
+.city-bottom > * { pointer-events: auto; max-width: 560px; margin: 0 auto; }
+.city-time {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 22px; box-shadow: 0 8px 28px rgb(0 0 0 / 0.16);
+}
+.city-play {
+  flex: none; width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--brand); color: var(--brand-ink); display: inline-flex; align-items: center; justify-content: center;
+}
+.city-scrub { flex: 1; min-width: 0; }
+.city-month { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.city-month b { font-size: 17px; font-weight: 800; }
+.city-month span { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.city-scrub input[type='range'] { width: 100%; height: 32px; accent-color: var(--brand); margin: 2px 0 0; }
+
+.city-card {
+  padding: 16px; max-height: 62dvh; overflow-y: auto;
+  background: var(--card); border: 1px solid var(--border); border-radius: 24px; box-shadow: 0 10px 34px rgb(0 0 0 / 0.2);
+  animation: sheetIn var(--motion-300) var(--ease-out);
+}
+.city-card-head { display: flex; align-items: center; gap: 12px; }
+.city-card-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.city-card-title b { font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+.city-card-title > span { color: var(--muted); font-size: 14px; }
+.city-x { flex: none; width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--press); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.city-floors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 14px; }
+.city-card .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.city-floor { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 10px; border-radius: 12px; background: var(--none-tint); color: var(--none); font-size: 13px; font-weight: 700; }
+.city-floor span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.city-floor b { flex: none; }
+.city-floor.good { background: var(--good-tint); color: var(--good); }
+.city-floor.warn { background: var(--warn-tint); color: var(--warn); }
+.city-floor.bad { background: var(--bad-tint); color: var(--bad); }
+.city-note { margin-top: 10px; font-size: 14px; color: var(--muted); font-weight: 600; }
+.city-legend p { margin: 0 0 12px; font-size: 15px; line-height: 1.5; color: var(--muted); }
+.city-legend b { color: var(--text); }
+.city-legend .good { color: var(--good); font-weight: 800; }
+.city-legend .warn { color: var(--warn); font-weight: 800; }
+.city-legend .bad { color: var(--bad); font-weight: 800; }
