@@ -40,11 +40,12 @@ function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange:
   )
 }
 
-export function emptyKpi(contractorUuid: string, month: string): KpiMonth {
+export function emptyKpi(contractorUuid: string, workOrderUuid: string, month: string): KpiMonth {
   return {
     uuid: newUuid(),
     updatedAt: '',
     contractorUuid,
+    workOrderUuid,
     month,
     wps: false,
     manpowerDecl: false,
@@ -61,11 +62,14 @@ export function emptyKpi(contractorUuid: string, month: string): KpiMonth {
 /** Monthly scoring: only what the app can't work out itself. */
 export default function KpiSheet({
   contractor,
+  subjectLabel,
   kpi,
   auditPct,
   onClose,
 }: {
   contractor: Contractor
+  /** "Al Fahad · WO 882" — what is being scored. */
+  subjectLabel: string
   kpi: KpiMonth
   auditPct: number | null
   onClose: () => void
@@ -77,14 +81,14 @@ export default function KpiSheet({
     if (k.offboarded !== null && k.offboardTotal !== null && k.offboarded > k.offboardTotal) {
       return showToast({ text: 'Offboarded can’t be more than the total' })
     }
-    await saveRecord('kpiMonths', k, `${contractor.name} · ${monthLabel(k.month)} KPIs`)
+    await saveRecord('kpiMonths', k, `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
     showToast({ text: 'KPIs saved' })
     onClose()
   }
 
   return (
     <Modal
-      title={`${monthLabel(k.month)} KPIs`}
+      title={`${monthLabel(k.month)} · ${subjectLabel.replace(`${contractor.name} · `, '')}`}
       onClose={onClose}
       header={
         <button className="nav-btn strong" onClick={() => void save()}>
@@ -126,11 +130,12 @@ export default function KpiSheet({
   )
 }
 
-export function emptyManpower(contractorUuid: string, month: string): Manpower {
+export function emptyManpower(contractorUuid: string, workOrderUuid: string, month: string): Manpower {
   return {
     uuid: newUuid(),
     updatedAt: '',
     contractorUuid,
+    workOrderUuid,
     month,
     totalWorkers: 0,
     illegalOrFreelance: 0,
@@ -140,7 +145,15 @@ export function emptyManpower(contractorUuid: string, month: string): Manpower {
 }
 
 /** Manpower declaration as counts only — no names or ID numbers. */
-export function ManpowerSheet({ contractor, record, onClose }: { contractor: Contractor; record: Manpower; onClose: () => void }) {
+export function ManpowerSheet({
+  subjectLabel,
+  record,
+  onClose,
+}: {
+  subjectLabel: string
+  record: Manpower
+  onClose: () => void
+}) {
   const [m, setM] = useState(record)
   const field = (label: string, f: 'totalWorkers' | 'illegalOrFreelance' | 'visaExpiring30d' | 'paidRecruitmentFees') => (
     <label className="row">
@@ -151,13 +164,13 @@ export function ManpowerSheet({ contractor, record, onClose }: { contractor: Con
   const save = async () => {
     const over = (['illegalOrFreelance', 'visaExpiring30d', 'paidRecruitmentFees'] as const).some((f) => m[f] > m.totalWorkers)
     if (over) return showToast({ text: 'Counts can’t be more than total workers' })
-    await saveRecord('manpower', m, `${contractor.name} · ${monthLabel(m.month)} manpower`)
+    await saveRecord('manpower', m, `${subjectLabel} · ${monthLabel(m.month)} manpower`)
     showToast({ text: 'Manpower saved' })
     onClose()
   }
   return (
     <Modal
-      title={`${monthLabel(m.month)} manpower`}
+      title={`${monthLabel(m.month)} manpower · ${subjectLabel}`}
       onClose={onClose}
       header={
         <button className="nav-btn strong" onClick={() => void save()}>

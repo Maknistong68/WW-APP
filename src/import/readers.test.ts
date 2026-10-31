@@ -98,8 +98,8 @@ describe('planToRecords', () => {
       '2026-10',
     )
     const plan = buildPlan([r, kpi], [])
-    const existingTicket = { ticketNo: 'WWCMPL0000001' } as never
-    const out = planToRecords(plan, { contractors: [], tickets: [existingTicket], kpiMonths: [], weeklyCounts: [] }, '2026-10-31T00:00:00.000Z')
+    const existingTicket = { ticketNo: 'WWCMPL0000001', source: 'System' } as never
+    const out = planToRecords(plan, { contractors: [], workOrders: [], tickets: [existingTicket], kpiMonths: [], weeklyCounts: [] }, '2026-10-31T00:00:00.000Z')
     const fahad = out.contractors.find((c) => c.aliases.includes('Al Fahad') || c.name === 'Al Fahad')!
     expect(fahad.active).toBe(false)
     const rpco = out.contractors.find((c) => c.name === 'RPCO')!
@@ -107,7 +107,48 @@ describe('planToRecords', () => {
     expect(out.tickets.map((t) => t.ticketNo).sort()).toEqual(['WWCMPL0000002', 'WWCMPL0000003'])
     expect(out.summary.duplicates).toBe(1)
     expect(out.tickets.find((t) => t.ticketNo === 'WWCMPL0000003')!.contractorUuid).toBe(rpco.uuid)
-    expect(out.kpiMonths[0]).toMatchObject({ contractorUuid: rpco.uuid, month: '2026-09', wps: true, legacy: { offboardingPct: 50, formalPct: 90 } })
+    expect(out.kpiMonths[0]).toMatchObject({ contractorUuid: rpco.uuid, workOrderUuid: '', month: '2026-09', wps: true, legacy: { offboardingPct: 50, formalPct: 90 } })
     expect(out.activity.time).toBe('2026-10-31T00:00:00.000Z')
+  })
+})
+
+describe('work orders from the KPI names', () => {
+  it('splits "Name-123" into contractor + work order and merges same company', async () => {
+    const { planToRecords, splitWorkOrder } = await import('./plan')
+    expect(splitWorkOrder('Al Fahad-882')).toEqual({ base: 'Al Fahad', number: '882' })
+    expect(splitWorkOrder('Al Fahad 1272')).toEqual({ base: 'Al Fahad', number: '1272' })
+    expect(splitWorkOrder('Archirodon-0876')).toEqual({ base: 'Archirodon', number: '0876' })
+    expect(splitWorkOrder('SAMA')).toEqual({ base: 'SAMA', number: '' })
+    const kpi = readGrids(
+      [
+        { name: 'Tracker', rows: [['Month', 'Contractor', 'WPS Certificate Submitted'], [D(2026, 9, 1), 'Al Fahad-882', 'Yes'], [D(2026, 9, 1), 'Al Fahad 823', 'No']] },
+        { name: 'Contractors', rows: [['Contractor Name', 'Status'], ['Al Fahad-882', 'Active'], ['Al Fahad 823', 'Inactive']] },
+      ],
+      '2026-10',
+    )
+    const plan = buildPlan([readGrids([overall], '2026-10'), kpi], [])
+    const out = planToRecords(plan, { contractors: [], workOrders: [], tickets: [], kpiMonths: [], weeklyCounts: [] })
+    const fahad = out.contractors.filter((c) => /fahad/i.test(c.name))
+    expect(fahad).toHaveLength(1)
+    expect(fahad[0]).toMatchObject({ name: 'Al Fahad', active: true })
+    expect(fahad[0].aliases).toContain('Alfahd Trading Industry & Contracting Co')
+    expect(out.workOrders.map((w) => [w.number, w.active])).toEqual([['882', true], ['823', false]])
+    const wo882 = out.workOrders.find((w) => w.number === '882')!
+    expect(out.kpiMonths.find((k) => k.wps)!.workOrderUuid).toBe(wo882.uuid)
+    // tickets of the company resolve to the contractor (no specific WO)
+    const t1 = out.tickets.find((t) => t.ticketNo === 'WWCMPL0000001')!
+    expect([t1.contractorUuid, t1.workOrderUuid]).toEqual([fahad[0].uuid, ''])
+  })
+  it('internal tickets get WWCMPL-INT numbers', async () => {
+    const { planToRecords } = await import('./plan')
+    const tracker = readGrids(
+      [{ name: 'Oxagon', rows: [['Number', 'State', 'Contractor', 'Significant issues', 'Number of impacted workers', 'Opened Date'], [1, 'Open', 'RPCO', 'No Salary', 4, D(2026, 4, 12)], [2, 'Closed', 'RPCO', 'No Ajeer', 3, D(2026, 4, 13)]] }],
+      '2026-10',
+    )
+    const out = planToRecords(buildPlan([tracker], []), { contractors: [], workOrders: [], tickets: [], kpiMonths: [], weeklyCounts: [] })
+    expect(out.tickets.map((t) => [t.ticketNo, t.source])).toEqual([
+      ['WWCMPL-INT-0001', 'Internal'],
+      ['WWCMPL-INT-0002', 'Internal'],
+    ])
   })
 })

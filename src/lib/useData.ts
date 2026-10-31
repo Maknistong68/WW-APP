@@ -2,15 +2,29 @@ import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, newUuid } from '../db'
 import { localDate } from './dates'
-import type { Contractor, Ticket } from '../types'
+import { TICKET_PREFIX } from './lists'
+import type { Contractor, Ticket, WorkOrder } from '../types'
 
 export function useContractors() {
   const list = useLiveQuery(() => db.contractors.orderBy('name').toArray())
+  const wos = useLiveQuery(() => db.workOrders.toArray())
   return useMemo(() => {
     const all = list ?? []
-    return { loaded: !!list, all, byUuid: new Map(all.map((c) => [c.uuid, c])) }
-  }, [list])
+    const workOrders = [...(wos ?? [])].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }))
+    return {
+      loaded: !!list && !!wos,
+      all,
+      byUuid: new Map(all.map((c) => [c.uuid, c])),
+      workOrders,
+      woByUuid: new Map(workOrders.map((w) => [w.uuid, w])),
+    }
+  }, [list, wos])
 }
+
+/** "WO 882" or "WO 882 · Camp 3" */
+export const woName = (w: WorkOrder | undefined) => (w ? `WO ${w.number}${w.label ? ` · ${w.label}` : ''}` : '')
+
+export { TICKET_PREFIX, validTicketNo } from './lists'
 
 export const contractorName = (map: Map<string, Contractor>, uuid: string) =>
   map.get(uuid)?.name ?? 'No contractor'
@@ -19,10 +33,11 @@ export function newTicket(): Ticket {
   return {
     uuid: newUuid(),
     updatedAt: '',
-    source: 'Internal',
-    ticketNo: '',
-    channel: 'Welfare Internal',
+    source: 'System',
+    ticketNo: TICKET_PREFIX,
+    channel: 'Worker Hotline',
     contractorUuid: '',
+    workOrderUuid: '',
     subcontractor: '',
     category: 'Employment Practice',
     issue: '',
@@ -30,6 +45,7 @@ export function newTicket(): Ticket {
     severity: 'Not Acceptable',
     workers: 1,
     violations: 1,
+    amountOwed: null,
     assignedTo: '',
     status: 'Open',
     openedAt: localDate(),
@@ -41,18 +57,27 @@ export function newTicket(): Ticket {
 }
 
 export function newContractor(name = ''): Contractor {
-  return { uuid: newUuid(), updatedAt: '', name, workOrder: '', active: true, aliases: [], notes: '' }
+  return { uuid: newUuid(), updatedAt: '', name, active: true, aliases: [], notes: '' }
 }
 
+export function newWorkOrder(contractorUuid: string, number = ''): WorkOrder {
+  return { uuid: newUuid(), updatedAt: '', contractorUuid, number, label: '', active: true, notes: '' }
+}
+
+/** Activity-log label: the ticket number first. */
 export const ticketLabel = (t: Ticket, map: Map<string, Contractor>) =>
-  `${contractorName(map, t.contractorUuid)} · ${t.issue || 'Ticket'}`
+  `${t.ticketNo || 'Ticket'} · ${contractorName(map, t.contractorUuid)}`
 
 /** Display names for record fields in the activity log. */
 export const FIELD_LABELS: Record<string, string> = {
   source: 'Source',
-  ticketNo: 'no.',
+  ticketNo: 'Ticket no.',
   channel: 'Channel',
   contractorUuid: 'Contractor',
+  workOrderUuid: 'Work order',
+  amountOwed: 'Money owed (SAR)',
+  number: 'Work order no.',
+  label: 'Description',
   subcontractor: 'Sub-contractor',
   category: 'Category',
   issue: 'Issue',
@@ -68,8 +93,7 @@ export const FIELD_LABELS: Record<string, string> = {
   wwAction: 'WW action',
   notes: 'Notes',
   name: 'Name',
-  workOrder: 'Work order',
-  active: 'Track KPIs',
+  active: 'Active',
   aliases: 'Other names',
   wps: 'WPS',
   manpowerDecl: 'Manpower declaration',

@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { missingSubmissions, openOn, overdueTickets, periodStats, weeklyTrend } from './dashboard'
-import type { Contractor, KpiMonth, Ticket } from '../types'
+import { kpiSubjects, subjectTickets } from './subjects'
+import type { Contractor, KpiMonth, Ticket, WorkOrder } from '../types'
 
 const tk = (p: Partial<Ticket>): Ticket => ({
   uuid: Math.random().toString(),
   updatedAt: '',
-  source: '',
+  source: 'System',
   ticketNo: '',
   channel: '',
   contractorUuid: 'a',
+  workOrderUuid: '',
   subcontractor: '',
   category: '',
   issue: 'Final salary',
@@ -16,6 +18,7 @@ const tk = (p: Partial<Ticket>): Ticket => ({
   severity: '',
   workers: 2,
   violations: 1,
+  amountOwed: null,
   assignedTo: '',
   status: 'Open',
   openedAt: '2026-10-01',
@@ -61,10 +64,36 @@ describe('dashboard', () => {
     expect(s.byContractor[0]).toMatchObject({ label: 'A', count: 1, workers: 2 })
   })
   it('missing submissions and overdue list', () => {
-    const cs = [{ uuid: 'a', active: true }, { uuid: 'b', active: true }, { uuid: 'c', active: false }] as Contractor[]
-    const k = [{ contractorUuid: 'a', month: '2026-10', wps: true, manpowerDecl: true, salaryDecl: true }] as KpiMonth[]
-    expect(missingSubmissions(cs, k, '2026-10').map((c) => c.uuid)).toEqual(['b'])
+    const cs = [
+      { uuid: 'a', name: 'A', active: true },
+      { uuid: 'b', name: 'B', active: true },
+      { uuid: 'c', name: 'C', active: false },
+    ] as Contractor[]
+    const wos = [
+      { uuid: 'w1', contractorUuid: 'b', number: '882', active: true },
+      { uuid: 'w2', contractorUuid: 'b', number: '823', active: false },
+    ] as WorkOrder[]
+    const k = [
+      { contractorUuid: 'a', workOrderUuid: '', month: '2026-10', wps: true, manpowerDecl: true, salaryDecl: true },
+      { contractorUuid: 'b', workOrderUuid: 'w1', month: '2026-10', wps: true, manpowerDecl: false, salaryDecl: true },
+    ] as KpiMonth[]
+    const subjects = kpiSubjects(cs, wos)
+    expect(subjects.map((s) => s.label)).toEqual(['A', 'B · WO 882'])
+    expect(missingSubmissions(subjects, k, '2026-10').map((s) => s.key)).toEqual(['w1'])
     const late = overdueTickets([tk({ openedAt: '2026-09-01' }), tk({ openedAt: '2026-08-01' }), tk({})], '2026-10-31')
     expect(late.map((t) => t.openedAt)).toEqual(['2026-08-01', '2026-09-01'])
+  })
+})
+
+describe('work-order subjects', () => {
+  it('contractor-level tickets count for a single work order only', () => {
+    const c = { uuid: 'c', name: 'C', active: true } as Contractor
+    const one = [{ uuid: 'w1', contractorUuid: 'c', number: '1', active: true }] as WorkOrder[]
+    const two = [...one, { uuid: 'w2', contractorUuid: 'c', number: '2', active: true }] as WorkOrder[]
+    const ts = [tk({ contractorUuid: 'c' }), tk({ contractorUuid: 'c', workOrderUuid: 'w1' }), tk({ contractorUuid: 'c', workOrderUuid: 'w2' })]
+    const s1 = kpiSubjects([c], one)[0]
+    expect(subjectTickets(s1, ts, one)).toHaveLength(2)
+    const s2 = kpiSubjects([c], two)[0]
+    expect(subjectTickets(s2, ts, two)).toHaveLength(1)
   })
 })

@@ -78,7 +78,7 @@ insecure contexts).
 
 ### 1.9 Offline Word export is broken — logo never precached
 `vite.config.ts:15` + `src/export/word.ts:18, 52–55`
-The PWA precache glob omits `jpeg/jpg`, so `logo.jpeg` (185 KB) is not cached, yet
+The PWA precache glob omits `jpeg/jpg`, so the cover logo JPEG (185 KB) is not cached, yet
 `buildWord` `fetch()`es it at export time. Offline Word export — a headline offline feature —
 throws when offline.
 **Fix (one line):** add `jpeg,jpg` to `globPatterns` (or inline the logo as a data URI).

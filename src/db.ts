@@ -10,7 +10,9 @@ import type {
   Ticket,
   Tombstone,
   WeeklyCount,
+  WorkOrder,
 } from './types'
+import { NORMALIZE } from './lib/normalize'
 
 export const newUuid = (): string => {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
@@ -30,6 +32,7 @@ class WWDatabase extends Dexie {
   logs!: Table<LogEntry, number>
   tombstones!: Table<Tombstone, number>
   contractors!: Table<Contractor, string>
+  workOrders!: Table<WorkOrder, string>
   tickets!: Table<Ticket, string>
   kpiMonths!: Table<KpiMonth, string>
   manpower!: Table<Manpower, string>
@@ -58,14 +61,25 @@ class WWDatabase extends Dexie {
           if (!p.updatedAt) p.updatedAt = p.createdAt
         })
       })
-    this.version(3).stores({
-      contractors: 'uuid, name',
-      tickets: 'uuid, status, contractorUuid, openedAt, ticketNo',
-      kpiMonths: 'uuid, &[contractorUuid+month], month',
-      manpower: 'uuid, &[contractorUuid+month], month',
-      weeklyCounts: 'uuid, weekEnding',
-      activity: 'uuid, time, entity, entityUuid',
-    })
+    // v3 added the co-pilot tables; v4 adds work orders, per-work-order KPI
+    // keys and the current ticket shape (no upgrader needed for v3 itself).
+    this.version(4)
+      .stores({
+        contractors: 'uuid, name',
+        workOrders: 'uuid, contractorUuid',
+        tickets: 'uuid, status, contractorUuid, workOrderUuid, openedAt, ticketNo',
+        kpiMonths: 'uuid, &[contractorUuid+workOrderUuid+month], month',
+        manpower: 'uuid, &[contractorUuid+workOrderUuid+month], month',
+        weeklyCounts: 'uuid, weekEnding',
+        activity: 'uuid, time, entity, entityUuid',
+      })
+      .upgrade(async (tx) => {
+        for (const name of Object.keys(NORMALIZE)) {
+          const table = tx.table(name)
+          const rows = (await table.toArray()) as Record<string, unknown>[]
+          await table.bulkPut(rows.map((r) => NORMALIZE[name](r)))
+        }
+      })
   }
 }
 
@@ -132,6 +146,7 @@ interface BackupFile {
   inspections: Inspection[]
   photos: BackupPhoto[]
   contractors?: Contractor[]
+  workOrders?: WorkOrder[]
   tickets?: Ticket[]
   kpiMonths?: KpiMonth[]
   manpower?: Manpower[]
@@ -139,7 +154,7 @@ interface BackupFile {
   activity?: ActivityEntry[]
 }
 
-const RECORD_KEYS = ['contractors', 'tickets', 'kpiMonths', 'manpower', 'weeklyCounts', 'activity'] as const
+const RECORD_KEYS = ['contractors', 'workOrders', 'tickets', 'kpiMonths', 'manpower', 'weeklyCounts', 'activity'] as const
 
 const blobToBase64 = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
@@ -171,6 +186,7 @@ export async function createBackup(): Promise<{ blob: Blob; fileName: string }> 
     inspections,
     photos: backupPhotos,
     contractors: await db.contractors.toArray(),
+    workOrders: await db.workOrders.toArray(),
     tickets: await db.tickets.toArray(),
     kpiMonths: await db.kpiMonths.toArray(),
     manpower: await db.manpower.toArray(),
@@ -241,7 +257,7 @@ export async function restoreBackup(
       for (const row of rows) {
         const existing = (await table.get(row.uuid)) as { updatedAt?: string } | undefined
         if (existing && (key === 'activity' || (existing.updatedAt ?? '') >= (row.updatedAt ?? ''))) continue
-        await table.put(row)
+        await table.put(NORMALIZE[key] ? NORMALIZE[key](row as Record<string, unknown>) : row)
         records++
       }
     })

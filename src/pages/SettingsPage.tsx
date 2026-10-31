@@ -347,16 +347,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
               ))}
-              <button
-                className="details-toggle"
-                style={{ padding: '10px 16px' }}
-                onClick={() => {
-                  void db.logs.clear()
-                  showToast({ text: 'Activity log cleared' })
-                }}
-              >
-                Clear log
-              </button>
+
             </>
           )}
         </div>

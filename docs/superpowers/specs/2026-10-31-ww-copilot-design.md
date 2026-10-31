@@ -15,7 +15,7 @@ Declaration workbooks.
 |---|---|
 | Users | Owner only. One login, no roles. |
 | Co-pilot | Smart app now (no AI). AI assistant is a later, separate project. |
-| work PC | The app never runs on or reads from the work PC. Phone (and personal laptop) only. |
+| Work PC | The app never runs on or reads from the work PC. Phone (and personal laptop) only. |
 | Data entry | History imported **once** from the files already received. After that, everything is typed in the app. |
 | Personal data | No worker names, Iqama, passport or phone numbers. Manpower is stored as counts only. |
 | Base | Grow the existing WW-APP (PWA, offline, Supabase sync, audits). No second app. |
@@ -26,7 +26,7 @@ Declaration workbooks.
 
 ### Out of scope (now)
 
-AI assistant · team/multi-user · reading anything from systems · storing
+AI assistant · team/multi-user · reading anything from work systems · storing
 worker personal data · recurring file imports.
 
 ## 2. Data
@@ -39,7 +39,7 @@ All records live in IndexedDB first (Dexie) and sync to Supabase.
   work-order number). All lookups and imports resolve through it, so totals add up.
 
 ### Ticket
-`uuid, source (| Internal), ticketNo?, channel, contractorUuid, subcontractor,
+`uuid, source (System | Internal), ticketNo, channel, contractorUuid, workOrderUuid, subcontractor,
 category, issue, priority (1–4), severity, workers, violations, assignedTo,
 status (Open | In progress | Closed), openedAt, closedAt?, contractorAction,
 wwAction, notes, updatedAt`

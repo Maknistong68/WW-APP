@@ -7,6 +7,7 @@ import Icon from '../components/Icon'
 import { changeText, fmtWhen } from '../components/History'
 import { useContractors } from '../lib/useData'
 import type { ActivityEntity, ActivityEntry } from '../types'
+import { ACTIONS, PERIODS, filterActivity, type ActionFilter, type Period } from '../lib/activityFilter'
 
 const FILTERS: { key: 'all' | ActivityEntity; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -32,16 +33,15 @@ export default function ActivityPage() {
   const { byUuid } = useContractors()
   const [filter, setFilter] = useState<'all' | ActivityEntity>('all')
   const [query, setQuery] = useState('')
+  const [action, setAction] = useState<ActionFilter>('all')
+  const [period, setPeriod] = useState<Period>('all')
   const [limit, setLimit] = useState(PAGE)
   const entries = useLiveQuery(() => db.activity.orderBy('time').reverse().toArray())
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return (entries ?? []).filter((e) => {
-      if (filter !== 'all' && e.entity !== filter && !(filter === 'kpi' && e.entity === 'manpower')) return false
-      return !q || e.label.toLowerCase().includes(q)
-    })
-  }, [entries, filter, query])
+  const visible = useMemo(
+    () => filterActivity(entries ?? [], { entity: filter, action, period, query }),
+    [entries, filter, action, period, query],
+  )
 
   const open = (e: ActivityEntry) => {
     if (e.action === 'delete') return
@@ -53,7 +53,7 @@ export default function ActivityPage() {
     <Page title="Activity log" back="/settings" backLabel="Settings">
       <label className="ios-search">
         <Icon name="search" size={18} />
-        <input type="search" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" placeholder="Ticket no., contractor, value" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
       <div className="segmented">
         {FILTERS.map((f) => (
@@ -61,6 +61,31 @@ export default function ActivityPage() {
             {f.label}
           </button>
         ))}
+      </div>
+      <div className="list">
+        <label className="row">
+          <span className="row-label">Action</span>
+          <select value={action} onChange={(e) => setAction(e.target.value as ActionFilter)}>
+            {ACTIONS.map((a) => (
+              <option key={a.key} value={a.key}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="row">
+          <span className="row-label">Period</span>
+          <select value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
+            {PERIODS.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="list-foot" style={{ marginTop: 0 }}>
+        {visible.length} entr{visible.length === 1 ? 'y' : 'ies'}
       </div>
       {entries && visible.length === 0 ? (
         <div className="empty-state">

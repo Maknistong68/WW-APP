@@ -11,6 +11,7 @@ import type { ActivityAction, ActivityChange, ActivityEntity, ActivityEntry, Rec
 
 export const ENTITY_OF: Record<RecordTable, ActivityEntity> = {
   contractors: 'contractor',
+  workOrders: 'workOrder',
   tickets: 'ticket',
   kpiMonths: 'kpi',
   manpower: 'manpower',

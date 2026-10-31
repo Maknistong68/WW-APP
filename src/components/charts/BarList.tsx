@@ -7,7 +7,16 @@ export interface BarDatum {
 }
 
 /** Horizontal single-series bars, value at the tip, top N then "Other". */
-export default function BarList({ data, max = 7 }: { data: BarDatum[]; max?: number }) {
+export default function BarList({
+  data,
+  max = 7,
+  format = (v) => String(v),
+}: {
+  data: BarDatum[]
+  max?: number
+  /** How the value is written at the bar's tip. */
+  format?: (v: number) => string
+}) {
   if (data.length === 0) return <div className="note">Nothing in this period.</div>
   const shown = data.slice(0, max)
   const rest = data.slice(max)
@@ -22,13 +31,13 @@ export default function BarList({ data, max = 7 }: { data: BarDatum[]; max?: num
           key={d.key}
           className="bar-row"
           role="listitem"
-          title={`${d.label}: ${d.value}${d.detail ? ` · ${d.detail}` : ''}`}
+          title={`${d.label}: ${format(d.value)}${d.detail ? ` · ${d.detail}` : ''}`}
           onClick={d.onClick}
           style={d.onClick ? { cursor: 'pointer' } : undefined}
         >
           <span className="bar-label">{d.label}</span>
           <span className="bar-value">
-            {d.value}
+            {format(d.value)}
             {d.detail ? ` · ${d.detail}` : ''}
           </span>
           <div className="bar-track">

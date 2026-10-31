@@ -7,6 +7,7 @@ import ContractorsPage from './pages/ContractorsPage'
 import ContractorDetailPage from './pages/ContractorDetailPage'
 import AuditsPage from './pages/AuditsPage'
 import DashboardPage from './pages/DashboardPage'
+import KpiDetailPage from './pages/KpiDetailPage'
 import InfoFormPage from './pages/InfoFormPage'
 import ChecklistPage from './pages/ChecklistPage'
 import SettingsPage from './pages/SettingsPage'
@@ -47,13 +48,14 @@ export default function App() {
         <Route path="/contractors/:uuid" element={<ContractorDetailPage />} />
         <Route path="/audits" element={<AuditsPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/kpis/:key" element={<KpiDetailPage />} />
         <Route path="/new/:templateId" element={<InfoFormPage mode="new" />} />
         <Route path="/inspection/:id" element={<ChecklistPage />} />
         <Route path="/inspection/:id/edit" element={<InfoFormPage mode="edit" />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/import" element={<ImportPage />} />
         <Route path="/settings/log" element={<ActivityPage />} />
-        <Route path="/kpis" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/kpis" element={<Navigate to="/dashboard?v=kpis" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <TabBar />

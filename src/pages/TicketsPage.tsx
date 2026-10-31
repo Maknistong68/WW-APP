@@ -9,7 +9,8 @@ import TicketSheet, { CloseTicketSheet } from '../components/TicketSheet'
 import { ageDays, ageTone, isOpen } from '../lib/aging'
 import { shortDate } from '../lib/dates'
 import { contractorName, newTicket, useContractors } from '../lib/useData'
-import type { Ticket } from '../types'
+import { sar } from '../lib/money'
+import type { Contractor, Ticket, WorkOrder } from '../types'
 
 type Filter = 'open' | 'late' | 'closed' | 'all'
 const FILTERS: { key: Filter; label: string }[] = [
@@ -19,17 +20,30 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
 ]
 
-export function TicketRow({ t, name }: { t: Ticket; name: string }) {
+/** "RPCO · WO 882 · Final salary · SAR 4,500" — what's under the ticket number. */
+export function ticketSub(t: Ticket, contractors?: Map<string, Contractor>, wos?: Map<string, WorkOrder>): string {
+  const wo = wos?.get(t.workOrderUuid)
+  return [
+    contractors ? contractorName(contractors, t.contractorUuid) : '',
+    wo ? `WO ${wo.number}` : '',
+    t.issue || '—',
+    t.amountOwed ? sar(t.amountOwed) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+/** Ticket row: the ticket number is the title. */
+export function TicketRow({ t, sub }: { t: Ticket; sub?: string }) {
   const navigate = useNavigate()
   const days = ageDays(t)
   return (
     <button className="row" onClick={() => navigate(`/tickets/${t.uuid}`)}>
       <div className="row-main">
-        <div className="row-title">{name}</div>
-        <div className="row-sub">
-          {t.issue || '—'} · {t.workers} worker{t.workers === 1 ? '' : 's'}
-          {t.source === '' ? ' · ' : ''}
+        <div className="row-title" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {t.ticketNo || 'No number'}
         </div>
+        <div className="row-sub">{sub ?? ticketSub(t)}</div>
       </div>
       {isOpen(t) ? (
         <span className={`age-chip ${ageTone(days)}`}>{days}d</span>
@@ -49,7 +63,7 @@ export default function TicketsPage() {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Ticket | null>(null)
   const [closing, setClosing] = useState<Ticket | null>(null)
-  const { byUuid } = useContractors()
+  const { byUuid, woByUuid } = useContractors()
   const tickets = useLiveQuery(() => db.tickets.toArray())
 
   const visible = useMemo(() => {
@@ -60,7 +74,7 @@ export default function TicketsPage() {
         if (filter === 'late' && !(isOpen(t) && ageDays(t) > 30)) return false
         if (filter === 'closed' && isOpen(t)) return false
         if (!q) return true
-        return [contractorName(byUuid, t.contractorUuid), t.issue, t.ticketNo, t.subcontractor, t.category]
+        return [t.ticketNo, contractorName(byUuid, t.contractorUuid), woByUuid.get(t.workOrderUuid)?.number ?? '', t.issue, t.subcontractor, t.category]
           .some((s) => s.toLowerCase().includes(q))
       })
       .sort((a, b) =>
@@ -68,7 +82,7 @@ export default function TicketsPage() {
           ? ageDays(b) - ageDays(a)
           : (b.closedAt || b.openedAt).localeCompare(a.closedAt || a.openedAt),
       )
-  }, [tickets, filter, query, byUuid])
+  }, [tickets, filter, query, byUuid, woByUuid])
 
   const workers = visible.reduce((s, t) => s + (t.workers || 0), 0)
 
@@ -86,7 +100,7 @@ export default function TicketsPage() {
     >
       <label className="ios-search">
         <Icon name="search" size={18} />
-        <input type="search" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" placeholder="Ticket no., contractor, WO, issue" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
       <div className="segmented">
         {FILTERS.map((f) => (
@@ -112,10 +126,10 @@ export default function TicketsPage() {
             {visible.map((t) =>
               isOpen(t) ? (
                 <SwipeRow key={t.uuid} actionLabel="Close" onAction={() => setClosing(t)}>
-                  <TicketRow t={t} name={contractorName(byUuid, t.contractorUuid)} />
+                  <TicketRow t={t} sub={ticketSub(t, byUuid, woByUuid)} />
                 </SwipeRow>
               ) : (
-                <TicketRow key={t.uuid} t={t} name={contractorName(byUuid, t.contractorUuid)} />
+                <TicketRow key={t.uuid} t={t} sub={ticketSub(t, byUuid, woByUuid)} />
               ),
             )}
           </div>

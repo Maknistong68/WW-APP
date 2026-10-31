@@ -28,7 +28,7 @@ export type FileKind = 'violationLog' | 'ticketTracker' | 'kpiSystem' | 'workfor
 
 export interface RawTicket {
   ticketNo: string
-  source: '' | 'Internal'
+  source: 'System' | 'Internal'
   channel: string
   contractor: string
   subcontractor: string
@@ -149,12 +149,12 @@ export function detect(grids: Grid[]): FileKind {
   return 'unknown'
 }
 
-function rowTicket(row: unknown[], cols: Map<string, number>, source: '' | 'Internal'): RawTicket {
+function rowTicket(row: unknown[], cols: Map<string, number>, source: 'System' | 'Internal'): RawTicket {
   const get = (f: string) => (cols.has(f) ? row[cols.get(f)!] : undefined)
   const closedAt = parseDate(get('closedAt'))
   const status = cleanStatus(get('status')) || (closedAt ? 'Closed' : 'Open')
   return {
-    ticketNo: source === '' ? cellText(get('ticketNo')).toUpperCase() : '',
+    ticketNo: source === 'System' ? cellText(get('ticketNo')).toUpperCase() : '',
     source,
     channel: cleanChannel(get('channel')),
     contractor: cellText(get('contractor')),
@@ -178,7 +178,7 @@ function rowTicket(row: unknown[], cols: Map<string, number>, source: '' | 'Inte
   }
 }
 
-const isNo = (v: unknown) => /^WWCMPL\d+/i.test(cellText(v))
+const isTicketNo = (v: unknown) => /^WWCMPL\d+/i.test(cellText(v))
 
 /** Same ticket listed twice: keep the most finished version, max workers. */
 function mergeTicket(a: RawTicket, b: RawTicket): RawTicket {
@@ -204,8 +204,8 @@ export function readViolationLog(grids: Grid[]): ReadResult {
     if (!h) out.skipped.push({ sheet: overall.name, row: 0, reason: 'No header row found' })
     else {
       overall.rows.slice(h.row + 1).forEach((row, i) => {
-        if (!isNo(row[h.cols.get('ticketNo')!])) return
-        const t = rowTicket(row, h.cols, '')
+        if (!isTicketNo(row[h.cols.get('ticketNo')!])) return
+        const t = rowTicket(row, h.cols, 'System')
         if (!t.openedAt) {
           noDate.set(t.ticketNo, { sheet: overall.name, row: h.row + i + 2, reason: `${t.ticketNo}: no opening date` })
           return
@@ -234,8 +234,8 @@ export function readViolationLog(grids: Grid[]): ReadResult {
     }
     let open = 0
     for (const row of g.rows.slice(h.row + 1)) {
-      if (!isNo(row[h.cols.get('ticketNo')!])) continue
-      const t = rowTicket(row, h.cols, '')
+      if (!isTicketNo(row[h.cols.get('ticketNo')!])) continue
+      const t = rowTicket(row, h.cols, 'System')
       if (h.cols.has('status') && cleanStatus(row[h.cols.get('status')!]) === 'Closed') continue
       open++
       seenIn.set(t.ticketNo, [...(seenIn.get(t.ticketNo) ?? []), date])
@@ -294,7 +294,7 @@ export function readTicketTracker(grids: Grid[]): ReadResult {
       const contractor = cellText(row[h.cols.get('contractor') ?? -1])
       const status = cellText(row[h.cols.get('status')!])
       if (!contractor && !status) return
-      const t = rowTicket(row, h.cols, isNo(row[h.cols.get('ticketNo')!]) ? '' : 'Internal')
+      const t = rowTicket(row, h.cols, isTicketNo(row[h.cols.get('ticketNo')!]) ? 'System' : 'Internal')
       if (!t.openedAt) {
         out.skipped.push({ sheet: g.name, row: h.row + i + 2, reason: 'No opening date' })
         return

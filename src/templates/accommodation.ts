@@ -13,7 +13,7 @@ export const accommodation: InspectionTemplate = {
   questionnaireTitle: 'Group Labor Accommodation',
   coverTitle: 'Labour Accommodation Audit Report',
   reportHeading: 'Camp Welfare Inspection',
-  wordTitle: 'Findings: Non Approved Accommodation',
+  wordTitle: 'Findings: Non-Approved Accommodation',
   sections: [
     {
       letter: "A",

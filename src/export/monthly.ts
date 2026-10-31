@@ -18,9 +18,8 @@ import { ageDays, agingBucket, isOpen } from '../lib/aging'
 import { overdueTickets, periodStats, weeklyTrend } from '../lib/dashboard'
 import { monthLabel } from '../lib/dates'
 import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
-import { kpisForMonth, type AllData } from '../lib/kpiData'
+import { kpisForMonth, subjectKpis, type AllData } from '../lib/kpiData'
 import { priorityLabel } from '../lib/lists'
-import coverLogoUrl from '../assets/oxagon-logo.png'
 import oxagonLogoUrl from '../assets/oxagon-logo.png'
 
 const fileBase = (month: string) => `WW_Monthly_${monthLabel(month).replace(' ', '_')}`
@@ -61,34 +60,35 @@ export async function buildMonthlyExcel(d: AllData, month: string): Promise<{ bl
   ts.addRow([])
   addTable(
     ts,
-    ['Source', 'no.', 'Status', 'Contractor', 'Sub-contractor', 'Issue', 'Category', 'Priority', 'Workers', 'Violations', 'Opened', 'Closed', 'Days', 'Aging', 'Channel', 'Assigned to', 'Contractor action', 'WW action'],
+    ['Ticket no.', 'Source', 'Status', 'Contractor', 'Work order', 'Sub-contractor', 'Issue', 'Category', 'Priority', 'Workers', 'Violations', 'Money owed (SAR)', 'Opened', 'Closed', 'Days', 'Aging', 'Channel', 'Assigned to', 'Contractor action', 'WW action'],
     [...d.tickets]
       .sort((a, b) => b.openedAt.localeCompare(a.openedAt))
       .map((t) => {
         const days = ageDays(t)
         return [
-          t.source, t.ticketNo, t.status, name(t.contractorUuid), t.subcontractor, t.issue, t.category,
-          `${t.priority} - ${priorityLabel(t.priority)}`, t.workers, t.violations, t.openedAt, t.closedAt, days,
+          t.ticketNo, t.source, t.status, name(t.contractorUuid), d.woByUuid.get(t.workOrderUuid)?.number ?? '',
+          t.subcontractor, t.issue, t.category, `${t.priority} - ${priorityLabel(t.priority)}`, t.workers, t.violations,
+          t.amountOwed, t.openedAt, t.closedAt, days,
           isOpen(t) ? agingBucket(days) : '', t.channel, t.assignedTo, t.contractorAction, t.wwAction,
         ]
       }),
-    [9, 16, 10, 28, 20, 24, 18, 12, 9, 9, 11, 11, 7, 8, 16, 16, 30, 30],
+    [17, 9, 10, 28, 10, 20, 24, 18, 12, 9, 9, 14, 11, 11, 7, 8, 16, 16, 30, 30],
   )
 
   const ks = wb.addWorksheet('KPIs')
   ks.addRow([`Contractor KPIs — ${monthLabel(month)}`]).font = font({ size: 14, bold: true, color: { argb: NAVY } })
   ks.addRow([])
-  const kmap = kpisForMonth(d, month)
   addTable(
     ks,
-    ['Contractor', ...KPI_PARTS.map((p) => `${p.label} %`), 'Overall %', 'Status'],
-    d.contractors
-      .filter((c) => c.active)
-      .map((c) => {
-        const r = kmap.get(c.uuid)!
-        return [c.name, ...KPI_PARTS.map((p) => kpiCell(r, p.key)), r.overall === null ? null : Math.round(r.overall), STATUS_LABEL[r.status]]
-      }),
-    [28, ...KPI_PARTS.map(() => 12), 11, 12],
+    ['Contractor', 'Work order', ...KPI_PARTS.map((p) => `${p.label} %`), 'Overall %', 'Status'],
+    subjectKpis(d, month).map(({ subject, result: r }) => [
+      subject.contractor.name,
+      subject.workOrder?.number ?? '—',
+      ...KPI_PARTS.map((p) => kpiCell(r, p.key)),
+      r.overall === null ? null : Math.round(r.overall),
+      STATUS_LABEL[r.status],
+    ]),
+    [28, 11, ...KPI_PARTS.map(() => 12), 11, 12],
   )
 
   const ms = wb.addWorksheet('Manpower')
@@ -96,15 +96,22 @@ export async function buildMonthlyExcel(d: AllData, month: string): Promise<{ bl
   ms.addRow([])
   addTable(
     ms,
-    ['Contractor', 'Total workers', 'Illegal / freelance', 'Visas expiring (30d)', 'Paid recruitment fees'],
+    ['Contractor', 'Work order', 'Total workers', 'Illegal / freelance', 'Visas expiring (30d)', 'Paid recruitment fees'],
     d.manpower
       .filter((m) => m.month === month)
-      .map((m) => [name(m.contractorUuid), m.totalWorkers, m.illegalOrFreelance, m.visaExpiring30d, m.paidRecruitmentFees]),
-    [28, 14, 16, 18, 20],
+      .map((m) => [
+        name(m.contractorUuid),
+        d.woByUuid.get(m.workOrderUuid)?.number ?? '—',
+        m.totalWorkers,
+        m.illegalOrFreelance,
+        m.visaExpiring30d,
+        m.paidRecruitmentFees,
+      ]),
+    [28, 11, 14, 16, 18, 20],
   )
 
   const ws = wb.addWorksheet('Weekly trend')
-  ws.addRow(['Open tickets per week']).font = font({ size: 14, bold: true, color: { argb: NAVY } })
+  ws.addRow(['Open system tickets per week']).font = font({ size: 14, bold: true, color: { argb: NAVY } })
   ws.addRow([])
   addTable(
     ws,
@@ -140,7 +147,7 @@ const table = (headers: string[], rows: string[][], widths: number[]) =>
   })
 
 export async function buildMonthlyWord(d: AllData, month: string): Promise<{ blob: Blob; fileName: string }> {
-  const [, oxagon] = await Promise.all([coverLogoUrl, oxagonLogoUrl].map((u) => fetch(u).then((r) => r.arrayBuffer())))
+  const oxagon = await fetch(oxagonLogoUrl).then((r) => r.arrayBuffer())
   const s = periodStats(d.tickets, month, d.byUuid)
   const kmap = kpisForMonth(d, month)
   const name = (uuid: string) => d.byUuid.get(uuid)?.name ?? '—'
@@ -158,8 +165,6 @@ export async function buildMonthlyWord(d: AllData, month: string): Promise<{ blo
         children: [
           new Paragraph({
             children: [
-              new ImageRun({ type: 'jpg', data: , transformation: { width: 110, height: 44 } }),
-              new TextRun('      '),
               new ImageRun({ type: 'png', data: oxagon, transformation: { width: 120, height: 40 } }),
             ],
           }),
@@ -191,9 +196,9 @@ export async function buildMonthlyWord(d: AllData, month: string): Promise<{ blo
           new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 280 }, children: [new TextRun('Open over 30 days')] }),
           late.length
             ? table(
-                ['Contractor', 'Issue', 'Workers', 'Days'],
-                late.map((t) => [name(t.contractorUuid), t.issue, String(t.workers), String(ageDays(t))]),
-                [3760, 3200, 1200, 1200],
+                ['Ticket no.', 'Contractor', 'Issue', 'Days'],
+                late.map((t) => [t.ticketNo, name(t.contractorUuid), t.issue, String(ageDays(t))]),
+                [2400, 3160, 2600, 1200],
               )
             : new Paragraph({ alignment: AlignmentType.LEFT, children: [new TextRun('None.')] }),
         ],

@@ -1,5 +1,6 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { db, logEvent, newUuid } from '../db'
+import { NORMALIZE } from './normalize'
 import type { ActivityEntry, Inspection, Photo, RecordTable } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -85,6 +86,7 @@ export interface SyncResult {
 /** Dexie table → Supabase table for the uuid-keyed co-pilot records. */
 export const REMOTE_TABLE: Record<RecordTable, string> = {
   contractors: 'contractors',
+  workOrders: 'work_orders',
   tickets: 'tickets',
   kpiMonths: 'kpi_months',
   manpower: 'manpower',
@@ -468,7 +470,9 @@ async function syncRecordTable(
       const { data, error } = await c.from(remoteName).select('uuid, data, updated_at').in('uuid', ids)
       if (error) throw new Error(error.message)
       for (const row of (data ?? []) as { uuid: string; data: SyncedRecord; updated_at: string }[]) {
-        await local.put({ ...row.data, uuid: row.uuid, updatedAt: row.updated_at })
+        const rec = { ...row.data, uuid: row.uuid, updatedAt: row.updated_at }
+        const fix = NORMALIZE[table]
+        await local.put(fix ? (fix(rec as unknown as Record<string, unknown>) as SyncedRecord) : rec)
         result.records++
       }
     } catch (err) {

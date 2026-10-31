@@ -197,7 +197,7 @@ export const EVIDENCE_NOTES: string[] = [
 // ---------------------------------------------------------------------------
 
 /** Dexie table names of the uuid-keyed record tables (also the sync tables). */
-export type RecordTable = 'contractors' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts'
+export type RecordTable = 'contractors' | 'workOrders' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts'
 
 interface RecordBase {
   uuid: string
@@ -206,14 +206,25 @@ interface RecordBase {
 
 export interface Contractor extends RecordBase {
   name: string
-  workOrder: string
+  /** Off = not followed (no KPIs, not in "missing documents"); its work orders are off too. */
   active: boolean
   /** Every other spelling of this contractor met in files or audits. */
   aliases: string[]
   notes: string
 }
 
-export type TicketSource = '' | 'Internal'
+/** A contract under a contractor; KPIs, manpower and tickets can be per work order. */
+export interface WorkOrder extends RecordBase {
+  contractorUuid: string
+  /** Work order number, e.g. "882". */
+  number: string
+  /** Optional short description (camp, scope). */
+  label: string
+  active: boolean
+  notes: string
+}
+
+export type TicketSource = 'System' | 'Internal'
 export type TicketStatus = 'Open' | 'In progress' | 'Closed'
 
 export interface Ticket extends RecordBase {
@@ -222,6 +233,8 @@ export interface Ticket extends RecordBase {
   ticketNo: string
   channel: string
   contractorUuid: string
+  /** Optional work order under the contractor ('' = contractor level). */
+  workOrderUuid: string
   subcontractor: string
   category: string
   issue: string
@@ -230,6 +243,8 @@ export interface Ticket extends RecordBase {
   severity: string
   workers: number
   violations: number
+  /** Money owed to workers, SAR (null = not known). */
+  amountOwed: number | null
   assignedTo: string
   status: TicketStatus
   /** YYYY-MM-DD */
@@ -243,6 +258,8 @@ export interface Ticket extends RecordBase {
 
 export interface KpiMonth extends RecordBase {
   contractorUuid: string
+  /** '' = scored at contractor level (contractor without work orders). */
+  workOrderUuid: string
   /** YYYY-MM */
   month: string
   wps: boolean
@@ -262,6 +279,8 @@ export interface KpiMonth extends RecordBase {
 
 export interface Manpower extends RecordBase {
   contractorUuid: string
+  /** '' = contractor level. */
+  workOrderUuid: string
   /** YYYY-MM */
   month: string
   totalWorkers: number
@@ -270,14 +289,14 @@ export interface Manpower extends RecordBase {
   paidRecruitmentFees: number
 }
 
-/** Open tickets counted in one weekly snapshot (imported history). */
+/** Open system tickets counted in one weekly snapshot (imported history). */
 export interface WeeklyCount extends RecordBase {
   /** YYYY-MM-DD */
   weekEnding: string
   openTickets: number
 }
 
-export type ActivityEntity = 'ticket' | 'contractor' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import'
+export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import'
 export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'import'
 
 export interface ActivityChange {

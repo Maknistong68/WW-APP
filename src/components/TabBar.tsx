@@ -23,7 +23,10 @@ export default function TabBar() {
     return open.filter((t) => isOpen(t) && ageDays(t) > 30).length
   })
   if (HIDDEN.some((r) => r.test(pathname))) return null
-  const active = (p: string) => (p === '/' ? pathname === '/' : pathname === p || pathname.startsWith(`${p}/`))
+  const active = (p: string) =>
+    p === '/'
+      ? pathname === '/'
+      : pathname === p || pathname.startsWith(`${p}/`) || (p === '/dashboard' && pathname.startsWith('/kpis'))
   return (
     <nav className="tab-bar" aria-label="Main">
       {TABS.map((t) => (

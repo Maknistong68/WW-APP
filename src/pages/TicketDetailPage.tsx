@@ -11,7 +11,8 @@ import { ageDays, ageTone, isOpen } from '../lib/aging'
 import { shortDate } from '../lib/dates'
 import { priorityLabel } from '../lib/lists'
 import { removeRecord, saveRecord } from '../lib/records'
-import { contractorName, ticketLabel, useContractors } from '../lib/useData'
+import { contractorName, ticketLabel, useContractors, woName } from '../lib/useData'
+import { sar } from '../lib/money'
 
 function Field({ label, value }: { label: string; value: string | number }) {
   if (value === '' || value === null || value === undefined) return null
@@ -28,7 +29,7 @@ function Field({ label, value }: { label: string; value: string | number }) {
 export default function TicketDetailPage() {
   const { uuid = '' } = useParams()
   const navigate = useNavigate()
-  const { byUuid } = useContractors()
+  const { byUuid, woByUuid } = useContractors()
   const t = useLiveQuery(() => db.tickets.get(uuid).then((x) => x ?? null), [uuid])
   const [sheet, setSheet] = useState<'edit' | 'close' | 'delete' | null>(null)
 
@@ -46,7 +47,7 @@ export default function TicketDetailPage() {
   const open = isOpen(t)
 
   return (
-    <Page title={contractorName(byUuid, t.contractorUuid)} back="/tickets" backLabel="Tickets">
+    <Page title={t.ticketNo || 'Ticket'} back="/tickets" backLabel="Tickets">
       <div className="list">
         <div className="row">
           <div className="row-main">
@@ -63,7 +64,10 @@ export default function TicketDetailPage() {
       </div>
 
       <div className="list">
-        <Field label="Source" value={t.source === '' ? `· ${t.ticketNo}` : 'Internal'} />
+        <Field label="Contractor" value={contractorName(byUuid, t.contractorUuid)} />
+        <Field label="Work order" value={woName(woByUuid.get(t.workOrderUuid))} />
+        <Field label="Money owed" value={t.amountOwed ? sar(t.amountOwed) : ''} />
+        <Field label="Source" value={t.source} />
         <Field label="Workers" value={t.workers} />
         <Field label="Violations" value={t.violations} />
         <Field label="Category" value={t.category} />

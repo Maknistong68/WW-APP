@@ -5,7 +5,8 @@ import Icon from './Icon'
 import { saveRecord } from '../lib/records'
 import { localDate } from '../lib/dates'
 import { CATEGORIES, CHANNELS, ISSUES, PRIORITIES, SEVERITIES } from '../lib/lists'
-import { newContractor, ticketLabel, useContractors } from '../lib/useData'
+import { TICKET_PREFIX, newContractor, ticketLabel, useContractors, validTicketNo } from '../lib/useData'
+import { db } from '../db'
 import type { Ticket } from '../types'
 
 const NEW = '__new__'
@@ -32,13 +33,14 @@ function Stepper({ value, onChange, min = 0 }: { value: number; onChange: (n: nu
 
 /** Add / edit a ticket. Four things up front; the rest under "More". */
 export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClose: () => void }) {
-  const { all: contractors, byUuid } = useContractors()
+  const { all: contractors, byUuid, workOrders } = useContractors()
   const [t, setT] = useState(ticket)
   const [more, setMore] = useState(!!ticket.updatedAt)
   const [newName, setNewName] = useState('')
   const isNew = !ticket.updatedAt
   const set = <K extends keyof Ticket>(k: K, v: Ticket[K]) => setT((p) => ({ ...p, [k]: v }))
   const addingContractor = t.contractorUuid === NEW
+  const cWos = workOrders.filter((w) => w.contractorUuid === t.contractorUuid)
 
   const save = async () => {
     let rec = { ...t, ticketNo: t.ticketNo.trim().toUpperCase() }
@@ -49,9 +51,11 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
       byUuid.set(c.uuid, c)
       rec = { ...rec, contractorUuid: c.uuid }
     }
+    if (!validTicketNo(rec.ticketNo)) return showToast({ text: `Complete the ticket number (${TICKET_PREFIX}…)` })
+    const clash = await db.tickets.where('ticketNo').equals(rec.ticketNo).filter((x) => x.uuid !== rec.uuid).count()
+    if (clash) return showToast({ text: `${rec.ticketNo} already exists` })
     if (!rec.contractorUuid) return showToast({ text: 'Pick a contractor' })
     if (!rec.issue) return showToast({ text: 'Pick an issue' })
-    if (rec.source === '' && !rec.ticketNo) return showToast({ text: 'Add the ticket number' })
     await saveRecord('tickets', rec, ticketLabel(rec, byUuid))
     showToast({ text: isNew ? 'Ticket added' : 'Ticket saved' })
     onClose()
@@ -68,8 +72,20 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
       }
     >
       <div className="sheet-body">
+        <div className="list">
+          <label className="row">
+            <span className="row-label">Ticket no.</span>
+            <input
+              value={t.ticketNo}
+              autoCapitalize="characters"
+              autoFocus={isNew}
+              style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}
+              onChange={(e) => set('ticketNo', e.target.value.toUpperCase())}
+            />
+          </label>
+        </div>
         <div className="segmented" role="tablist" aria-label="Source">
-          {(['Internal', ''] as const).map((s) => (
+          {(['System', 'Internal'] as const).map((s) => (
             <button key={s} className={t.source === s ? 'on' : ''} onClick={() => set('source', s)}>
               {s}
             </button>
@@ -78,7 +94,10 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
         <div className="list">
           <label className="row">
             <span className="row-label">Contractor</span>
-            <select value={t.contractorUuid} onChange={(e) => set('contractorUuid', e.target.value)}>
+            <select
+              value={t.contractorUuid}
+              onChange={(e) => setT((p) => ({ ...p, contractorUuid: e.target.value, workOrderUuid: '' }))}
+            >
               <option value="">Choose…</option>
               {[...contractors]
                 .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name))
@@ -96,17 +115,34 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
               <input autoFocus value={newName} placeholder="New contractor" onChange={(e) => setNewName(e.target.value)} />
             </label>
           )}
-          {t.source === '' && (
+          {cWos.length > 0 && (
             <label className="row">
-              <span className="row-label">no.</span>
-              <input
-                value={t.ticketNo}
-                placeholder="WWCMPL…"
-                autoCapitalize="characters"
-                onChange={(e) => set('ticketNo', e.target.value)}
-              />
+              <span className="row-label">Work order</span>
+              <select value={t.workOrderUuid} onChange={(e) => set('workOrderUuid', e.target.value)}>
+                <option value="">Not specific</option>
+                {cWos.map((w) => (
+                  <option key={w.uuid} value={w.uuid}>
+                    WO {w.number}
+                    {w.label ? ` · ${w.label}` : ''}
+                    {w.active ? '' : ' (inactive)'}
+                  </option>
+                ))}
+              </select>
             </label>
           )}
+          <label className="row">
+            <span className="row-label">Money owed</span>
+            <input
+              inputMode="decimal"
+              placeholder="SAR"
+              value={t.amountOwed ?? ''}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^\d.]/g, '')
+                set('amountOwed', v === '' ? null : Number(v))
+              }}
+            />
+            <span className="row-trail">SAR</span>
+          </label>
           <div className="row">
             <span className="row-label" style={{ flex: 1 }}>
               Workers

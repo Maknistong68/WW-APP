@@ -1,6 +1,7 @@
 import { ageDays, isOpen } from './aging'
 import { addDays, daysBetween, localDate, monthRange } from './dates'
 import { submissionsComplete } from './kpi'
+import { subjectKpi, type KpiSubject } from './subjects'
 import type { Contractor, KpiMonth, Ticket, WeeklyCount } from '../types'
 
 /** Open at the end of `date`. Closed tickets without a date count as closed. */
@@ -17,17 +18,17 @@ export interface TrendPoint {
 }
 
 /**
- * Weekly open tickets: the imported weekly snapshots, then one point per
+ * Weekly open system tickets: the imported weekly snapshots, then one point per
  * week computed from ticket dates up to today.
  */
 export function weeklyTrend(weekly: WeeklyCount[], tickets: Ticket[], today = localDate()): TrendPoint[] {
   const points: TrendPoint[] = [...weekly]
     .sort((a, b) => a.weekEnding.localeCompare(b.weekEnding))
     .map((w) => ({ date: w.weekEnding, open: w.openTickets, imported: true }))
-  const = tickets.filter((t) => t.source === '')
+  const system = tickets.filter((t) => t.source === 'System')
   let d = points.length ? addDays(points[points.length - 1].date, 7) : addDays(today, -7 * 12)
   while (d <= today) {
-    points.push({ date: d, open: .filter((t) => openOn(t, d)).length, imported: false })
+    points.push({ date: d, open: system.filter((t) => openOn(t, d)).length, imported: false })
     d = addDays(d, 7)
   }
   return points
@@ -92,10 +93,9 @@ export function periodStats(
   }
 }
 
-/** Active contractors whose WPS / manpower / salary aren't all in for the month. */
-export function missingSubmissions(contractors: Contractor[], kpis: KpiMonth[], month: string): Contractor[] {
-  const done = new Set(kpis.filter((k) => k.month === month && submissionsComplete(k)).map((k) => k.contractorUuid))
-  return contractors.filter((c) => c.active && !done.has(c.uuid))
+/** Active work orders / contractors whose WPS, manpower and salary aren't all in for the month. */
+export function missingSubmissions(subjects: KpiSubject[], kpis: KpiMonth[], month: string): KpiSubject[] {
+  return subjects.filter((s) => !submissionsComplete(subjectKpi(s, kpis, month)))
 }
 
 /** Oldest open tickets past 30 days, oldest first. */

@@ -20,7 +20,6 @@ import {
 import type { Inspection, InspectionTemplate, Photo } from '../types'
 import { isFinding, isFlagged } from '../lib/score'
 import { loadPhotos, longDate, questionPhotos, withSizes, wordFileName, type PhotoWithSize } from './common'
-import coverLogoUrl from '../assets/oxagon-logo.png'
 import oxagonLogoUrl from '../assets/oxagon-logo.png'
 
 // Reproduces the official non-compliance report layout
@@ -87,8 +86,7 @@ export async function buildWord(
     byCode.set(code, [...(byCode.get(code) ?? []), e])
   }
 
-  const [coverLogo, oxagonLogo, creamPanel] = await Promise.all([
-    fetchImage(coverLogoUrl),
+  const [oxagonLogo, creamPanel] = await Promise.all([
     fetchImage(oxagonLogoUrl),
     solidPng('#F9F8E9'),
   ])
@@ -150,8 +148,8 @@ export async function buildWord(
     items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
 
   // Cover page — reproduces the official cover exactly, measured from
-  // "AL FAHD Workers Camp NonCompliance.docx": a cream panel and the 
-  // artwork float behind the text, the OXAGON logo floats top-left, and
+  // "AL FAHD Workers Camp NonCompliance.docx": a cream panel and the centre
+  // logo float behind the text, the OXAGON logo floats top-left, and
   // ~29 blank lines push the centered title + contractor line down the page.
   // All offsets are EMU (914400/inch) taken from the reference document.
   const floatAtPage = (x: number, y: number, behind: boolean) => ({
@@ -178,11 +176,11 @@ export async function buildWord(
           transformation: { width: 715, height: 880 },
           floating: floatAtPage(274320, 960120, true),
         }),
-        // artwork: 2.54" left, 1.74" top, 3.25" × 3.64"
+        // Centre artwork: the OXAGON logo, 2.54" left, 1.74" top
         new ImageRun({
-          type: 'jpg',
-          data: coverLogo,
-          transformation: { width: 312, height: 350 },
+          type: 'png',
+          data: oxagonLogo,
+          transformation: { width: 300, height: 312 },
           floating: floatAtPage(2322830, 1595291, true),
         }),
         // OXAGON logo top-left: 0.63" left, 0.22" top, 0.80" × 0.83"

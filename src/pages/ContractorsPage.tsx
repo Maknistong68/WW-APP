@@ -19,7 +19,9 @@ export default function ContractorsPage() {
   const kpis = useMemo(() => kpisForMonth(d, month), [d, month])
 
   const q = query.trim().toLowerCase()
-  const match = (c: Contractor) => !q || [c.name, c.workOrder, ...c.aliases].some((s) => s.toLowerCase().includes(q))
+  const wosOf = (uuid: string) => d.workOrders.filter((w) => w.contractorUuid === uuid)
+  const match = (c: Contractor) =>
+    !q || [c.name, ...c.aliases, ...wosOf(c.uuid).map((w) => w.number)].some((s) => s.toLowerCase().includes(q))
   const openCount = (uuid: string) => d.tickets.filter((t) => t.contractorUuid === uuid && isOpen(t)).length
   const active = d.contractors.filter((c) => c.active && match(c))
   const inactive = d.contractors.filter((c) => !c.active && match(c))
@@ -33,8 +35,12 @@ export default function ContractorsPage() {
         <span className="row-main">
           <div className="row-title">{c.name}</div>
           <div className="row-sub">
+            {(() => {
+              const wos = wosOf(c.uuid)
+              const on = wos.filter((w) => w.active).length
+              return wos.length ? `${on}/${wos.length} WO active · ` : ''
+            })()}
             {open} open ticket{open === 1 ? '' : 's'}
-            {c.workOrder ? ` · WO ${c.workOrder}` : ''}
           </div>
         </span>
         <span className="row-trail">{pct(r?.overall)}</span>
@@ -59,7 +65,7 @@ export default function ContractorsPage() {
     >
       <label className="ios-search">
         <Icon name="search" size={18} />
-        <input type="search" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" placeholder="Name or work order" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
       {d.loaded && d.contractors.length === 0 ? (
         <div className="empty-state">
@@ -69,11 +75,11 @@ export default function ContractorsPage() {
         </div>
       ) : (
         <>
-          <div className="section-label">KPI tracked · {monthLabel(month)}</div>
+          <div className="section-label">Active · KPI {monthLabel(month)}</div>
           <div className="list">{active.map(row)}</div>
           {inactive.length > 0 && (
             <>
-              <div className="section-label">Not tracked · tickets only</div>
+              <div className="section-label">Inactive</div>
               <div className="list">{inactive.map(row)}</div>
             </>
           )}

@@ -59,6 +59,7 @@ export default function ImportPage() {
     const p = buildPlan(
       files.map((f) => f.result),
       await db.contractors.toArray(),
+      await db.workOrders.toArray(),
     )
     setPlan(p)
     setStep(p.groups.length ? 'match' : 'preview')
@@ -182,6 +183,7 @@ export default function ImportPage() {
                 'Contractors',
                 String(plan.masters.filter((m) => !m.existing).length + plan.groups.filter((g) => g.target === NEW).length),
               ],
+              ['Work orders', String(plan.masters.reduce((n, m) => n + m.workOrders.filter((w) => !w.existing).length, 0))],
               ['KPI months', String(plan.kpis.length)],
               ['Weekly counts', String(plan.weekly.length)],
               ['Skipped rows', String(plan.skipped.length)],
@@ -238,7 +240,8 @@ export default function ImportPage() {
           <div className="empty-state">
             <Icon name="check" size={48} />
             <b>Imported</b>
-            {done.tickets} tickets · {done.contractors} contractors · {done.kpis} KPI months · {done.weeks} weeks
+            {done.tickets} tickets · {done.contractors} contractors · {done.workOrders} work orders · {done.kpis} KPI months ·{' '}
+            {done.weeks} weeks
             {done.duplicates ? ` · ${done.duplicates} already here, skipped` : ''}
           </div>
           <button className="btn primary block" onClick={() => navigate('/dashboard')}>

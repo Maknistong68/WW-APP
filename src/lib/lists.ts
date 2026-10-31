@@ -47,3 +47,12 @@ export const PRIORITIES: { value: number; label: string }[] = [
 export const SEVERITIES = ['Not Acceptable', 'Critical', 'Need Improvement']
 
 export const priorityLabel = (p: number) => PRIORITIES.find((x) => x.value === p)?.label ?? ''
+
+/** Prefix every ticket number starts with. */
+export const TICKET_PREFIX = 'WWCMPL'
+
+/** A ticket number is valid when it has more than the bare prefix. */
+export const validTicketNo = (no: string) => {
+  const n = no.trim().toUpperCase()
+  return n.length > TICKET_PREFIX.length && n.startsWith(TICKET_PREFIX)
+}

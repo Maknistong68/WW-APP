@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import Page, { SettingsButton } from '../components/Page'
 import Icon from '../components/Icon'
 import TicketSheet from '../components/TicketSheet'
-import { TicketRow } from './TicketsPage'
+import { TicketRow, ticketSub } from './TicketsPage'
+import { kpiSubjects, subjectKpi } from '../lib/subjects'
 import { isOpen } from '../lib/aging'
 import { missingSubmissions, overdueTickets } from '../lib/dashboard'
 import { monthLabel, monthOf } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
-import { contractorName, newTicket } from '../lib/useData'
+import { newTicket } from '../lib/useData'
 import type { Ticket } from '../types'
 
 export default function TodayPage() {
@@ -20,7 +21,7 @@ export default function TodayPage() {
   const s = useMemo(() => {
     const open = d.tickets.filter(isOpen)
     const late = overdueTickets(d.tickets)
-    const missing = missingSubmissions(d.contractors, d.kpis, month)
+    const missing = missingSubmissions(kpiSubjects(d.contractors, d.workOrders), d.kpis, month)
     return { open, late, missing }
   }, [d, month])
 
@@ -100,7 +101,7 @@ export default function TodayPage() {
               <div className="section-label">Overdue</div>
               <div className="list">
                 {s.late.slice(0, 5).map((t) => (
-                  <TicketRow key={t.uuid} t={t} name={contractorName(d.byUuid, t.contractorUuid)} />
+                  <TicketRow key={t.uuid} t={t} sub={ticketSub(t, d.byUuid, d.woByUuid)} />
                 ))}
               </div>
               {s.late.length > 5 && (
@@ -114,15 +115,15 @@ export default function TodayPage() {
             <>
               <div className="section-label">Missing {monthLabel(month)} documents</div>
               <div className="list">
-                {s.missing.slice(0, 5).map((c) => {
-                  const k = d.kpis.find((x) => x.contractorUuid === c.uuid && x.month === month)
+                {s.missing.slice(0, 5).map((m) => {
+                  const k = subjectKpi(m, d.kpis, month)
                   const miss = [!k?.wps && 'WPS', !k?.manpowerDecl && 'Manpower', !k?.salaryDecl && 'Salary']
                     .filter(Boolean)
                     .join(' · ')
                   return (
-                    <button key={c.uuid} className="row" onClick={() => navigate(`/contractors/${c.uuid}`)}>
+                    <button key={m.key} className="row" onClick={() => navigate(`/contractors/${m.contractor.uuid}`)}>
                       <span className="row-main">
-                        <div className="row-title">{c.name}</div>
+                        <div className="row-title">{m.label}</div>
                         <div className="row-sub">{miss}</div>
                       </span>
                       <span className="row-chev">

@@ -11,10 +11,10 @@ Design spec: [`docs/superpowers/specs/2026-10-31-ww-copilot-design.md`](docs/sup
 | Tab | What it's for |
 |---|---|
 | **Today** | Open tickets · over 30 days · missing monthly documents, plus a short "needs you" list |
-| **Tickets** | + internal tickets. **＋** to add (contractor, issue, workers, source). **Swipe left to close.** Aging is automatic. |
-| **Contractors** | KPI % and status per contractor; detail with monthly scoring, manpower counts, open tickets, last audit |
+| **Tickets** | System + internal tickets, titled by ticket number (WWCMPL…). **＋** to add (number, contractor, work order, money owed, issue, workers). **Swipe left to close.** Aging is automatic. |
+| **Contractors** | Companies and their **work orders** (each can be activated / deactivated); KPI % per work order, monthly scoring, manpower counts, open tickets, last audit |
 | **Audits** | The Labour Accommodation Audit checklist with Excel + Word reports (unchanged) |
-| **Dashboard** | Month picker, weekly open-ticket trend, by contractor, by issue, KPI status; export Excel / Word |
+| **Dashboard** | **Overview** (trend, by contractor, by issue) · **Money** (SAR owed, by contractor / issue) · **KPIs** (each KPI on its own page). Export: KPI pack for slides, full Excel, Word |
 
 ⚙ Settings: one-time **history import**, **activity log**, backup/restore, Supabase sync.
 
@@ -90,7 +90,7 @@ Stack: Vite + React + TypeScript, `vite-plugin-pwa` (offline/service worker), De
   workbook) and `src/templates/welfareAudit.ts` (placeholder).
 - Excel workbook layout: `src/export/excel.ts`
 - Word report layout: `src/export/word.ts`
-- OXAGON logos used on the Word cover: `src/assets/`
+- OXAGON logo used on the Word cover: `src/assets/`
 - Co-pilot records + write path (activity log): `src/lib/records.ts`, types in `src/types.ts`
 - KPI rules: `src/lib/kpi.ts` · dashboard maths: `src/lib/dashboard.ts` · aging: `src/lib/aging.ts`
 - History import: `src/import/` (cleaners, header-based readers, contractor matching plan)
