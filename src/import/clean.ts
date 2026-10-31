@@ -215,3 +215,28 @@ export function extractAmount(raw: unknown): number | null {
   }
   return best
 }
+
+export interface MoneyCell {
+  amount: number | null
+  /** "combined with WWCMPL0008056" → that ticket number */
+  combinedWith: string
+  duplicate: boolean
+}
+
+/**
+ * The "Money Owed" column: a number, "combined (ticket) with WWCMPL…",
+ * "Duplicate", "N/A" — or, in old rows, leftover description text (ignored).
+ */
+export function parseMoneyCell(raw: unknown): MoneyCell {
+  const v = cellValue(raw)
+  const out: MoneyCell = { amount: null, combinedWith: '', duplicate: false }
+  if (typeof v === 'number') return { ...out, amount: Math.max(0, v) }
+  const s = cellText(v)
+  if (!s) return out
+  const combined = s.match(/combin\w*[^A-Z0-9]*(?:ticket\s*)?(?:with\s*)?(WWCMPL[\w-]+)/i)
+  if (combined) return { ...out, combinedWith: combined[1].toUpperCase() }
+  if (/duplic/i.test(s)) return { ...out, duplicate: true }
+  const n = s.replace(/[,\s]|SAR|SR/gi, '')
+  if (/^\d+(\.\d+)?$/.test(n)) return { ...out, amount: Number(n) }
+  return out
+}

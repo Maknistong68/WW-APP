@@ -9,6 +9,7 @@ import {
   cleanStatus,
   extractAmount,
   isYes,
+  parseMoneyCell,
   parseDate,
   parseSheetDate,
   toInt,
@@ -45,8 +46,12 @@ export interface RawTicket {
   closedAt: string
   /** closedAt worked out from the weekly tabs, not typed in the file */
   closedEstimated: boolean
-  /** SAR amount found in the description / updates text, if any */
+  /** SAR amount: the Money Owed column, else one found in description text */
   amountOwed: number | null
+  /** Money Owed said "combined with WWCMPL…" */
+  combinedWith: string
+  /** Money Owed said "Duplicate" */
+  duplicate: boolean
   contractorAction: string
   wwAction: string
 }
@@ -128,6 +133,7 @@ const HEADERS: Record<string, string> = {
   actiontakenbycontractor: 'contractorAction',
   actiontakebyoxagonww: 'wwAction',
   // Free-text columns: read only to find a money amount, never stored.
+  moneyowed: 'money',
   violation: 'desc',
   updates: 'updates',
   actiontakenbyoxagonww: 'wwAction',
@@ -158,6 +164,7 @@ export function detect(grids: Grid[]): FileKind {
 function rowTicket(row: unknown[], cols: Map<string, number>, source: 'System' | 'Internal'): RawTicket {
   const get = (f: string) => (cols.has(f) ? row[cols.get(f)!] : undefined)
   const closedAt = parseDate(get('closedAt'))
+  const money = parseMoneyCell(get('money'))
   const status = cleanStatus(get('status')) || (closedAt ? 'Closed' : 'Open')
   return {
     ticketNo: source === 'System' ? cellText(get('ticketNo')).toUpperCase() : '',
@@ -180,7 +187,13 @@ function rowTicket(row: unknown[], cols: Map<string, number>, source: 'System' |
     closedAt: status === 'Closed' ? closedAt : '',
     closedEstimated: false,
     amountOwed:
-      extractAmount(get('desc')) ?? extractAmount(get('updates')) ?? extractAmount(get('issue')) ?? extractAmount(get('sub')),
+      money.amount ??
+      extractAmount(get('desc')) ??
+      extractAmount(get('updates')) ??
+      extractAmount(get('issue')) ??
+      extractAmount(get('sub')),
+    combinedWith: money.combinedWith,
+    duplicate: money.duplicate,
     contractorAction: cellText(get('contractorAction')),
     wwAction: cellText(get('wwAction')),
   }
@@ -196,6 +209,8 @@ function mergeTicket(a: RawTicket, b: RawTicket): RawTicket {
     ...best,
     workers: Math.max(a.workers, b.workers),
     amountOwed: best.amountOwed ?? a.amountOwed ?? b.amountOwed,
+    combinedWith: best.combinedWith || a.combinedWith || b.combinedWith,
+    duplicate: a.duplicate || b.duplicate,
     openedAt: [a.openedAt, b.openedAt].filter(Boolean).sort()[0] ?? '',
     contractor: best.contractor || a.contractor || b.contractor,
   }
@@ -217,6 +232,18 @@ export function readViolationLog(grids: Grid[]): ReadResult {
         const t = rowTicket(row, h.cols, 'System')
         if (!t.openedAt) {
           noDate.set(t.ticketNo, { sheet: overall.name, row: h.row + i + 2, reason: `${t.ticketNo}: no opening date` })
+          return
+        }
+        if (
+          byNo.has(t.ticketNo) &&
+          byNo.get(t.ticketNo)!.amountOwed !== null &&
+          t.amountOwed !== null &&
+          byNo.get(t.ticketNo)!.amountOwed !== t.amountOwed
+        ) {
+          // Same number typed for two tickets (two different payments): keep both.
+          let suffix = 'B'
+          while (byNo.has(`${t.ticketNo}-${suffix}`)) suffix = String.fromCharCode(suffix.charCodeAt(0) + 1)
+          byNo.set(`${t.ticketNo}-${suffix}`, { ...t, ticketNo: `${t.ticketNo}-${suffix}` })
           return
         }
         if (byNo.has(t.ticketNo)) {

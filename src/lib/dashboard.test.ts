@@ -19,6 +19,7 @@ const tk = (p: Partial<Ticket>): Ticket => ({
   workers: 2,
   violations: 1,
   amountOwed: null,
+  parentUuid: '',
   assignedTo: '',
   status: 'Open',
   openedAt: '2026-10-01',

@@ -19,6 +19,7 @@ export function normalizeTicket(raw: Record<string, unknown>): Ticket {
     source: raw.source === 'Internal' ? 'Internal' : 'System',
     workOrderUuid: typeof raw.workOrderUuid === 'string' ? raw.workOrderUuid : '',
     amountOwed: typeof raw.amountOwed === 'number' ? raw.amountOwed : null,
+    parentUuid: typeof raw.parentUuid === 'string' ? raw.parentUuid : '',
   }
 }
 

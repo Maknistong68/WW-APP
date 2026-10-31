@@ -243,8 +243,10 @@ export interface Ticket extends RecordBase {
   severity: string
   workers: number
   violations: number
-  /** Money owed to workers, SAR (null = not known). */
+  /** Money owed to workers, SAR (null = not known). On a combined group only the main ticket holds it. */
   amountOwed: number | null
+  /** Main ticket this one was combined into ('' = standalone or main). */
+  parentUuid: string
   assignedTo: string
   status: TicketStatus
   /** YYYY-MM-DD */

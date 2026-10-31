@@ -237,13 +237,20 @@ export function planToRecords(plan: ImportPlan, existing: ExistingRecords, now =
       workers: r.workers,
       violations: r.violations,
       amountOwed: r.amountOwed,
+      parentUuid: '',
       assignedTo: r.assignedTo,
       status: r.status,
       openedAt: r.openedAt,
       closedAt: r.closedAt,
       contractorAction: r.contractorAction,
       wwAction: r.wwAction,
-      notes: r.closedEstimated ? 'Closing date estimated from the weekly log.' : '',
+      notes: [
+        r.closedEstimated ? 'Closing date estimated from the weekly log.' : '',
+        r.duplicate ? 'Marked duplicate in the log.' : '',
+        r.combinedWith ? `Combined with ${r.combinedWith}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
     }
     const dup = t.ticketNo ? ticketNos.has(t.ticketNo) : internalKeys.has(internalKey(t))
     if (dup) {
@@ -258,6 +265,14 @@ export function planToRecords(plan: ImportPlan, existing: ExistingRecords, now =
     tickets.push(t)
   }
   summary.tickets = tickets.length
+
+  // "Combined with WWCMPL…" → point at that ticket (new or already in the app).
+  const byNo = new Map([...existing.tickets, ...tickets].map((t) => [t.ticketNo, t.uuid]))
+  for (const t of tickets) {
+    const raw = plan.tickets.find((r) => r.ticketNo === t.ticketNo)
+    const parent = raw?.combinedWith ? byNo.get(raw.combinedWith) : undefined
+    if (parent && parent !== t.uuid) t.parentUuid = parent
+  }
 
   const haveKpi = new Set(existing.kpiMonths.map((k) => `${k.contractorUuid}|${k.workOrderUuid || ''}|${k.month}`))
   const kpiMonths: KpiMonth[] = []

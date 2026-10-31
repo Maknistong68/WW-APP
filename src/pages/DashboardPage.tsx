@@ -13,6 +13,7 @@ import { addMonths, monthLabel, monthOf } from '../lib/dates'
 import { KPI_PARTS, STATUS_LABEL, kpiStatus, pct } from '../lib/kpi'
 import { itemStats, kpisForMonth, subjectKpis, useAllData } from '../lib/kpiData'
 import { moneyStats, sar, sarShort } from '../lib/money'
+import { memberCounts } from '../lib/groups'
 import { logEvent } from '../db'
 
 type View = 'overview' | 'money' | 'kpis'
@@ -50,6 +51,7 @@ export default function DashboardPage() {
     () => weeklyTrend(d.weekly, d.tickets).map((p) => ({ date: p.date, value: p.open })),
     [d.weekly, d.tickets],
   )
+  const groupCounts = useMemo(() => memberCounts(d.tickets), [d.tickets])
   const money = useMemo(() => moneyStats(month ? stats.opened : d.tickets), [d.tickets, month, stats.opened])
   const subjects = useMemo(() => subjectKpis(d, kpiMonth), [d, kpiMonth])
   const byContractor = useMemo(() => {
@@ -252,7 +254,12 @@ export default function DashboardPage() {
                 .sort((a, b) => (b.amountOwed ?? 0) - (a.amountOwed ?? 0))
                 .slice(0, 10)
                 .map((t) => (
-                  <TicketRow key={t.uuid} t={t} sub={ticketSub(t, d.byUuid, d.woByUuid)} />
+                  <TicketRow
+                    key={t.uuid}
+                    t={t}
+                    sub={ticketSub(t, d.byUuid, d.woByUuid)}
+                    group={groupCounts.get(t.uuid) ? `${(groupCounts.get(t.uuid) ?? 0) + 1} tickets` : undefined}
+                  />
                 ))}
             </div>
           )}

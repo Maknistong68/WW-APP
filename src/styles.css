@@ -1044,3 +1044,28 @@ button.row:active { background: var(--gray-bg); }
   margin: 0 auto;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
+
+/* Select mode + combined tickets */
+.select-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--separator);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+.select-dot.on { background: var(--brand); border-color: var(--brand); }
+.group-chip {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--brand-tint);
+  color: var(--brand-tint-ink);
+  vertical-align: 2px;
+}

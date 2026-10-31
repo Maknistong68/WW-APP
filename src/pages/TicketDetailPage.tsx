@@ -13,6 +13,10 @@ import { priorityLabel } from '../lib/lists'
 import { removeRecord, saveRecord } from '../lib/records'
 import { contractorName, ticketLabel, useContractors, woName } from '../lib/useData'
 import { sar } from '../lib/money'
+import { groupOf, uncombine } from '../lib/groups'
+import Icon from '../components/Icon'
+import CloseTogetherSheet from '../components/CloseTogetherSheet'
+import { TicketRow } from './TicketsPage'
 
 function Field({ label, value }: { label: string; value: string | number }) {
   if (value === '' || value === null || value === undefined) return null
@@ -31,7 +35,8 @@ export default function TicketDetailPage() {
   const navigate = useNavigate()
   const { byUuid, woByUuid } = useContractors()
   const t = useLiveQuery(() => db.tickets.get(uuid).then((x) => x ?? null), [uuid])
-  const [sheet, setSheet] = useState<'edit' | 'close' | 'delete' | null>(null)
+  const allTickets = useLiveQuery(() => db.tickets.toArray())
+  const [sheet, setSheet] = useState<'edit' | 'close' | 'closeGroup' | 'delete' | null>(null)
 
   if (t === undefined) return null
   if (t === null) {
@@ -45,6 +50,10 @@ export default function TicketDetailPage() {
   }
   const days = ageDays(t)
   const open = isOpen(t)
+  const group = groupOf(t, allTickets ?? [t])
+  const isMember = !!t.parentUuid && group.main.uuid !== t.uuid
+  const isMain = !isMember && group.members.length > 0
+  const groupTotal = group.main.amountOwed
 
   return (
     <Page title={t.ticketNo || 'Ticket'} back="/tickets" backLabel="Tickets">
@@ -66,7 +75,10 @@ export default function TicketDetailPage() {
       <div className="list">
         <Field label="Contractor" value={contractorName(byUuid, t.contractorUuid)} />
         <Field label="Work order" value={woName(woByUuid.get(t.workOrderUuid))} />
-        <Field label={open ? 'Money still owed' : 'Money recovered'} value={t.amountOwed ? sar(t.amountOwed) : ''} />
+        <Field
+          label={open ? 'Money still owed' : 'Money recovered'}
+          value={t.amountOwed ? `${sar(t.amountOwed)}${isMain ? ` · for all ${group.all.length} tickets` : ''}` : ''}
+        />
         <Field label="Source" value={t.source} />
         <Field label="Workers" value={t.workers} />
         <Field label="Violations" value={t.violations} />
@@ -81,10 +93,52 @@ export default function TicketDetailPage() {
         <Field label="Notes" value={t.notes} />
       </div>
 
+      {isMember && (
+        <>
+          <div className="section-label">Combined</div>
+          <div className="list">
+            <button className="row" onClick={() => navigate(`/tickets/${group.main.uuid}`)}>
+              <span className="row-main">
+                <div className="row-title">Part of {group.main.ticketNo}</div>
+                <div className="row-sub">
+                  {group.all.length} tickets{groupTotal ? ` · ${sar(groupTotal)} total` : ''} · money is on the main ticket
+                </div>
+              </span>
+              <span className="row-chev">
+                <Icon name="chevron-right" size={18} />
+              </span>
+            </button>
+            <button
+              className="row tint"
+              onClick={() =>
+                void saveRecord('tickets', uncombine(t, group.main.ticketNo), ticketLabel(t, byUuid)).then(() =>
+                  showToast({ text: `${t.ticketNo} is no longer combined` }),
+                )
+              }
+            >
+              Uncombine
+            </button>
+          </div>
+        </>
+      )}
+      {isMain && (
+        <>
+          <div className="section-label">
+            Combined tickets · {group.all.length} · {group.workers} workers
+            {groupTotal ? ` · ${sar(groupTotal)}` : ''}
+          </div>
+          <div className="list">
+            {group.members.map((m) => (
+              <TicketRow key={m.uuid} t={m} sub={`${m.issue || '—'} · ${m.workers} worker${m.workers === 1 ? '' : 's'} · ${m.status}`} />
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="list">
         {open ? (
-          <button className="row tint" onClick={() => setSheet('close')}>
-            Close ticket
+          <button className="row tint" onClick={() => setSheet(isMain ? 'closeGroup' : 'close')}>
+            {isMain ? `Close all ${group.all.length} together` : 'Close ticket'}
           </button>
         ) : (
           <button
@@ -113,6 +167,9 @@ export default function TicketDetailPage() {
 
       {sheet === 'edit' && <TicketSheet ticket={t} onClose={() => setSheet(null)} />}
       {sheet === 'close' && <CloseTicketSheet ticket={t} onClose={() => setSheet(null)} />}
+      {sheet === 'closeGroup' && (
+        <CloseTogetherSheet selected={group.all} all={allTickets ?? []} close onClose={() => setSheet(null)} />
+      )}
       {sheet === 'delete' && (
         <ConfirmSheet
           title="Delete ticket?"

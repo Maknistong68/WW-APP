@@ -46,6 +46,7 @@ export function newTicket(): Ticket {
     workers: 1,
     violations: 1,
     amountOwed: null,
+    parentUuid: '',
     assignedTo: '',
     status: 'Open',
     openedAt: localDate(),

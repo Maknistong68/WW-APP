@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  parseMoneyCell,
   extractAmount,
   cleanCategory,
   cleanChannel,
@@ -64,5 +65,19 @@ describe('money in free text', () => {
     expect(extractAmount('paid SR 500 and 200 riyals')).toBe(500)
     expect(extractAmount('Salary not received for 2 months')).toBeNull()
     expect(extractAmount('')).toBeNull()
+  })
+})
+
+describe('Money Owed column', () => {
+  it('reads numbers, combined links, duplicates and ignores text', () => {
+    expect(parseMoneyCell(66825)).toEqual({ amount: 66825, combinedWith: '', duplicate: false })
+    expect(parseMoneyCell(0).amount).toBe(0)
+    expect(parseMoneyCell('Combined with WWCMPL0007748').combinedWith).toBe('WWCMPL0007748')
+    expect(parseMoneyCell('COMBINED WWCMPL0008604').combinedWith).toBe('WWCMPL0008604')
+    expect(parseMoneyCell('combined ticket  with WWCMPL0008056').combinedWith).toBe('WWCMPL0008056')
+    expect(parseMoneyCell('Duplicate').duplicate).toBe(true)
+    expect(parseMoneyCell('N/A')).toEqual({ amount: null, combinedWith: '', duplicate: false })
+    expect(parseMoneyCell('Multiple violations reported at camp').amount).toBeNull()
+    expect(parseMoneyCell('12,500 SAR').amount).toBe(12500)
   })
 })

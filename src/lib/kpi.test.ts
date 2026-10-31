@@ -18,6 +18,7 @@ const tk = (openedAt: string, closedAt = ''): Ticket => ({
   workers: 1,
   violations: 1,
   amountOwed: null,
+  parentUuid: '',
   assignedTo: '',
   status: closedAt ? 'Closed' : 'Open',
   openedAt,
