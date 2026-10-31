@@ -3,7 +3,6 @@ import PasswordInput from '../components/PasswordInput'
 import { showToast } from '../components/Toast'
 import { authErrorText, sendPasswordReset, signInWithPassword, signUpWithPassword } from '../lib/auth'
 import { getClient } from '../lib/sync'
-import logoUrl from '../assets/oxagon-logo.png'
 
 /** First screen: sign in, create an account (needs approval), or reset the password. */
 export default function LoginPage({ onDone }: { onDone: () => void }) {
@@ -43,7 +42,6 @@ export default function LoginPage({ onDone }: { onDone: () => void }) {
   return (
     <main className="login">
       <form className="login-card" onSubmit={submit}>
-        <img src={logoUrl} alt="" className="login-logo" />
         <h1 className="login-title">WW Co-pilot</h1>
         <p className="login-sub">Worker Welfare · tickets, KPIs, camps</p>
 
@@ -117,7 +115,6 @@ export function WaitingPage({
   return (
     <main className="login">
       <div className="login-card" style={{ textAlign: 'center' }}>
-        <img src={logoUrl} alt="" className="login-logo" />
         <h1 className="login-title">{rejected ? 'No access' : 'Waiting for approval'}</h1>
         <p className="login-sub">
           {rejected
