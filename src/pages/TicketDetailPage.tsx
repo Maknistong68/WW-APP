@@ -7,7 +7,7 @@ import History from '../components/History'
 import { ConfirmSheet } from '../components/Modal'
 import TicketSheet, { CloseTicketSheet } from '../components/TicketSheet'
 import { showToast } from '../components/Toast'
-import { ageDays, ageTone, isOpen } from '../lib/aging'
+import { ageDays, isOpen } from '../lib/aging'
 import { shortDate } from '../lib/dates'
 import { priorityLabel } from '../lib/lists'
 import { removeRecord, saveRecord } from '../lib/records'
@@ -16,7 +16,10 @@ import { sar } from '../lib/money'
 import { groupOf, uncombine } from '../lib/groups'
 import Icon from '../components/Icon'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
-import { TicketRow } from './TicketsPage'
+import { TicketRow, copyTicketNo } from './TicketsPage'
+import AlbumHeader from '../components/AlbumHeader'
+import Cover from '../components/Cover'
+import { showActions } from '../components/ActionSheet'
 import { useAuthInfo } from '../lib/auth'
 
 function Field({ label, value }: { label: string; value: string | number }) {
@@ -56,25 +59,58 @@ export default function TicketDetailPage() {
   const isMember = !!t.parentUuid && group.main.uuid !== t.uuid
   const isMain = !isMember && group.members.length > 0
   const groupTotal = group.main.amountOwed
+  const reopen = () =>
+    void saveRecord('tickets', { ...t, status: 'Open', closedAt: '' }, ticketLabel(t, byUuid), 'reopen').then(() =>
+      showToast({ text: 'Ticket reopened' }),
+    )
+  const more = () =>
+    showActions({
+      title: t.ticketNo || 'Ticket',
+      sub: t.issue,
+      cover: <Cover section="tickets" seed={t.ticketNo} icon="ticket" size={56} />,
+      actions: [
+        ...(open
+          ? [{ label: isMain ? `Close all ${group.all.length} together` : 'Close ticket', icon: 'check-circle' as const, onSelect: () => setSheet(isMain ? 'closeGroup' : 'close'), edit: true }]
+          : [{ label: 'Reopen ticket', icon: 'undo' as const, onSelect: reopen, edit: true }]),
+        { label: 'Edit', icon: 'pencil', onSelect: () => setSheet('edit'), edit: true },
+        { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
+        ...(isMember ? [{ label: `Open main ticket ${group.main.ticketNo}`, icon: 'arrow-right' as const, onSelect: () => navigate(`/tickets/${group.main.uuid}`) }] : []),
+        { label: 'Delete ticket', icon: 'trash', onSelect: () => setSheet('delete'), danger: true, edit: true },
+      ],
+    })
 
   return (
-    <Page title={t.ticketNo || 'Ticket'} back="/tickets" backLabel="Tickets">
-      <div className="list">
-        <div className="row">
-          <div className="row-main">
-            <div className="row-title" style={{ fontWeight: 600 }}>
-              {t.issue || 'Ticket'}
-            </div>
-            <div className="row-sub">
-              {t.status} · opened {shortDate(t.openedAt)}
+    <Page title={t.ticketNo || 'Ticket'} back="/tickets" backLabel="Tickets" album>
+      <AlbumHeader
+        cover={<Cover section="tickets" seed={t.ticketNo} icon="ticket" size={156} />}
+        title={t.ticketNo || 'Ticket'}
+        sub={[t.issue || 'Ticket', contractorName(byUuid, t.contractorUuid)].filter(Boolean).join(' · ')}
+        meta={
+          <>
+            <span className={`status-chip ${open ? (days > 30 ? 'bad' : days > 10 ? 'warn' : '') : 'good'}`}>
+              {open ? `${t.status} · ${days}d` : 'Closed'}
+            </span>
+            <span>
+              Opened {shortDate(t.openedAt)}
               {t.closedAt ? ` · closed ${shortDate(t.closedAt)}` : ''}
-            </div>
-          </div>
-          <span className={`age-chip ${open ? ageTone(days) : ''}`}>{days}d</span>
-        </div>
-      </div>
+            </span>
+          </>
+        }
+        buttons={[
+          ...(canEdit ? [{ icon: 'pencil' as const, label: 'Edit', onClick: () => setSheet('edit') }] : []),
+          { icon: 'copy', label: 'Copy number', onClick: () => copyTicketNo(t) },
+          { icon: 'dots', label: 'More actions', onClick: more },
+        ]}
+        primary={
+          !canEdit
+            ? undefined
+            : open
+              ? { icon: 'check', label: isMain ? `Close all ${group.all.length} together` : 'Close ticket', onClick: () => setSheet(isMain ? 'closeGroup' : 'close') }
+              : { icon: 'undo', label: 'Reopen ticket', onClick: reopen }
+        }
+      />
 
-      <div className="list">
+      <div className="info-card">
         <Field label="Contractor" value={contractorName(byUuid, t.contractorUuid)} />
         <Field label="Work order" value={woName(woByUuid.get(t.workOrderUuid))} />
         <Field
@@ -139,39 +175,7 @@ export default function TicketDetailPage() {
         </>
       )}
 
-      {canEdit && (
-      <div className="list">
-        {open ? (
-          <button className="row tint" onClick={() => setSheet(isMain ? 'closeGroup' : 'close')}>
-            {isMain ? `Close all ${group.all.length} together` : 'Close ticket'}
-          </button>
-        ) : (
-          <button
-            className="row tint"
-            onClick={() =>
-              void saveRecord('tickets', { ...t, status: 'Open', closedAt: '' }, ticketLabel(t, byUuid), 'reopen').then(
-                () => showToast({ text: 'Ticket reopened' }),
-              )
-            }
-          >
-            Reopen ticket
-          </button>
-        )}
-        <button className="row tint" onClick={() => setSheet('edit')}>
-          Edit
-        </button>
-      </div>
-      )}
-
       <History uuid={t.uuid} contractors={byUuid} />
-
-      {canEdit && (
-        <div className="list" style={{ marginTop: 20 }}>
-          <button className="row destructive" onClick={() => setSheet('delete')}>
-            Delete ticket
-          </button>
-        </div>
-      )}
 
       {sheet === 'edit' && <TicketSheet ticket={t} onClose={() => setSheet(null)} />}
       {sheet === 'close' && <CloseTicketSheet ticket={t} onClose={() => setSheet(null)} />}
@@ -180,9 +184,9 @@ export default function TicketDetailPage() {
       )}
       {sheet === 'delete' && (
         <ConfirmSheet
-          title="Delete ticket?"
+          title={`Delete ${t.ticketNo || 'this ticket'}?`}
           message="It stays in the activity log, but disappears from lists and the dashboard."
-          confirmLabel="Delete"
+          confirmLabel="Delete ticket"
           destructive
           onCancel={() => setSheet(null)}
           onConfirm={() => {

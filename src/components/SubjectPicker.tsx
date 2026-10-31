@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import Icon from './Icon'
+import Cover from './Cover'
+import MediaRow from './MediaRow'
 import KpiSheet, { ManpowerSheet } from './KpiSheet'
 import { addMonths, monthLabel, monthOf } from '../lib/dates'
 import { auditPctFor, type AllData } from '../lib/kpiData'
@@ -31,10 +33,13 @@ export interface SubjectRow {
 export function SubjectList({
   rows,
   onPick,
+  onMore,
   search = true,
 }: {
   rows: SubjectRow[]
   onPick?: (s: KpiSubject) => void
+  /** Long-press / ⋯ on a row. */
+  onMore?: (s: KpiSubject) => void
   search?: boolean
 }) {
   const [query, setQuery] = useState('')
@@ -53,24 +58,27 @@ export function SubjectList({
       ) : (
         <div className="list">
           {shown.map(({ s, done, value }) => (
-            <button key={s.key} className="row" disabled={!onPick} onClick={() => onPick?.(s)}>
-              {done ? (
-                <span style={{ color: 'var(--green)', display: 'inline-flex' }} aria-label="Entered">
-                  <Icon name="check" size={18} strokeWidth={2.5} />
-                </span>
-              ) : (
-                <span className="status-dot bad" aria-label="Missing" />
-              )}
-              <span className="row-main">
-                <div className="row-title">{s.label}</div>
-                {value ? <div className="row-sub">{value}</div> : !done && <div className="row-sub">Not entered</div>}
-              </span>
-              {onPick && (
-                <span className="row-chev">
-                  <Icon name="chevron-right" size={18} />
-                </span>
-              )}
-            </button>
+            <MediaRow
+              key={s.key}
+              cover={<Cover section="contractors" seed={s.contractor.name} text={s.contractor.name} size={44} />}
+              title={s.label}
+              sub={value || (done ? 'Entered' : 'Not entered')}
+              trail={
+                done ? (
+                  <span className="status-chip good">
+                    <Icon name="check" size={12} strokeWidth={2.4} /> Done
+                  </span>
+                ) : (
+                  <span className="status-chip bad">Missing</span>
+                )
+              }
+              onOpen={onPick ? () => onPick(s) : undefined}
+              onMore={
+                onMore
+                  ? () => onMore(s)
+                  : undefined
+              }
+            />
           ))}
         </div>
       )}

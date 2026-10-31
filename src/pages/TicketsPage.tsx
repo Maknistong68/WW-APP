@@ -4,8 +4,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { db } from '../db'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
+import Cover from '../components/Cover'
+import MediaRow from '../components/MediaRow'
+import { showActions } from '../components/ActionSheet'
+import { showToast } from '../components/Toast'
 import SwipeRow from '../components/SwipeRow'
-import { CloseTicketSheet } from '../components/TicketSheet'
+import TicketSheet, { CloseTicketSheet } from '../components/TicketSheet'
 import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { memberCounts } from '../lib/groups'
@@ -36,6 +40,14 @@ export function ticketSub(t: Ticket, contractors?: Map<string, Contractor>, wos?
     .join(' · ')
 }
 
+/** Copy a ticket number to the clipboard. */
+export function copyTicketNo(t: Ticket) {
+  void navigator.clipboard?.writeText(t.ticketNo).then(
+    () => showToast({ text: `Copied ${t.ticketNo}` }),
+    () => showToast({ text: t.ticketNo }),
+  )
+}
+
 /** Ticket row: the ticket number is the title. In select mode a tap ticks it. */
 export function TicketRow({
   t,
@@ -43,6 +55,7 @@ export function TicketRow({
   group,
   selected,
   onSelect,
+  onMore,
 }: {
   t: Ticket
   sub?: string
@@ -50,36 +63,53 @@ export function TicketRow({
   group?: string
   selected?: boolean
   onSelect?: () => void
+  /** Long-press / ⋯ actions; defaults to Open + Copy number. */
+  onMore?: () => void
 }) {
   const navigate = useNavigate()
   const days = ageDays(t)
+  const open = () => navigate(`/tickets/${t.uuid}`)
+  const more =
+    onMore ??
+    (() =>
+      showActions({
+        title: t.ticketNo || 'Ticket',
+        sub: sub ?? ticketSub(t),
+        cover: <Cover section="tickets" seed={t.ticketNo} icon="ticket" size={56} />,
+        actions: [
+          { label: 'Open ticket', icon: 'arrow-right', onSelect: open },
+          { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
+        ],
+      }))
   return (
-    <button
-      className="row"
-      aria-pressed={onSelect ? !!selected : undefined}
-      onClick={() => (onSelect ? onSelect() : navigate(`/tickets/${t.uuid}`))}
-    >
-      {onSelect && (
-        <span className={`select-dot${selected ? ' on' : ''}`} aria-hidden="true">
-          {selected && <Icon name="check" size={14} strokeWidth={3} />}
-        </span>
-      )}
-      <div className="row-main">
-        <div className="row-title" style={{ fontVariantNumeric: 'tabular-nums' }}>
+    <MediaRow
+      selected={selected}
+      cover={
+        onSelect ? (
+          <span className={`select-dot${selected ? ' on' : ''}`} aria-hidden="true">
+            {selected && <Icon name="check" size={14} strokeWidth={3} />}
+          </span>
+        ) : (
+          <Cover section="tickets" seed={t.ticketNo} icon="ticket" size={48} />
+        )
+      }
+      title={
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
           {t.ticketNo || 'No number'}
           {group && <span className="group-chip">{group}</span>}
-        </div>
-        <div className="row-sub">{sub ?? ticketSub(t)}</div>
-      </div>
-      {isOpen(t) ? (
-        <span className={`age-chip ${ageTone(days)}`}>{days}d</span>
-      ) : (
-        <span className="row-trail">{shortDate(t.closedAt)}</span>
-      )}
-      <span className="row-chev">
-        <Icon name="chevron-right" size={18} />
-      </span>
-    </button>
+        </span>
+      }
+      sub={sub ?? ticketSub(t)}
+      trail={
+        isOpen(t) ? (
+          <span className={`age-chip ${ageTone(days)}`}>{days}d</span>
+        ) : (
+          <span className="row-trail">{shortDate(t.closedAt)}</span>
+        )
+      }
+      onOpen={onSelect ?? open}
+      onMore={onSelect ? undefined : more}
+    />
   )
 }
 
@@ -89,6 +119,8 @@ export default function TicketsPage() {
   const [query, setQuery] = useState('')
   const { canEdit } = useAuthInfo()
   const [closing, setClosing] = useState<Ticket | null>(null)
+  const [editing, setEditing] = useState<Ticket | null>(null)
+  const navigate = useNavigate()
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [together, setTogether] = useState<'close' | 'combine' | null>(null)
@@ -135,6 +167,29 @@ export default function TicketsPage() {
     document.body.classList.toggle('selecting', selecting)
     return () => document.body.classList.remove('selecting')
   }, [selecting])
+  /** Long-press / ⋯ on a ticket. */
+  const more = (t: Ticket) =>
+    showActions({
+      title: t.ticketNo || 'Ticket',
+      sub: ticketSub(t, byUuid, woByUuid),
+      cover: <Cover section="tickets" seed={t.ticketNo} icon="ticket" size={56} />,
+      actions: [
+        { label: 'Open ticket', icon: 'arrow-right', onSelect: () => navigate(`/tickets/${t.uuid}`) },
+        ...(isOpen(t) ? [{ label: 'Close ticket', icon: 'check-circle' as const, onSelect: () => setClosing(t), edit: true }] : []),
+        { label: 'Edit', icon: 'pencil', onSelect: () => setEditing(t), edit: true },
+        { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
+        {
+          label: 'Select several',
+          icon: 'checklist',
+          edit: true,
+          onSelect: () => {
+            setSelecting(true)
+            setPicked(new Set([t.uuid]))
+          },
+        },
+      ],
+    })
+
   const counts = useMemo(() => {
     const all = tickets ?? []
     const open = all.filter(isOpen)
@@ -200,17 +255,17 @@ export default function TicketsPage() {
                 />
               ) : isOpen(t) && canEdit ? (
                 <SwipeRow key={t.uuid} actionLabel="Close" onAction={() => setClosing(t)}>
-                  <TicketRow t={t} sub={ticketSub(t, byUuid, woByUuid)} group={groupLabel(t)} />
+                  <TicketRow t={t} sub={ticketSub(t, byUuid, woByUuid)} group={groupLabel(t)} onMore={() => more(t)} />
                 </SwipeRow>
               ) : (
-                <TicketRow key={t.uuid} t={t} sub={ticketSub(t, byUuid, woByUuid)} group={groupLabel(t)} />
+                <TicketRow key={t.uuid} t={t} sub={ticketSub(t, byUuid, woByUuid)} group={groupLabel(t)} onMore={() => more(t)} />
               ),
             )}
           </div>
           {visible.length > 0 && (
             <div className="list-foot">
               {visible.length} ticket{visible.length === 1 ? '' : 's'} · {workers} workers
-              {filter === 'open' && !selecting && canEdit && ' · swipe left to close · Select to close several together'}
+              {filter === 'open' && !selecting && canEdit && ' · swipe left to close · hold for more'}
             </div>
           )}
         </>
@@ -238,6 +293,7 @@ export default function TicketsPage() {
           }}
         />
       )}
+      {editing && <TicketSheet ticket={editing} onClose={() => setEditing(null)} />}
       {closing && <CloseTicketSheet ticket={closing} onClose={() => setClosing(null)} />}
     </Page>
   )

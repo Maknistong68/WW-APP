@@ -2,6 +2,11 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
+import Cover from '../components/Cover'
+import MediaRow from '../components/MediaRow'
+import { showActions } from '../components/ActionSheet'
+import { SubjectEditor } from '../components/SubjectPicker'
+import { kpiSubjects, type KpiSubject } from '../lib/subjects'
 import ContractorSheet from '../components/ContractorSheet'
 import { isOpen } from '../lib/aging'
 import { monthLabel, monthOf } from '../lib/dates'
@@ -16,6 +21,7 @@ export default function ContractorsPage() {
   const month = monthOf()
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState<Contractor | null>(null)
+  const [scoring, setScoring] = useState<KpiSubject | null>(null)
   const kpis = useMemo(() => kpisForMonth(d, month), [d, month])
 
   const q = query.trim().toLowerCase()
@@ -26,34 +32,54 @@ export default function ContractorsPage() {
   const active = d.contractors.filter((c) => c.active && match(c))
   const inactive = d.contractors.filter((c) => !c.active && match(c))
 
+  const more = (c: Contractor) => {
+    const subjects = kpiSubjects([c], d.workOrders)
+    showActions({
+      title: c.name,
+      sub: `KPI ${pct(kpis.get(c.uuid)?.overall)} · ${monthLabel(month)}`,
+      cover: <Cover section="contractors" seed={c.name} text={c.name} size={56} />,
+      actions: [
+        { label: 'Open', icon: 'arrow-right', onSelect: () => navigate(`/contractors/${c.uuid}`) },
+        ...subjects.slice(0, 4).map((s) => ({
+          label: `Score ${s.workOrder ? `WO ${s.workOrder.number}` : 'this month'}`,
+          icon: 'gauge' as const,
+          onSelect: () => setScoring(s),
+          edit: true,
+        })),
+        { label: 'Edit details', icon: 'pencil', onSelect: () => setAdding(c), edit: true },
+      ],
+    })
+  }
+
   const row = (c: Contractor) => {
     const r = kpis.get(c.uuid)
     const open = openCount(c.uuid)
+    const wos = wosOf(c.uuid)
+    const on = wos.filter((w) => w.active).length
     return (
-      <button key={c.uuid} className="row" onClick={() => navigate(`/contractors/${c.uuid}`)}>
-        <span className={`status-dot ${c.active ? (r?.status ?? 'none') : 'none'}`} aria-hidden="true" />
-        <span className="row-main">
-          <div className="row-title">{c.name}</div>
-          <div className="row-sub">
-            {(() => {
-              const wos = wosOf(c.uuid)
-              const on = wos.filter((w) => w.active).length
-              return wos.length ? `${on}/${wos.length} WO active · ` : ''
-            })()}
-            {open} open ticket{open === 1 ? '' : 's'}
-          </div>
-        </span>
-        <span className="row-trail">{pct(r?.overall)}</span>
-        <span className="row-chev">
-          <Icon name="chevron-right" size={18} />
-        </span>
-      </button>
+      <MediaRow
+        key={c.uuid}
+        cover={<Cover section="contractors" seed={c.name} text={c.name} size={48} />}
+        title={c.name}
+        sub={`${wos.length ? `${on}/${wos.length} WO active · ` : ''}${open} open ticket${open === 1 ? '' : 's'}`}
+        trail={
+          c.active && r?.overall != null ? (
+            <span className={`status-chip ${r.status === 'none' ? '' : r.status}`}>{pct(r.overall)}</span>
+          ) : (
+            <span className="row-trail">{c.active ? '—' : 'Inactive'}</span>
+          )
+        }
+        onOpen={() => navigate(`/contractors/${c.uuid}`)}
+        onMore={() => more(c)}
+      />
     )
   }
 
   return (
     <Page
       title="Contractors"
+      back="/library"
+      backLabel="Library"
       actions={
         <>
           <button className="nav-btn" aria-label="New contractor" onClick={() => setAdding(newContractor())}>
@@ -82,10 +108,11 @@ export default function ContractorsPage() {
               <div className="list">{inactive.map(row)}</div>
             </>
           )}
-          <div className="list-foot">🟢 90%+ on track · 🟡 70%+ at risk · 🔴 below 70% critical</div>
+          <div className="list-foot">KPI this month: green 90%+ · amber 70%+ · red below 70%. Hold a contractor for more.</div>
         </>
       )}
       {adding && <ContractorSheet contractor={adding} onClose={() => setAdding(null)} />}
+      {scoring && <SubjectEditor d={d} subject={scoring} month={month} sheet="kpi" onClose={() => setScoring(null)} />}
     </Page>
   )
 }

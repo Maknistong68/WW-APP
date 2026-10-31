@@ -1,4 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Cover from '../components/Cover'
+import MediaRow from '../components/MediaRow'
+import { showActions } from '../components/ActionSheet'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
 import { SubjectEditor } from '../components/SubjectPicker'
@@ -9,26 +13,32 @@ import { pct } from '../lib/kpi'
 import { useAllData } from '../lib/kpiData'
 import { kpiSubjects } from '../lib/subjects'
 
-const DOT = { overdue: 'bad', due: 'warn', open: '', closed: 'good' } as const
+
+const CHIP = { overdue: 'bad', due: 'warn', open: '', closed: 'good' } as const
 
 function Row({ c, onOpen }: { c: Closeout; onOpen?: () => void }) {
+  const navigate = useNavigate()
+  const sub = `${closeoutText(c, shortDate)} · audit ${c.kpi.auditDate ? shortDate(c.kpi.auditDate) : monthLabel(c.kpi.month)}`
   return (
-    <button className="row" disabled={!onOpen} onClick={onOpen}>
-      <span className={`status-dot ${DOT[c.status]}`} aria-label={c.status} />
-      <span className="row-main">
-        <div className="row-title">{c.subject.label}</div>
-        <div className="row-sub" style={{ whiteSpace: 'normal' }}>
-          {closeoutText(c, shortDate)} · audit {c.kpi.auditDate ? shortDate(c.kpi.auditDate) : monthLabel(c.kpi.month)}
-          {c.kpi.quarterlyAuditPct != null ? ` · score ${pct(c.kpi.quarterlyAuditPct)}` : ''}
-        </div>
-      </span>
-      <span className="row-trail">{pct(c.pct)}</span>
-      {onOpen && (
-        <span className="row-chev">
-          <Icon name="chevron-right" size={18} />
-        </span>
-      )}
-    </button>
+    <MediaRow
+      cover={<Cover section="closeout" seed={c.subject.contractor.name} text={c.subject.contractor.name} size={48} />}
+      title={c.subject.label}
+      sub={sub}
+      trail={<span className={`status-chip ${CHIP[c.status]}`}>{pct(c.pct)}</span>}
+      onOpen={onOpen}
+      onMore={() =>
+        showActions({
+          title: c.subject.label,
+          sub,
+          cover: <Cover section="closeout" seed={c.subject.contractor.name} text={c.subject.contractor.name} size={56} />,
+          note: c.kpi.quarterlyAuditPct != null ? `Audit score ${pct(c.kpi.quarterlyAuditPct)}.` : undefined,
+          actions: [
+            ...(onOpen ? [{ label: 'Update closed findings', icon: 'pencil' as const, onSelect: onOpen, edit: true }] : []),
+            { label: 'Open contractor', icon: 'arrow-right', onSelect: () => navigate(`/contractors/${c.subject.contractor.uuid}`) },
+          ],
+        })
+      }
+    />
   )
 }
 
@@ -46,7 +56,7 @@ export default function CloseoutPage() {
   const done = list.filter((c) => c.status === 'closed').slice(0, 10)
 
   return (
-    <Page title="Audit close-out" back="/" backLabel="Home">
+    <Page title="Audit close-out" back=".." backLabel="Back">
       <div className="hero-row">
         <div className="hero">
           <div className={`hero-num${t.open ? ' warn' : ''}`}>{t.open}</div>

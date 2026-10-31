@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Icon, { type IconName } from './Icon'
 import Modal from './Modal'
+import Cover from './Cover'
 import TicketSheet from './TicketSheet'
 import CampSheet from './CampSheet'
 import { MonthStepper, SubjectEditor, SubjectList } from './SubjectPicker'
@@ -14,23 +15,24 @@ import { kpiSubjects, subjectKpi, type KpiSubject } from '../lib/subjects'
 import { newTicket } from '../lib/useData'
 import type { Camp, Ticket } from '../types'
 
-/** Pages that show the + button. */
-const TOP_LEVEL = ['/', '/tickets', '/contractors', '/camps', '/dashboard']
+const CREATE_EVENT = 'ww:create'
+/** Open the Create sheet from anywhere (the tab bar's + Create). */
+export const openCreate = () => window.dispatchEvent(new Event(CREATE_EVENT))
 
 type Step = 'menu' | 'kpi' | 'inspection'
 
 const CHOICES: { key: 'ticket' | 'kpi' | 'inspection' | 'camp'; label: string; sub: string; icon: IconName }[] = [
   { key: 'ticket', label: 'Ticket', sub: 'Log a complaint', icon: 'ticket' },
-  { key: 'kpi', label: 'KPI', sub: 'Monthly KPIs for a work order', icon: 'chart' },
+  { key: 'kpi', label: 'Monthly KPIs', sub: 'Score a work order', icon: 'gauge' },
   { key: 'inspection', label: 'Inspection', sub: 'Start a camp inspection', icon: 'clipboard' },
   { key: 'camp', label: 'Camp', sub: 'Add a camp to track', icon: 'tent' },
 ]
 
 const RANK = { never: 0, expired: 1, due: 2, ok: 3 } as const
+const CREATE_SECTION = { ticket: 'tickets', kpi: 'kpi', inspection: 'camps', camp: 'money' } as const
 
-/** The one + for adding anything: ticket, KPI month, inspection or camp. */
+/** Create sheet (tab bar +): ticket, KPI month, inspection or camp. */
 export default function AddButton() {
-  const { pathname } = useLocation()
   const navigate = useNavigate()
   const { canEdit } = useAuthInfo()
   const [step, setStep] = useState<Step | null>(null)
@@ -39,8 +41,13 @@ export default function AddButton() {
   const [subject, setSubject] = useState<KpiSubject | null>(null)
   const [month, setMonth] = useState(monthOf())
 
+  useEffect(() => {
+    const on = () => setStep('menu')
+    window.addEventListener(CREATE_EVENT, on)
+    return () => window.removeEventListener(CREATE_EVENT, on)
+  }, [])
+
   if (!canEdit) return null
-  const visible = TOP_LEVEL.includes(pathname)
   const close = () => setStep(null)
 
   const choose = (key: (typeof CHOICES)[number]['key']) => {
@@ -62,28 +69,15 @@ export default function AddButton() {
 
   return (
     <>
-      {visible && (
-        <button className="fab add-fab" aria-label="Add" onClick={() => setStep('menu')}>
-          <Icon name="plus" size={32} strokeWidth={2.4} />
-        </button>
-      )}
-
       {step === 'menu' && (
-        <Modal title="Add" onClose={close}>
+        <Modal title="Create" onClose={close}>
           <div className="sheet-body">
-            <div className="list">
+            <div className="create-grid">
               {CHOICES.map((c) => (
-                <button key={c.key} className="row add-choice" onClick={() => choose(c.key)}>
-                  <span className="row-icon">
-                    <Icon name={c.icon} size={20} />
-                  </span>
-                  <span className="row-main">
-                    <div className="row-title">{c.label}</div>
-                    <div className="row-sub">{c.sub}</div>
-                  </span>
-                  <span className="row-chev">
-                    <Icon name="chevron-right" size={18} />
-                  </span>
+                <button key={c.key} className="create-card" onClick={() => choose(c.key)}>
+                  <Cover section={CREATE_SECTION[c.key]} icon={c.icon} size={52} />
+                  <span className="create-label">{c.label}</span>
+                  <span className="create-sub">{c.sub}</span>
                 </button>
               ))}
             </div>

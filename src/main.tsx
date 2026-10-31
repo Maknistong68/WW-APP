@@ -5,6 +5,7 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import { requestPersistentStorage } from './db'
 import './lib/installPrompt'
+import '@fontsource-variable/figtree'
 import './styles.css'
 
 registerSW({ immediate: true })

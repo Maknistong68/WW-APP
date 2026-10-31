@@ -17,6 +17,8 @@ import { subjectKpi, subjectManpower, type KpiSubject } from '../lib/subjects'
 import { newWorkOrder } from '../lib/useData'
 import type { WorkOrder } from '../types'
 import { useAuthInfo } from '../lib/auth'
+import AlbumHeader from '../components/AlbumHeader'
+import Cover from '../components/Cover'
 
 function Ring({ value, status }: { value: number | null; status: string }) {
   const r = 30
@@ -95,24 +97,46 @@ export default function ContractorDetailPage() {
       <Icon name={v ? 'check' : 'x'} size={16} strokeWidth={2.6} /> {label}
     </span>
   )
+  const topResult: KpiResult = rollup(data.subjects.map((s) => data.results.get(s.key)!))
   const toggleWo = (w: WorkOrder) =>
     void saveRecord('workOrders', { ...w, active: !w.active }, `${c.name} · WO ${w.number}`).then(() =>
       showToast({ text: `WO ${w.number} ${w.active ? 'deactivated' : 'activated'}` }),
     )
 
   return (
-    <Page
-      title={c.name}
-      back="/contractors"
-      backLabel="Contractors"
-      actions={
-        canEdit && (
-          <button className="nav-btn" onClick={() => setSheet('edit')}>
-            Edit
-          </button>
-        )
-      }
-    >
+    <Page title={c.name} back="/contractors" backLabel="Contractors" album>
+      <AlbumHeader
+        cover={<Cover section="contractors" seed={c.name} text={c.name} size={156} />}
+        title={c.name}
+        sub={`${data.wos.length} work order${data.wos.length === 1 ? '' : 's'} · ${open.length} open ticket${open.length === 1 ? '' : 's'}`}
+        meta={
+          <>
+            <span className={`status-chip ${c.active ? (topResult.status === 'none' ? '' : topResult.status) : ''}`}>
+              {c.active ? `KPI ${pct(topResult.overall)}` : 'Inactive'}
+            </span>
+            <span>{monthLabel(month)}</span>
+          </>
+        }
+        buttons={[
+          ...(canEdit ? [{ icon: 'pencil' as const, label: 'Edit contractor', onClick: () => setSheet('edit') }] : []),
+          ...(canEdit ? [{ icon: 'user-plus' as const, label: 'Add work order', onClick: () => setWoSheet(newWorkOrder(c.uuid)) }] : []),
+        ]}
+        primary={
+          canEdit && data.subjects.length > 0
+            ? {
+                icon: 'gauge',
+                label: `Score ${monthLabel(month)}`,
+                onClick: () => {
+                  if (!chosen && data.subjects.length > 1) {
+                    showToast({ text: 'Pick a work order below, then score it' })
+                    return
+                  }
+                  setSheet('kpi')
+                },
+              }
+            : undefined
+        }
+      />
       {!c.active && (
         <div className="list-foot" style={{ marginTop: -4 }}>
           Inactive — not scored and not in missing documents. Edit to activate.

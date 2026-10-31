@@ -50,7 +50,7 @@ export default function ActivityPage() {
   }
 
   return (
-    <Page title="Activity log" back="/settings" backLabel="Settings">
+    <Page title="Activity log" back="/library" backLabel="Library">
       <label className="ios-search">
         <Icon name="search" size={18} />
         <input type="search" placeholder="Ticket no., contractor, value" value={query} onChange={(e) => setQuery(e.target.value)} />

@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { openSidebar } from './Sidebar'
+import { useAuthInfo } from '../lib/auth'
+import { glowStyle, sectionOf, type Section } from '../lib/art'
 
 /**
- * iOS-style page: large title that collapses into a frosted nav bar on
- * scroll. `back` is the route to return to (with an optional label).
+ * Screen frame: the section's colour glows down from the top and fades into
+ * the background; a big title; the bar turns solid with a small title once
+ * you scroll. Top-level screens show your avatar (opens the profile drawer),
+ * others a round back button.
  */
 export default function Page({
   title,
@@ -13,7 +17,8 @@ export default function Page({
   backLabel = 'Back',
   actions,
   large = true,
-  tabs = true,
+  section,
+  album = false,
   children,
 }: {
   title: string
@@ -22,49 +27,58 @@ export default function Page({
   backLabel?: string
   actions?: ReactNode
   large?: boolean
-  /** Reserve space for the bottom tab bar. */
+  /** Colour of the header glow; defaults to the route's section. */
+  section?: Section
+  /** Detail screen with its own big header in the body: no large title, bar still turns solid on scroll. */
+  album?: boolean
+  /** Kept for old call sites. */
   tabs?: boolean
   children: ReactNode
 }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const me = useAuthInfo()
   const sentinel = useRef<HTMLDivElement>(null)
-  const [compact, setCompact] = useState(!large)
+  const watch = large || album
+  const [compact, setCompact] = useState(!watch)
+  const tone = section ?? sectionOf(pathname)
 
   useEffect(() => {
-    if (!large) return
+    if (!watch) return
     const el = sentinel.current
     if (!el || typeof IntersectionObserver === 'undefined') return
-    const io = new IntersectionObserver(([e]) => setCompact(!e.isIntersecting), {
-      rootMargin: '-60px 0px 0px 0px',
-    })
+    const io = new IntersectionObserver(([e]) => setCompact(!e.isIntersecting), { rootMargin: '-56px 0px 0px 0px' })
     io.observe(el)
     return () => io.disconnect()
-  }, [large])
+  }, [watch])
 
   return (
-    <>
+    <div className="screen">
+      <div className="screen-glow" style={glowStyle(tone)} aria-hidden="true" />
       <header className={`nav-bar${compact ? ' compact' : ''}`}>
         <div className="nav-side">
-          {!back && (
-            <button className="nav-btn" aria-label="Menu" onClick={openSidebar}>
-              <Icon name="menu" size={26} />
+          {back ? (
+            <button
+              className="round-btn"
+              onClick={() => (back === '..' ? navigate(-1) : navigate(back))}
+              aria-label={`Back to ${backLabel}`}
+            >
+              <Icon name="chevron-left" size={22} strokeWidth={2.4} />
             </button>
-          )}
-          {back && (
-            <button className="nav-btn" onClick={() => (back === '..' ? navigate(-1) : navigate(back))} aria-label={`Back to ${backLabel}`}>
-              <Icon name="chevron-left" size={24} strokeWidth={2.4} />
-              {backLabel}
+          ) : (
+            <button className="avatar-btn" aria-label="Open profile and menu" onClick={openSidebar}>
+              {(me.email || 'W').slice(0, 1).toUpperCase()}
             </button>
           )}
         </div>
         <div className="nav-title">{title}</div>
         <div className="nav-side right">{actions}</div>
       </header>
-      <main className={`page${tabs ? ' with-tabs' : ''}`}>
-        {large && <h1 className="large-title">{title}</h1>}
+      <main className="page">
+        {large && !album && <h1 className="large-title">{title}</h1>}
         <div ref={sentinel} aria-hidden="true" />
         {children}
       </main>
-    </>
+    </div>
   )
 }

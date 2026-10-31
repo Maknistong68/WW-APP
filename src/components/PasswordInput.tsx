@@ -1,3 +1,4 @@
+import Icon from './Icon'
 import { useState } from 'react'
 
 /** Password field with a show / hide eye. */
@@ -34,13 +35,13 @@ export default function PasswordInput({
           transform: 'translateY(-50%)',
           border: 'none',
           background: 'none',
-          fontSize: 20,
           padding: 8,
           cursor: 'pointer',
-          opacity: show ? 1 : 0.6,
+          color: show ? 'var(--text)' : 'var(--muted)',
+          display: 'inline-flex',
         }}
       >
-        👁
+        <Icon name="eye" size={22} fill={show} />
       </button>
     </div>
   )

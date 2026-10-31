@@ -11,6 +11,8 @@ import { ago } from './CampsPage'
 import { isFlagged, scoreInspection } from '../lib/score'
 import { getTemplate } from '../templates'
 import { useAuthInfo } from '../lib/auth'
+import AlbumHeader from '../components/AlbumHeader'
+import Cover from '../components/Cover'
 
 /** One camp: status, inspection log, start a new inspection. */
 export default function CampDetailPage() {
@@ -39,18 +41,21 @@ export default function CampDetailPage() {
   const tone = state.status === 'ok' ? 'good' : state.status === 'due' ? 'warn' : 'bad'
 
   return (
-    <Page
-      title={camp.name}
-      back="/camps"
-      backLabel="Camps"
-      actions={
-        canEdit && (
-          <button className="nav-btn" onClick={() => setEditing(true)}>
-            Edit
-          </button>
-        )
-      }
-    >
+    <Page title={camp.name} back="/camps" backLabel="Camps" album>
+      <AlbumHeader
+        cover={<Cover section="camps" seed={camp.name} icon="tent" size={156} />}
+        title={camp.name}
+        sub={[contractor?.name, wo ? `WO ${wo.number}` : '', camp.location].filter(Boolean).join(' · ') || 'Camp'}
+        meta={
+          <>
+            <span className={`status-chip ${tone}`}>{CAMP_STATUS_LABEL[state.status]}</span>
+            <span>Every {camp.cycleDays || 90} days</span>
+          </>
+        }
+        buttons={canEdit ? [{ icon: 'pencil', label: 'Edit camp', onClick: () => setEditing(true) }] : []}
+        primary={canEdit ? { icon: 'play', label: 'Start inspection', onClick: () => navigate(`/new/accommodation?camp=${camp.uuid}`) } : undefined}
+      />
+
       <div className="hero-row">
         <div className="hero">
           <div className={`hero-num ${tone}`} style={{ fontSize: 22 }}>
@@ -72,11 +77,6 @@ export default function CampDetailPage() {
         </div>
       </div>
 
-      {canEdit && (
-        <button className="btn primary block" onClick={() => navigate(`/new/accommodation?camp=${camp.uuid}`)}>
-          <Icon name="clipboard" size={18} /> Start inspection
-        </button>
-      )}
 
       <div className="section-label">Inspection log · {log.length}</div>
       {log.length === 0 ? (

@@ -42,7 +42,7 @@ export default function AuditsPage() {
   })
 
   return (
-    <Page title="All inspections" back="/camps" backLabel="Camps">
+    <Page title="All inspections" back="/library" backLabel="Library">
         {canEdit && <div className="section-label">Start a new inspection</div>}
         {canEdit && TEMPLATES.map((t) => (
           <button key={t.id} className="card template-card" onClick={() => navigate(`/new/${t.id}`)}>
@@ -131,7 +131,7 @@ export default function AuditsPage() {
           message={`This permanently deletes “${
             confirmDelete.info?.contractorNames || confirmDelete.info?.facilityLocation || 'this inspection'
           }” and all its photos. Save a backup first if you might need it again.`}
-          confirmLabel="Delete"
+          confirmLabel="Delete inspection"
           destructive
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => {

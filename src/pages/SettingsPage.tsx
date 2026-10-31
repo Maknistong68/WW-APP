@@ -220,7 +220,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <Page title="Settings" back=".." backLabel="Back">
+    <Page title="Settings" back="/library" backLabel="Library">
         <div className="section-label">Your data</div>
         <div className="list">
           <button className="row" onClick={() => navigate('/settings/log')}>

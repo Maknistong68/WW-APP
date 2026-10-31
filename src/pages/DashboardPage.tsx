@@ -8,6 +8,8 @@ import { showToast } from '../components/Toast'
 import TrendLine from '../components/charts/TrendLine'
 import BarList from '../components/charts/BarList'
 import MonthBars from '../components/charts/MonthBars'
+import MediaRow from '../components/MediaRow'
+import { showActions } from '../components/ActionSheet'
 import { TicketRow, ticketSub } from './TicketsPage'
 import {
   auditAverage,
@@ -284,15 +286,31 @@ export default function DashboardPage() {
           ) : (
             <div className="list">
               {attention.map((a) => (
-                <button key={a.key} className="row" onClick={() => navigate(a.to)}>
-                  <span className={`status-dot ${a.tone}`} aria-label={a.tone === 'bad' ? 'Urgent' : 'Soon'} />
-                  <span className="row-main">
-                    <div className="row-title" style={{ whiteSpace: 'normal' }}>{a.text}</div>
-                  </span>
-                  <span className="row-chev">
-                    <Icon name="chevron-right" size={18} />
-                  </span>
-                </button>
+                <MediaRow
+                  key={a.key}
+                  cover={
+                    <span className={`attn-ico ${a.tone}`} aria-label={a.tone === 'bad' ? 'Urgent' : 'Soon'}>
+                      <Icon name={a.tone === 'bad' ? 'alert' : 'clock'} size={22} fill />
+                    </span>
+                  }
+                  title={<span style={{ whiteSpace: 'normal' }}>{a.text}</span>}
+                  onOpen={() => navigate(a.to)}
+                  onMore={() =>
+                    showActions({
+                      title: a.text,
+                      sub: a.tone === 'bad' ? 'Needs attention now' : 'Coming up',
+                      actions: [
+                        { label: 'Open', icon: 'arrow-right', onSelect: () => navigate(a.to) },
+                        {
+                          label: 'Copy as text',
+                          icon: 'copy',
+                          onSelect: () =>
+                            void navigator.clipboard?.writeText(`${a.text} (${monthLabel(kpiMonth)})`).then(() => showToast({ text: 'Copied' })),
+                        },
+                      ],
+                    })
+                  }
+                />
               ))}
             </div>
           )}

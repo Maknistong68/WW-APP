@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
+import Cover from '../components/Cover'
+import MediaRow from '../components/MediaRow'
 import Modal, { ConfirmSheet } from '../components/Modal'
 import { showToast } from '../components/Toast'
 import { ROLE_LABEL, normRole, useAuthInfo, type AccessStatus, type Role } from '../lib/auth'
@@ -146,7 +148,7 @@ export default function UsersPage() {
   }
 
   return (
-    <Page title="Users">
+    <Page title="Users" back="/library" backLabel="Library">
       {SECTIONS.map(({ status, title }) => {
         const rows = (list ?? []).filter((p) => p.status === status)
         if (!rows.length && status !== 'pending') return null
@@ -162,21 +164,14 @@ export default function UsersPage() {
                 {rows.map((p) => {
                   const self = p.email === me.email
                   return (
-                    <button key={p.id} className="row" disabled={self} onClick={() => setOpen(p)}>
-                      <span className="row-main">
-                        <div className="row-title">{p.email}</div>
-                        <div className="row-sub">
-                          {status === 'approved' ? ROLE_LABEL[p.role] : status === 'pending' ? 'New account' : 'No access'}
-                          {self ? ' · you' : ''} · joined {shortDate(p.created_at.slice(0, 10))}
-                        </div>
-                      </span>
-                      {status === 'pending' && <span className="tog on">Review</span>}
-                      {!self && (
-                        <span className="row-chev">
-                          <Icon name="chevron-right" size={18} />
-                        </span>
-                      )}
-                    </button>
+                    <MediaRow
+                      key={p.id}
+                      cover={<Cover section="users" seed={p.email} text={p.email} size={44} round />}
+                      title={p.email}
+                      sub={`${status === 'approved' ? ROLE_LABEL[p.role] : status === 'pending' ? 'New account' : 'No access'}${self ? ' · you' : ''} · joined ${shortDate(p.created_at.slice(0, 10))}`}
+                      trail={status === 'pending' ? <span className="status-chip warn">Review</span> : undefined}
+                      onOpen={self ? undefined : () => setOpen(p)}
+                    />
                   )
                 })}
               </div>

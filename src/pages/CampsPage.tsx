@@ -2,8 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
+import Cover from '../components/Cover'
+import MediaRow from '../components/MediaRow'
+import CampSheet from '../components/CampSheet'
+import { showActions } from '../components/ActionSheet'
 import { newUuid } from '../db'
-import { CAMP_STATUS_LABEL, DEFAULT_CYCLE_DAYS, campState, campsFromAudits, type CampStatus } from '../lib/camps'
+import { DEFAULT_CYCLE_DAYS, campState, campsFromAudits, type CampStatus } from '../lib/camps'
 import { shortDate } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
 import { nowIso, saveRecord } from '../lib/records'
@@ -11,7 +15,9 @@ import type { Camp } from '../types'
 
 export const ago = (days: number) => (days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`)
 
-const TONE: Record<CampStatus, string> = { ok: 'ok', due: 'risk', expired: 'late', never: 'late' }
+export const TONE: Record<CampStatus, string> = { ok: 'ok', due: 'risk', expired: 'late', never: 'late' }
+const CHIP: Record<CampStatus, string> = { ok: 'good', due: 'warn', expired: 'bad', never: 'bad' }
+const CHIP_LABEL: Record<CampStatus, string> = { ok: 'Up to date', due: 'Due soon', expired: 'Overdue', never: 'Never' }
 const RANK: Record<CampStatus, number> = { never: 0, expired: 1, due: 2, ok: 3 }
 
 export const newCamp = (): Camp => ({
@@ -31,6 +37,7 @@ export default function CampsPage() {
   const navigate = useNavigate()
   const d = useAllData()
   const [query, setQuery] = useState('')
+  const [editing, setEditing] = useState<Camp | null>(null)
 
   // Old audits without a camp become camps once, so their history shows here.
   const seeded = useRef(false)
@@ -55,6 +62,8 @@ export default function CampsPage() {
   return (
     <Page
       title="Camps"
+      back="/library"
+      backLabel="Library"
     >
       <label className="ios-search">
         <Icon name="search" size={18} />
@@ -65,7 +74,7 @@ export default function CampsPage() {
         <div className="empty-state">
           <Icon name="tent" size={44} />
           <b>No camps yet</b>
-          Tap + to add a camp. Each camp shows when it was last inspected.
+          Tap Create to add a camp. Each camp shows when it was last inspected.
         </div>
       ) : (
         <>
@@ -75,46 +84,42 @@ export default function CampsPage() {
           </div>
           <div className="list">
             {rows.map(({ c, s }) => (
-              <button key={c.uuid} className="row" onClick={() => navigate(`/camps/${c.uuid}`)}>
-                <span className="row-main">
-                  <div className="row-title">{c.name}</div>
-                  <div className="row-sub">
-                    {s.lastDate ? `Last inspected ${shortDate(s.lastDate)} · ${ago(s.daysSince ?? 0)}` : 'Never inspected'}
-                    {d.byUuid.get(c.contractorUuid) ? ` · ${d.byUuid.get(c.contractorUuid)!.name}` : ''}
-                  </div>
-                </span>
-                {c.active ? (
-                  <span className={`age-chip ${TONE[s.status]}`}>{CAMP_STATUS_LABEL[s.status]}</span>
-                ) : (
-                  <span className="row-trail">Inactive</span>
-                )}
-                <span className="row-chev">
-                  <Icon name="chevron-right" size={18} />
-                </span>
-              </button>
+              <MediaRow
+                key={c.uuid}
+                cover={<Cover section="camps" seed={c.name} icon="tent" size={48} />}
+                title={c.name}
+                sub={[s.lastDate ? `Last ${shortDate(s.lastDate)} · ${ago(s.daysSince ?? 0)}` : '', d.byUuid.get(c.contractorUuid)?.name ?? '', c.location]
+                  .filter(Boolean)
+                  .join(' · ') || 'No inspection yet'}
+                trail={
+                  c.active ? (
+                    <span className={`status-chip ${CHIP[s.status]}`}>{CHIP_LABEL[s.status]}</span>
+                  ) : (
+                    <span className="row-trail">Inactive</span>
+                  )
+                }
+                onOpen={() => navigate(`/camps/${c.uuid}`)}
+                onMore={() =>
+                  showActions({
+                    title: c.name,
+                    sub: s.lastDate ? `Last inspected ${shortDate(s.lastDate)}` : 'Never inspected',
+                    cover: <Cover section="camps" seed={c.name} icon="tent" size={56} />,
+                    actions: [
+                      { label: 'Start inspection', icon: 'play', onSelect: () => navigate(`/new/accommodation?camp=${c.uuid}`), edit: true },
+                      { label: 'Open inspection log', icon: 'clipboard', onSelect: () => navigate(`/camps/${c.uuid}`) },
+                      { label: 'Edit camp', icon: 'pencil', onSelect: () => setEditing(c), edit: true },
+                    ],
+                  })
+                }
+              />
             ))}
           </div>
         </>
       )}
 
-      <div className="list" style={{ marginTop: 16 }}>
-        <button className="row" onClick={() => navigate('/audits')}>
-          <span className="row-icon">
-            <Icon name="clipboard" size={18} />
-          </span>
-          <span className="row-main">
-            <div className="row-title">All inspections</div>
-            <div className="row-sub">
-              {d.inspections.length} audit{d.inspections.length === 1 ? '' : 's'}
-            </div>
-          </span>
-          <span className="row-chev">
-            <Icon name="chevron-right" size={18} />
-          </span>
-        </button>
-      </div>
-      <div className="list-foot">Inspect every camp at least every 90 days. Due soon = last 14 days of the cycle.</div>
+      <div className="list-foot">Inspect every camp at least every 90 days. Hold a camp to start an inspection.</div>
 
+      {editing && <CampSheet camp={editing} onClose={() => setEditing(null)} />}
     </Page>
   )
 }

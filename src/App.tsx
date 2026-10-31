@@ -16,6 +16,10 @@ import SettingsPage from './pages/SettingsPage'
 import ActivityPage from './pages/ActivityPage'
 import Sidebar from './components/Sidebar'
 import AddButton from './components/AddButton'
+import TabBar from './components/TabBar'
+import ActionSheetHost from './components/ActionSheet'
+import RouteTransition from './components/RouteTransition'
+import LibraryPage from './pages/LibraryPage'
 import MissingPage from './pages/MissingPage'
 import CloseoutPage from './pages/CloseoutPage'
 import LoginPage, { WaitingPage } from './pages/LoginPage'
@@ -57,6 +61,7 @@ export default function App() {
 
 /** The app itself, shown once signed in and approved (or in local-only mode). */
 function AppShell() {
+  const { canEdit } = useAuthInfo()
   // Auto-sync when the app opens or connectivity returns (no-op until
   // cloud sync is configured in Settings).
   useEffect(() => {
@@ -79,6 +84,7 @@ function AppShell() {
 
   return (
     <HashRouter>
+      <RouteTransition>
       <Routes>
         <Route path="/" element={<TodoPage />} />
         <Route path="/camps" element={<CampsPage />} />
@@ -92,6 +98,7 @@ function AppShell() {
         <Route path="/kpis/:key" element={<KpiDetailPage />} />
         <Route path="/missing/:item" element={<MissingPage />} />
         <Route path="/closeouts" element={<CloseoutPage />} />
+        <Route path="/library" element={<LibraryPage />} />
         <Route path="/new/:templateId" element={<EditOnly><InfoFormPage mode="new" /></EditOnly>} />
         <Route path="/inspection/:id" element={<ChecklistPage />} />
         <Route path="/inspection/:id/edit" element={<EditOnly><InfoFormPage mode="edit" /></EditOnly>} />
@@ -101,8 +108,11 @@ function AppShell() {
         <Route path="/kpis" element={<Navigate to="/dashboard?v=kpis" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </RouteTransition>
       <Sidebar />
       <AddButton />
+      <TabBar />
+      <ActionSheetHost canEdit={canEdit} />
       <ToastHost />
     </HashRouter>
   )

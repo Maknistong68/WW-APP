@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import Cover from '../components/Cover'
+import { showActions } from '../components/ActionSheet'
 import Page from '../components/Page'
 import { MonthStepper, SubjectEditor, SubjectList } from '../components/SubjectPicker'
 import { useAuthInfo } from '../lib/auth'
@@ -14,6 +16,7 @@ export default function MissingPage() {
   const [params, setParams] = useSearchParams()
   const month = params.get('m') || monthOf()
   const { canEdit } = useAuthInfo()
+  const navigate = useNavigate()
   const d = useAllData()
   const [editing, setEditing] = useState<KpiSubject | null>(null)
   const key = isSubjectItem(item) ? item : null
@@ -34,8 +37,22 @@ export default function MissingPage() {
             : `All ${rows.length} entered for ${monthLabel(month)}`}
         {key === 'quarterly' ? ' · any month of the quarter counts' : ''}
       </div>
-      <SubjectList rows={rows} onPick={canEdit ? setEditing : undefined} />
-      {canEdit && <div className="list-foot">Tap a work order to fill it in.</div>}
+      <SubjectList
+        rows={rows}
+        onPick={canEdit ? setEditing : (s) => navigate(`/contractors/${s.contractor.uuid}`)}
+        onMore={(s) =>
+          showActions({
+            title: s.label,
+            sub: `${def.title} · ${monthLabel(month)}`,
+            cover: <Cover section="contractors" seed={s.contractor.name} text={s.contractor.name} size={56} />,
+            actions: [
+              { label: 'Fill in', icon: 'pencil', onSelect: () => setEditing(s), edit: true },
+              { label: 'Open contractor', icon: 'arrow-right', onSelect: () => navigate(`/contractors/${s.contractor.uuid}`) },
+            ],
+          })
+        }
+      />
+      {canEdit && <div className="list-foot">Tap a work order to fill it in · hold for more.</div>}
       {editing && <SubjectEditor d={d} subject={editing} month={month} sheet={def.sheet} onClose={() => setEditing(null)} />}
     </Page>
   )

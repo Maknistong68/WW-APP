@@ -3,14 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Icon, { type IconName } from './Icon'
 import { ROLE_LABEL, useAuthInfo } from '../lib/auth'
 import { campState } from '../lib/camps'
-import { overdueTickets } from '../lib/dashboard'
 import { useAllData } from '../lib/kpiData'
-import { buildTodo } from '../lib/todo'
 import { lastSyncAt } from '../lib/sync'
 import { pendingCount } from '../pages/UsersPage'
 
 const OPEN_EVENT = 'ww:sidebar'
-/** Open the sidebar from anywhere (the ☰ button). */
+/** Open the drawer from anywhere (the avatar button). */
 export const openSidebar = () => window.dispatchEvent(new Event(OPEN_EVENT))
 
 interface Item {
@@ -21,7 +19,7 @@ interface Item {
   adminOnly?: boolean
 }
 
-/** Slide-in navigation with alert badges. */
+/** Profile drawer (tap your avatar): who you are, the rest of the app, sync, sign out. */
 export default function Sidebar() {
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(0)
@@ -45,20 +43,17 @@ export default function Sidebar() {
   useEffect(() => setOpen(false), [pathname])
 
   const badges = useMemo(() => {
-    if (!d.loaded) return { todo: 0, late: 0, camps: 0 }
+    if (!d.loaded) return { camps: 0 }
     return {
-      todo: buildTodo(d).filter((c) => c.alert?.level === 'bad').length,
-      late: overdueTickets(d.tickets).length,
       camps: d.camps.filter((c) => c.active && ['expired', 'never'].includes(campState(c, d.inspections).status)).length,
     }
   }, [d])
 
   const items: Item[] = [
-    { path: '/', label: 'Home', icon: 'home', badge: badges.todo },
-    { path: '/tickets', label: 'Tickets', icon: 'ticket', badge: badges.late },
-    { path: '/contractors', label: 'Contractors', icon: 'users' },
+    { path: '/contractors', label: 'Contractors', icon: 'buildings' },
     { path: '/camps', label: 'Camps', icon: 'tent', badge: badges.camps },
-    { path: '/dashboard', label: 'Dashboard', icon: 'chart' },
+    { path: '/closeouts', label: 'Audit close-out', icon: 'seal' },
+    { path: '/audits', label: 'All inspections', icon: 'clipboard' },
     { path: '/settings/log', label: 'Activity log', icon: 'activity' },
     { path: '/users', label: 'Users', icon: 'shield', badge: pending, adminOnly: true },
     { path: '/settings', label: 'Settings', icon: 'settings' },
@@ -70,12 +65,19 @@ export default function Sidebar() {
   return (
     <div className="side-backdrop" onClick={() => setOpen(false)}>
       <nav className="sidebar" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
-        <div className="side-head">
-          <div className="side-app">WW Co-pilot</div>
-          <button className="nav-btn" aria-label="Close menu" onClick={() => setOpen(false)}>
-            <Icon name="x" size={22} />
+        <div className="side-profile">
+          <span className="side-avatar" aria-hidden="true">
+            {(me.email || 'W').slice(0, 1).toUpperCase()}
+          </span>
+          <div className="side-who">
+            <div className="side-email">{me.email || 'This phone only'}</div>
+            <span className="role-chip">{ROLE_LABEL[me.role]}</span>
+          </div>
+          <button className="round-btn" aria-label="Close menu" onClick={() => setOpen(false)}>
+            <Icon name="x" size={20} />
           </button>
         </div>
+        <div className="side-rule" />
         {items
           .filter((i) => !i.adminOnly || me.role === 'admin')
           .map((i) => (
@@ -91,11 +93,14 @@ export default function Sidebar() {
             </button>
           ))}
         <div className="side-foot">
-          {me.email && <div>{me.email} · {ROLE_LABEL[me.role]}</div>}
-          <div>{sync ? `Synced ${new Date(sync).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : 'Not synced yet'}</div>
+          <div className="side-sync">
+            <Icon name="cloud" size={18} />
+            {sync ? `Synced ${new Date(sync).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : 'Not synced yet'}
+          </div>
           {me.email && (
-            <button className="details-toggle" onClick={() => void me.signOut()}>
-              Sign out
+            <button className="side-item" onClick={() => void me.signOut()}>
+              <Icon name="sign-out" size={22} />
+              <span className="side-label">Sign out</span>
             </button>
           )}
         </div>
