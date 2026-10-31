@@ -120,6 +120,15 @@ export default function SettingsPage() {
 
   useEffect(() => onInstallChange(() => setInstallable(canInstall())), [])
 
+  useEffect(() => {
+    const msg = sessionStorage.getItem('ww.authLinkError')
+    if (msg) {
+      sessionStorage.removeItem('ww.authLinkError')
+      // after the toast host has mounted
+      setTimeout(() => showToast({ text: msg, duration: 9000 }), 300)
+    }
+  }, [])
+
   const doInstall = () => {
     void promptInstall().then((accepted) => {
       if (accepted) showToast({ text: 'App installed — find it on your home screen' })

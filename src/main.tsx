@@ -14,6 +14,17 @@ registerSW({ immediate: true })
 if (new URLSearchParams(window.location.search).has('code') && !window.location.hash.startsWith('#/settings')) {
   window.location.hash = '#/settings'
 }
+// An expired / used email link comes back as #error=…: explain it in Settings.
+if (window.location.hash.startsWith('#error=')) {
+  const p = new URLSearchParams(window.location.hash.slice(1))
+  sessionStorage.setItem(
+    'ww.authLinkError',
+    p.get('error_code') === 'otp_expired'
+      ? 'That email link has expired or was already used. Ask for a new one.'
+      : (p.get('error_description') ?? 'The email link did not work. Ask for a new one.'),
+  )
+  window.location.hash = '#/settings'
+}
 void requestPersistentStorage()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
