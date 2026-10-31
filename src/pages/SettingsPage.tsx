@@ -117,7 +117,12 @@ export default function SettingsPage() {
     setBusy(true)
     try {
       if (create) {
-        const { error } = await c.auth.signUp({ email: email.trim(), password })
+        const { error } = await c.auth.signUp({
+          email: email.trim(),
+          password,
+          // Confirmation link opens this app, not Supabase's default localhost URL.
+          options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
+        })
         if (error) throw error
         showToast({
           text: 'Account created. If Supabase asks for email confirmation, tap the link in your inbox, then sign in.',
