@@ -46,24 +46,24 @@ weekly tabs become the open-ticket trend line.
 
 Every push to the branch redeploys automatically.
 
-## Cloud sync with Supabase (optional)
+## Cloud sync with Supabase
 
-The app is fully usable offline with no account. To sync inspections + photos to your own
-free Supabase database (survives phone loss, works across devices):
+The app is fully usable offline with no account. Cloud sync keeps everything (audits, photos,
+tickets, contractors, KPIs, activity log) in your own Supabase, so nothing is lost with the
+phone.
 
-1. Create a project at [supabase.com](https://supabase.com) (free tier is plenty).
-2. In the project: **SQL Editor → New query**, paste the contents of
-   [`supabase/schema.sql`](supabase/schema.sql), and **Run**. This creates the
-   `inspections`, `photos`, `contractors`, `tickets`, `kpi_months`, `manpower`,
-   `weekly_counts` and append-only `activity_log` tables (row-level security: only you can
-   read your data) and a private storage bucket for photo files. **Already set up before the
-   co-pilot update? Run the file again** — it is safe to re-run and adds the new tables.
-3. In the app: **⚙ Settings → Cloud sync** → paste your **Project URL** and **anon public
-   key** (from Supabase → Settings → API), then create your account / sign in.
-4. Tap **Sync now** — the app also syncs automatically whenever it opens with internet.
+**Built-in project (recommended).** When `.env.production` contains `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY`, the app is pre-connected: just open ⚙ Settings → create your account
+once → Sign in → Sync now. The anon key is public by design; all data is protected by
+row-level security (each user only sees their own rows). Database setup = run
+[`supabase/schema.sql`](supabase/schema.sql) once in the project (safe to re-run).
 
-Sync is offline-first with last-write-wins per inspection; deletions propagate across
-devices.
+**Manual project.** Without those variables, Settings asks for a Project URL and anon key
+(Supabase → Settings → API) after you have run `supabase/schema.sql` in that project's SQL
+Editor.
+
+Sync is offline-first with last-write-wins per record; deletions propagate across devices; the
+activity log is append-only (no update/delete policy exists).
 
 ## Install on your phone
 

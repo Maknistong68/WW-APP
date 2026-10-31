@@ -10,6 +10,7 @@ import {
   lastSyncAt,
   setSyncConfig,
   syncNow,
+  usingBuiltInConfig,
 } from '../lib/sync'
 import Icon from '../components/Icon'
 import Page from '../components/Page'
@@ -105,7 +106,7 @@ export default function SettingsPage() {
       .then((c) => c?.auth.signOut())
       .catch(() => {})
     setSyncConfig(null)
-    setConfig(null)
+    setConfig(getSyncConfig())
     setSession(null)
     showToast({ text: 'Cloud sync disconnected. Your local data is untouched.' })
   }
@@ -262,8 +263,9 @@ export default function SettingsPage() {
           ) : !session ? (
             <>
               <p className="note" style={{ marginTop: 0 }}>
-                Project connected: <b>{config.url.replace('https://', '')}</b>. Sign in (or create your
-                account) to start syncing.
+                {usingBuiltInConfig()
+                  ? 'Your cloud is ready. Sign in — or create your account the first time — to start syncing.'
+                  : <>Project connected: <b>{config.url.replace('https://', '')}</b>. Sign in (or create your account) to start syncing.</>}
               </p>
               <div className="field">
                 <label>Email</label>
@@ -292,9 +294,11 @@ export default function SettingsPage() {
                   Create account
                 </button>
               </div>
-              <button className="details-toggle" onClick={() => void disconnect()}>
-                Disconnect this project
-              </button>
+              {!usingBuiltInConfig() && (
+                <button className="details-toggle" onClick={() => void disconnect()}>
+                  Disconnect this project
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -318,9 +322,11 @@ export default function SettingsPage() {
                 >
                   Sign out
                 </button>
-                <button className="btn" disabled={busy} onClick={() => void disconnect()}>
-                  Disconnect
-                </button>
+                {!usingBuiltInConfig() && (
+                  <button className="btn" disabled={busy} onClick={() => void disconnect()}>
+                    Disconnect
+                  </button>
+                )}
               </div>
             </>
           )}

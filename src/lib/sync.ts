@@ -16,7 +16,14 @@ export interface SyncConfig {
 const CONFIG_KEY = 'ww.supabase'
 const LAST_SYNC_KEY = 'ww.lastSync'
 
-export function getSyncConfig(): SyncConfig | null {
+/** Project baked into the build (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY), if any. */
+export function builtInConfig(): SyncConfig | null {
+  const url = import.meta.env.VITE_SUPABASE_URL?.trim()
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
+  return url && anonKey ? { url, anonKey } : null
+}
+
+function savedConfig(): SyncConfig | null {
   try {
     const raw = localStorage.getItem(CONFIG_KEY)
     if (!raw) return null
@@ -26,6 +33,14 @@ export function getSyncConfig(): SyncConfig | null {
     return null
   }
 }
+
+/** A project typed in Settings wins; otherwise the built-in one. */
+export function getSyncConfig(): SyncConfig | null {
+  return savedConfig() ?? builtInConfig()
+}
+
+/** True when sync uses the project baked into the app (nothing to type). */
+export const usingBuiltInConfig = () => !savedConfig() && !!builtInConfig()
 
 export function setSyncConfig(cfg: SyncConfig | null): void {
   if (cfg) localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg))
