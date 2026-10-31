@@ -3,7 +3,7 @@ import { activityEntry, nowIso } from '../lib/records'
 import { sameCompany } from '../lib/names'
 import { unifyNames } from './clean'
 import type { RawKpi, RawTicket, ReadResult, Skipped } from './readers'
-import type { Contractor, KpiMonth, Ticket, WeeklyCount } from '../types'
+import type { ActivityEntry, Contractor, KpiMonth, Ticket, WeeklyCount } from '../types'
 
 export const NEW = 'new'
 
@@ -102,124 +102,157 @@ export interface ImportSummary {
   duplicates: number
 }
 
-/** Save the plan in one transaction, with one activity entry for the whole import. */
-export async function applyPlan(plan: ImportPlan): Promise<ImportSummary> {
-  const now = nowIso()
+export interface ExistingRecords {
+  contractors: Contractor[]
+  tickets: Ticket[]
+  kpiMonths: KpiMonth[]
+  weeklyCounts: WeeklyCount[]
+}
+
+export interface PlannedRecords {
+  /** All contractors to write (existing ones updated with new aliases, plus new ones). */
+  contractors: Contractor[]
+  tickets: Ticket[]
+  kpiMonths: KpiMonth[]
+  weeklyCounts: WeeklyCount[]
+  activity: ActivityEntry
+  summary: ImportSummary
+}
+
+/**
+ * Turn a plan into records (pure — no database): resolves every contractor
+ * spelling, skips tickets / KPI months / weeks that already exist.
+ */
+export function planToRecords(plan: ImportPlan, existing: ExistingRecords, now = nowIso()): PlannedRecords {
   const summary: ImportSummary = { contractors: 0, tickets: 0, kpis: 0, weeks: 0, duplicates: 0 }
-  await db.transaction('rw', [db.contractors, db.tickets, db.kpiMonths, db.weeklyCounts, db.activity], async () => {
-    const byUuid = new Map((await db.contractors.toArray()).map((c) => [c.uuid, c]))
-    for (const m of plan.masters) {
-      if (m.existing) continue
-      const wo = m.name.match(/(\d{3,})\s*$/)?.[1] ?? ''
-      byUuid.set(m.uuid, { uuid: m.uuid, updatedAt: now, name: m.name, workOrder: wo, active: m.active, aliases: [], notes: '' })
+  const byUuid = new Map(existing.contractors.map((c) => [c.uuid, c]))
+  for (const m of plan.masters) {
+    if (m.existing) continue
+    const wo = m.name.match(/(\d{3,})\s*$/)?.[1] ?? ''
+    byUuid.set(m.uuid, { uuid: m.uuid, updatedAt: now, name: m.name, workOrder: wo, active: m.active, aliases: [], notes: '' })
+    summary.contractors++
+  }
+  const resolve = new Map<string, string>()
+  for (const m of plan.masters) for (const n of [m.name, ...m.aliases]) resolve.set(lower(n), m.uuid)
+  for (const g of plan.groups) {
+    let uuid = g.target
+    if (uuid === NEW) {
+      uuid = newUuid()
+      const name = g.newName.trim() || g.variants[0]
+      // Only the KPI System's master list is KPI-tracked; ticket-only companies start untracked.
+      byUuid.set(uuid, { uuid, updatedAt: now, name, workOrder: '', active: false, aliases: [], notes: '' })
       summary.contractors++
     }
-    const resolve = new Map<string, string>()
-    for (const m of plan.masters) for (const n of [m.name, ...m.aliases]) resolve.set(lower(n), m.uuid)
-    for (const g of plan.groups) {
-      let uuid = g.target
-      if (uuid === NEW) {
-        uuid = newUuid()
-        const name = g.newName.trim() || g.variants[0]
-        // Only the KPI System's master list is KPI-tracked; ticket-only companies start untracked.
-        byUuid.set(uuid, { uuid, updatedAt: now, name, workOrder: '', active: false, aliases: [], notes: '' })
-        summary.contractors++
-      }
-      const c = byUuid.get(uuid)!
-      const aliases = new Set(c.aliases)
-      for (const v of g.variants) if (lower(v) !== lower(c.name)) aliases.add(v)
-      byUuid.set(uuid, { ...c, aliases: [...aliases], updatedAt: now })
-      for (const v of g.variants) resolve.set(lower(v), uuid)
+    const c = byUuid.get(uuid)!
+    const aliases = new Set(c.aliases)
+    for (const v of g.variants) if (lower(v) !== lower(c.name)) aliases.add(v)
+    byUuid.set(uuid, { ...c, aliases: [...aliases], updatedAt: now })
+    for (const v of g.variants) resolve.set(lower(v), uuid)
+  }
+
+  const ticketNos = new Set(existing.tickets.map((t) => t.ticketNo).filter(Boolean))
+  const internalKey = (t: { contractorUuid: string; openedAt: string; issue: string }) =>
+    `${t.contractorUuid}|${t.openedAt}|${t.issue}`
+  const internalKeys = new Set(existing.tickets.filter((t) => !t.ticketNo).map(internalKey))
+  const tickets: Ticket[] = []
+  for (const r of plan.tickets) {
+    const t: Ticket = {
+      uuid: newUuid(),
+      updatedAt: now,
+      source: r.source,
+      ticketNo: r.ticketNo,
+      channel: r.channel,
+      contractorUuid: resolve.get(lower(r.contractor)) ?? '',
+      subcontractor: r.subcontractor,
+      category: r.category,
+      issue: r.issue,
+      priority: r.priority,
+      severity: r.severity,
+      workers: r.workers,
+      violations: r.violations,
+      assignedTo: r.assignedTo,
+      status: r.status,
+      openedAt: r.openedAt,
+      closedAt: r.closedAt,
+      contractorAction: r.contractorAction,
+      wwAction: r.wwAction,
+      notes: r.closedEstimated ? 'Closing date estimated from the weekly log.' : '',
     }
-    await db.contractors.bulkPut([...byUuid.values()])
-
-    const existing = await db.tickets.toArray()
-    const ticketNos = new Set(existing.map((t) => t.ticketNo).filter(Boolean))
-    const internalKey = (t: { contractorUuid: string; openedAt: string; issue: string }) =>
-      `${t.contractorUuid}|${t.openedAt}|${t.issue}`
-    const internalKeys = new Set(existing.filter((t) => !t.ticketNo).map(internalKey))
-    const rows: Ticket[] = []
-    for (const r of plan.tickets) {
-      const t: Ticket = {
-        uuid: newUuid(),
-        updatedAt: now,
-        source: r.source,
-        ticketNo: r.ticketNo,
-        channel: r.channel,
-        contractorUuid: resolve.get(lower(r.contractor)) ?? '',
-        subcontractor: r.subcontractor,
-        category: r.category,
-        issue: r.issue,
-        priority: r.priority,
-        severity: r.severity,
-        workers: r.workers,
-        violations: r.violations,
-        assignedTo: r.assignedTo,
-        status: r.status,
-        openedAt: r.openedAt,
-        closedAt: r.closedAt,
-        contractorAction: r.contractorAction,
-        wwAction: r.wwAction,
-        notes: r.closedEstimated ? 'Closing date estimated from the weekly log.' : '',
-      }
-      const dup = t.ticketNo ? ticketNos.has(t.ticketNo) : internalKeys.has(internalKey(t))
-      if (dup) {
-        summary.duplicates++
-        continue
-      }
-      if (t.ticketNo) ticketNos.add(t.ticketNo)
-      else internalKeys.add(internalKey(t))
-      rows.push(t)
+    const dup = t.ticketNo ? ticketNos.has(t.ticketNo) : internalKeys.has(internalKey(t))
+    if (dup) {
+      summary.duplicates++
+      continue
     }
-    await db.tickets.bulkAdd(rows)
-    summary.tickets = rows.length
+    if (t.ticketNo) ticketNos.add(t.ticketNo)
+    else internalKeys.add(internalKey(t))
+    tickets.push(t)
+  }
+  summary.tickets = tickets.length
 
-    const haveKpi = new Set((await db.kpiMonths.toArray()).map((k) => `${k.contractorUuid}|${k.month}`))
-    const kpis: KpiMonth[] = []
-    for (const k of plan.kpis) {
-      const contractorUuid = resolve.get(lower(k.contractor))
-      if (!contractorUuid) continue
-      const key = `${contractorUuid}|${k.month}`
-      if (haveKpi.has(key)) {
-        summary.duplicates++
-        continue
-      }
-      haveKpi.add(key)
-      kpis.push({
-        uuid: newUuid(),
-        updatedAt: now,
-        contractorUuid,
-        month: k.month,
-        wps: k.wps,
-        manpowerDecl: k.manpowerDecl,
-        salaryDecl: k.salaryDecl,
-        accommodationPct: k.accommodationPct,
-        onboardingPct: k.onboardingPct,
-        offboarded: null,
-        offboardTotal: null,
-        meetingPct: k.meetingPct,
-        quarterlyAuditPct: k.quarterlyAuditPct,
-        legacy: { offboardingPct: k.offboardingPct, formalPct: k.formalPct },
-      })
+  const haveKpi = new Set(existing.kpiMonths.map((k) => `${k.contractorUuid}|${k.month}`))
+  const kpiMonths: KpiMonth[] = []
+  for (const k of plan.kpis) {
+    const contractorUuid = resolve.get(lower(k.contractor))
+    if (!contractorUuid) continue
+    const key = `${contractorUuid}|${k.month}`
+    if (haveKpi.has(key)) {
+      summary.duplicates++
+      continue
     }
-    await db.kpiMonths.bulkAdd(kpis)
-    summary.kpis = kpis.length
+    haveKpi.add(key)
+    kpiMonths.push({
+      uuid: newUuid(),
+      updatedAt: now,
+      contractorUuid,
+      month: k.month,
+      wps: k.wps,
+      manpowerDecl: k.manpowerDecl,
+      salaryDecl: k.salaryDecl,
+      accommodationPct: k.accommodationPct,
+      onboardingPct: k.onboardingPct,
+      offboarded: null,
+      offboardTotal: null,
+      meetingPct: k.meetingPct,
+      quarterlyAuditPct: k.quarterlyAuditPct,
+      legacy: { offboardingPct: k.offboardingPct, formalPct: k.formalPct },
+    })
+  }
+  summary.kpis = kpiMonths.length
 
-    const haveWeek = new Set((await db.weeklyCounts.toArray()).map((w) => w.weekEnding))
-    const weeks: WeeklyCount[] = plan.weekly
-      .filter((w) => !haveWeek.has(w.weekEnding))
-      .map((w) => ({ uuid: newUuid(), updatedAt: now, weekEnding: w.weekEnding, openTickets: w.openTickets }))
-    await db.weeklyCounts.bulkAdd(weeks)
-    summary.weeks = weeks.length
+  const haveWeek = new Set(existing.weeklyCounts.map((w) => w.weekEnding))
+  const weeklyCounts: WeeklyCount[] = plan.weekly
+    .filter((w) => !haveWeek.has(w.weekEnding))
+    .map((w) => ({ uuid: newUuid(), updatedAt: now, weekEnding: w.weekEnding, openTickets: w.openTickets }))
+  summary.weeks = weeklyCounts.length
 
-    await db.activity.add(
-      activityEntry(
-        'import',
-        newUuid(),
-        'import',
-        `History import · ${summary.tickets} tickets · ${summary.contractors} contractors · ${summary.kpis} KPI months · ${summary.weeks} weeks`,
-      ),
-    )
+  const activity = {
+    ...activityEntry(
+      'import',
+      newUuid(),
+      'import',
+      `History import · ${summary.tickets} tickets · ${summary.contractors} contractors · ${summary.kpis} KPI months · ${summary.weeks} weeks`,
+    ),
+    time: now,
+  }
+  return { contractors: [...byUuid.values()], tickets, kpiMonths, weeklyCounts, activity, summary }
+}
+
+/** Save the plan in one transaction, with one activity entry for the whole import. */
+export async function applyPlan(plan: ImportPlan): Promise<ImportSummary> {
+  let summary: ImportSummary | null = null
+  await db.transaction('rw', [db.contractors, db.tickets, db.kpiMonths, db.weeklyCounts, db.activity], async () => {
+    const r = planToRecords(plan, {
+      contractors: await db.contractors.toArray(),
+      tickets: await db.tickets.toArray(),
+      kpiMonths: await db.kpiMonths.toArray(),
+      weeklyCounts: await db.weeklyCounts.toArray(),
+    })
+    await db.contractors.bulkPut(r.contractors)
+    await db.tickets.bulkAdd(r.tickets)
+    await db.kpiMonths.bulkAdd(r.kpiMonths)
+    await db.weeklyCounts.bulkAdd(r.weeklyCounts)
+    await db.activity.add(r.activity)
+    summary = r.summary
   })
-  return summary
+  return summary!
 }

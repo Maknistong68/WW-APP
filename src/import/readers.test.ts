@@ -85,3 +85,29 @@ describe('workforce file', () => {
     expect(r.tickets).toHaveLength(0)
   })
 })
+
+describe('planToRecords', () => {
+  it('builds records: aliases, untracked new contractors, dedupe, KPI legacy values', async () => {
+    const { planToRecords } = await import('./plan')
+    const r = readGrids([overall], '2026-10')
+    const kpi = readGrids(
+      [
+        { name: 'Tracker', rows: [['Month', 'Contractor', 'WPS Certificate Submitted', 'Offboarding %', 'Formal vs Illegal %'], [D(2026, 9, 1), 'RPCO', 'Yes', 0.5, 0.9]] },
+        { name: 'Contractors', rows: [['Contractor Name', 'Status'], ['RPCO', 'Active']] },
+      ],
+      '2026-10',
+    )
+    const plan = buildPlan([r, kpi], [])
+    const existingTicket = { ticketNo: 'WWCMPL0000001' } as never
+    const out = planToRecords(plan, { contractors: [], tickets: [existingTicket], kpiMonths: [], weeklyCounts: [] }, '2026-10-31T00:00:00.000Z')
+    const fahad = out.contractors.find((c) => c.aliases.includes('Al Fahad') || c.name === 'Al Fahad')!
+    expect(fahad.active).toBe(false)
+    const rpco = out.contractors.find((c) => c.name === 'RPCO')!
+    expect(rpco.active).toBe(true)
+    expect(out.tickets.map((t) => t.ticketNo).sort()).toEqual(['WWCMPL0000002', 'WWCMPL0000003'])
+    expect(out.summary.duplicates).toBe(1)
+    expect(out.tickets.find((t) => t.ticketNo === 'WWCMPL0000003')!.contractorUuid).toBe(rpco.uuid)
+    expect(out.kpiMonths[0]).toMatchObject({ contractorUuid: rpco.uuid, month: '2026-09', wps: true, legacy: { offboardingPct: 50, formalPct: 90 } })
+    expect(out.activity.time).toBe('2026-10-31T00:00:00.000Z')
+  })
+})
