@@ -11,6 +11,7 @@ import type {
   Tombstone,
   WeeklyCount,
   WorkOrder,
+  Camp,
 } from './types'
 import { NORMALIZE } from './lib/normalize'
 
@@ -33,6 +34,7 @@ class WWDatabase extends Dexie {
   tombstones!: Table<Tombstone, number>
   contractors!: Table<Contractor, string>
   workOrders!: Table<WorkOrder, string>
+  camps!: Table<Camp, string>
   tickets!: Table<Ticket, string>
   kpiMonths!: Table<KpiMonth, string>
   manpower!: Table<Manpower, string>
@@ -80,6 +82,7 @@ class WWDatabase extends Dexie {
           await table.bulkPut(rows.map((r) => NORMALIZE[name](r)))
         }
       })
+    this.version(5).stores({ camps: 'uuid, contractorUuid' })
   }
 }
 
@@ -147,6 +150,7 @@ interface BackupFile {
   photos: BackupPhoto[]
   contractors?: Contractor[]
   workOrders?: WorkOrder[]
+  camps?: Camp[]
   tickets?: Ticket[]
   kpiMonths?: KpiMonth[]
   manpower?: Manpower[]
@@ -154,7 +158,7 @@ interface BackupFile {
   activity?: ActivityEntry[]
 }
 
-const RECORD_KEYS = ['contractors', 'workOrders', 'tickets', 'kpiMonths', 'manpower', 'weeklyCounts', 'activity'] as const
+const RECORD_KEYS = ['contractors', 'workOrders', 'camps', 'tickets', 'kpiMonths', 'manpower', 'weeklyCounts', 'activity'] as const
 
 const blobToBase64 = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
@@ -187,6 +191,7 @@ export async function createBackup(): Promise<{ blob: Blob; fileName: string }> 
     photos: backupPhotos,
     contractors: await db.contractors.toArray(),
     workOrders: await db.workOrders.toArray(),
+    camps: await db.camps.toArray(),
     tickets: await db.tickets.toArray(),
     kpiMonths: await db.kpiMonths.toArray(),
     manpower: await db.manpower.toArray(),

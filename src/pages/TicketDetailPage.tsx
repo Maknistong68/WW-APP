@@ -77,7 +77,7 @@ export default function TicketDetailPage() {
         <Field label="Work order" value={woName(woByUuid.get(t.workOrderUuid))} />
         <Field
           label={open ? 'Money still owed' : 'Money recovered'}
-          value={t.amountOwed ? `${sar(t.amountOwed)}${isMain ? ` · for all ${group.all.length} tickets` : ''}` : ''}
+          value={t.amountOwed ? `${sar(t.amountOwed)}${isMain ? ` (${group.all.length} tickets)` : ''}` : ''}
         />
         <Field label="Source" value={t.source} />
         <Field label="Workers" value={t.workers} />

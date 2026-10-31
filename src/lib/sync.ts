@@ -89,6 +89,7 @@ export interface SyncResult {
 export const REMOTE_TABLE: Record<RecordTable, string> = {
   contractors: 'contractors',
   workOrders: 'work_orders',
+  camps: 'camps',
   tickets: 'tickets',
   kpiMonths: 'kpi_months',
   manpower: 'manpower',

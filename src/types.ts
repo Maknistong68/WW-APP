@@ -84,6 +84,8 @@ export interface Inspection {
   responses: Record<string, QuestionResponse>
   /** Extra remarks appended to the Word report conclusion. */
   notes: string
+  /** Camp this inspection was done at (co-pilot camps). */
+  campUuid?: string
 }
 
 export interface Photo {
@@ -197,7 +199,7 @@ export const EVIDENCE_NOTES: string[] = [
 // ---------------------------------------------------------------------------
 
 /** Dexie table names of the uuid-keyed record tables (also the sync tables). */
-export type RecordTable = 'contractors' | 'workOrders' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts'
+export type RecordTable = 'contractors' | 'workOrders' | 'camps' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts'
 
 interface RecordBase {
   uuid: string
@@ -220,6 +222,19 @@ export interface WorkOrder extends RecordBase {
   number: string
   /** Optional short description (camp, scope). */
   label: string
+  active: boolean
+  notes: string
+}
+
+/** A worker accommodation camp, inspected every `cycleDays`. */
+export interface Camp extends RecordBase {
+  name: string
+  contractorUuid: string
+  /** '' = not tied to one work order */
+  workOrderUuid: string
+  location: string
+  /** Inspection cycle; expired after this many days without an inspection. */
+  cycleDays: number
   active: boolean
   notes: string
 }
@@ -298,7 +313,7 @@ export interface WeeklyCount extends RecordBase {
   openTickets: number
 }
 
-export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import'
+export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import'
 export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'import'
 
 export interface ActivityChange {

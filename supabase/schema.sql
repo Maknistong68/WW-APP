@@ -61,7 +61,7 @@ create policy "own photo files" on storage.objects
 do $$
 declare t text;
 begin
-  foreach t in array array['contractors', 'work_orders', 'tickets', 'kpi_months', 'manpower', 'weekly_counts'] loop
+  foreach t in array array['contractors', 'work_orders', 'camps', 'tickets', 'kpi_months', 'manpower', 'weekly_counts'] loop
     execute format(
       'create table if not exists public.%I (
          uuid uuid primary key,

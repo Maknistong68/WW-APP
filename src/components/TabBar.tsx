@@ -5,10 +5,10 @@ import { ageDays, isOpen } from '../lib/aging'
 import Icon, { type IconName } from './Icon'
 
 const TABS: { path: string; label: string; icon: IconName }[] = [
-  { path: '/', label: 'Today', icon: 'home' },
+  { path: '/', label: 'To-do', icon: 'check' },
   { path: '/tickets', label: 'Tickets', icon: 'ticket' },
   { path: '/contractors', label: 'Contractors', icon: 'users' },
-  { path: '/audits', label: 'Audits', icon: 'clipboard' },
+  { path: '/camps', label: 'Camps', icon: 'tent' },
   { path: '/dashboard', label: 'Dashboard', icon: 'chart' },
 ]
 
@@ -26,7 +26,10 @@ export default function TabBar() {
   const active = (p: string) =>
     p === '/'
       ? pathname === '/'
-      : pathname === p || pathname.startsWith(`${p}/`) || (p === '/dashboard' && pathname.startsWith('/kpis'))
+      : pathname === p ||
+        pathname.startsWith(`${p}/`) ||
+        (p === '/dashboard' && pathname.startsWith('/kpis')) ||
+        (p === '/camps' && pathname === '/audits')
   return (
     <nav className="tab-bar" aria-label="Main">
       {TABS.map((t) => (

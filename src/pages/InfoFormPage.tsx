@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { db, logEvent, newUuid } from '../db'
 import { getTemplate } from '../templates'
 import Icon from '../components/Icon'
 import { showToast } from '../components/Toast'
-import type { GeneralInfo, Inspection } from '../types'
+import type { Camp, GeneralInfo, Inspection } from '../types'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -28,6 +29,24 @@ const coordsFromLink = (link: string): { lat: number; lng: number } | null => {
   const bang = link.match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/)
   if (bang) return parseCoords(`${bang[1]},${bang[2]}`)
   return null
+}
+
+/** Facility, contractor and work order taken from the chosen camp. */
+function fillFromCamp(
+  prev: GeneralInfo,
+  camp: Camp,
+  contractors: { uuid: string; name: string }[],
+  workOrders: { uuid: string; number: string }[],
+): GeneralInfo {
+  const contractor = contractors.find((c) => c.uuid === camp.contractorUuid)
+  const wo = workOrders.find((w) => w.uuid === camp.workOrderUuid)
+  return {
+    ...prev,
+    facilityLocation: camp.name,
+    region: camp.location || prev.region,
+    contractorNames: contractor?.name ?? prev.contractorNames,
+    workOrder: wo?.number ?? prev.workOrder,
+  }
 }
 
 const remember = (key: string, fallback = '') => {
@@ -64,7 +83,12 @@ const blankInfo = (): GeneralInfo => ({
 /** Creates a new inspection (/new/:templateId) or edits one (/inspection/:id/edit). */
 export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
   const { templateId, id } = useParams()
+  const [params] = useSearchParams()
   const navigate = useNavigate()
+  const [campUuid, setCampUuid] = useState(params.get('camp') ?? '')
+  const camps = useLiveQuery(() => db.camps.toArray())
+  const contractors = useLiveQuery(() => db.contractors.toArray())
+  const workOrders = useLiveQuery(() => db.workOrders.toArray())
   const inspectionId = Number(id)
 
   const [existing, setExisting] = useState<Inspection | null>(null)
@@ -94,10 +118,21 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
       if (ins) {
         setExisting(ins)
         setInfo(ins.info)
+        setCampUuid(ins.campUuid ?? '')
       }
       setLoaded(true)
     })
   }, [mode, inspectionId])
+
+  // Starting from a camp: fill the facility and contractor once.
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (prefilled.current || mode !== 'new' || !campUuid || !camps || !contractors || !workOrders) return
+    const camp = camps.find((c) => c.uuid === campUuid)
+    if (!camp) return
+    prefilled.current = true
+    setInfo((prev) => fillFromCamp(prev, camp, contractors, workOrders))
+  }, [mode, campUuid, camps, contractors, workOrders])
 
   useEffect(() => {
     if (restoredDraft.current) {
@@ -176,7 +211,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
       }
       const now = new Date().toISOString()
       if (mode === 'edit' && existing) {
-        await db.inspections.put({ ...existing, info, updatedAt: now })
+        await db.inspections.put({ ...existing, info, campUuid, updatedAt: now })
         logEvent(existing.id!, 'Details edited', info.contractorNames)
         showToast({ text: 'Inspection details updated' })
         navigate(`/inspection/${existing.id}`, { replace: true })
@@ -191,6 +226,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
         info,
         responses: {},
         notes: '',
+        campUuid,
       }
       const newId = await db.inspections.add(inspection)
       try {
@@ -228,7 +264,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
     </div>
   )
 
-  const backTo = mode === 'edit' ? `/inspection/${inspectionId}` : '/audits'
+  const backTo = mode === 'edit' ? `/inspection/${inspectionId}` : campUuid ? `/camps/${campUuid}` : '/camps'
 
   return (
     <>
@@ -252,6 +288,29 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
           <div className="card">
             <div className="section-label" style={{ marginTop: 0 }}>
               Facility
+            </div>
+            <div className="field">
+              <label>Camp</label>
+              <select
+                value={campUuid}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setCampUuid(next)
+                  dirty.current = true
+                  const camp = camps?.find((c) => c.uuid === next)
+                  if (camp) setInfo((prev) => fillFromCamp(prev, camp, contractors ?? [], workOrders ?? []))
+                }}
+              >
+                <option value="">Not linked to a camp</option>
+                {(camps ?? [])
+                  .filter((c) => c.active || c.uuid === campUuid)
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((c) => (
+                    <option key={c.uuid} value={c.uuid}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
             </div>
             {field('Region', 'region', { placeholder: 'e.g. OXAGON' })}
             {field('Facility location', 'facilityLocation', { placeholder: 'e.g. Duba', required: true })}

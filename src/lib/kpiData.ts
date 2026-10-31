@@ -6,7 +6,7 @@ import { scoreInspection } from './score'
 import { KPI_PARTS, computeKpi, kpiStatus, type KpiResult } from './kpi'
 import { mentions } from './names'
 import { kpiSubjects, subjectKpi, subjectManpower, subjectTickets, type KpiSubject } from './subjects'
-import type { Contractor, Inspection, KpiMonth, Manpower, Ticket, WeeklyCount, WorkOrder } from '../types'
+import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Ticket, WeeklyCount, WorkOrder } from '../types'
 
 export interface AllData {
   loaded: boolean
@@ -14,6 +14,7 @@ export interface AllData {
   byUuid: Map<string, Contractor>
   workOrders: WorkOrder[]
   woByUuid: Map<string, WorkOrder>
+  camps: Camp[]
   tickets: Ticket[]
   kpis: KpiMonth[]
   manpower: Manpower[]
@@ -26,6 +27,7 @@ export function useAllData(): AllData {
   const raw = useLiveQuery(async () => ({
     contractors: await db.contractors.orderBy('name').toArray(),
     workOrders: await db.workOrders.toArray(),
+    camps: await db.camps.toArray(),
     tickets: await db.tickets.toArray(),
     kpis: await db.kpiMonths.toArray(),
     manpower: await db.manpower.toArray(),
@@ -33,7 +35,7 @@ export function useAllData(): AllData {
     inspections: await db.inspections.toArray(),
   }))
   return useMemo(() => {
-    const d = raw ?? { contractors: [], workOrders: [], tickets: [], kpis: [], manpower: [], weekly: [], inspections: [] }
+    const d = raw ?? { contractors: [], workOrders: [], camps: [], tickets: [], kpis: [], manpower: [], weekly: [], inspections: [] }
     const workOrders = [...d.workOrders].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }))
     return {
       ...d,

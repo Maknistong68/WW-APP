@@ -40,7 +40,7 @@ export default function AuditsPage() {
   })
 
   return (
-    <Page title="Audits" actions={<SettingsButton />}>
+    <Page title="All inspections" back="/camps" backLabel="Camps" actions={<SettingsButton />}>
         <div className="section-label">Start a new inspection</div>
         {TEMPLATES.map((t) => (
           <button key={t.id} className="card template-card" onClick={() => navigate(`/new/${t.id}`)}>

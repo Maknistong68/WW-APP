@@ -1069,3 +1069,52 @@ button.row:active { background: var(--gray-bg); }
   color: var(--brand-tint-ink);
   vertical-align: 2px;
 }
+
+/* To-do home */
+.todo-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  background: var(--card);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 10px;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.todo-card:active { background: var(--gray-bg); }
+.todo-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--brand-tint);
+  color: var(--brand-tint-ink);
+}
+.todo-card.done .todo-icon { background: var(--green-bg); color: var(--green); }
+.todo-card.bad .todo-icon { background: var(--red-bg); color: var(--red); }
+.todo-card.warn .todo-icon { background: var(--amber-bg); color: var(--amber); }
+.todo-main { flex: 1; min-width: 0; }
+.todo-title { font-size: 17px; font-weight: 600; line-height: 1.25; }
+.todo-detail { font-size: 14px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+.todo-count { text-align: right; flex-shrink: 0; }
+.todo-num { font-size: 26px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.todo-num.done { color: var(--green); font-size: 15px; font-weight: 600; }
+.todo-of { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.alert-pill {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.alert-pill.bad { background: var(--red-bg); color: var(--red); }
+.alert-pill.warn { background: var(--amber-bg); color: var(--amber); }

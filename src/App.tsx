@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
-import TodayPage from './pages/TodayPage'
+import TodoPage from './pages/TodoPage'
+import CampsPage from './pages/CampsPage'
+import CampDetailPage from './pages/CampDetailPage'
 import TicketsPage from './pages/TicketsPage'
 import TicketDetailPage from './pages/TicketDetailPage'
 import ContractorsPage from './pages/ContractorsPage'
@@ -42,7 +44,9 @@ export default function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<TodayPage />} />
+        <Route path="/" element={<TodoPage />} />
+        <Route path="/camps" element={<CampsPage />} />
+        <Route path="/camps/:uuid" element={<CampDetailPage />} />
         <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/tickets/:uuid" element={<TicketDetailPage />} />
         <Route path="/contractors" element={<ContractorsPage />} />
