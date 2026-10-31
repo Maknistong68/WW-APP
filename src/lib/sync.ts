@@ -1,6 +1,6 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { db, logEvent, newUuid } from '../db'
-import type { Inspection, Photo } from '../types'
+import type { ActivityEntry, Inspection, Photo, RecordTable } from '../types'
 
 // ---------------------------------------------------------------------------
 // Supabase cloud sync (optional). The app stays fully offline-first: IndexedDB
@@ -62,7 +62,18 @@ export interface SyncResult {
   photosUp: number
   photosDown: number
   deleted: number
+  /** Co-pilot records (tickets, contractors, KPIs, …) pushed + pulled. */
+  records: number
   failed: number
+}
+
+/** Dexie table → Supabase table for the uuid-keyed co-pilot records. */
+export const REMOTE_TABLE: Record<RecordTable, string> = {
+  contractors: 'contractors',
+  tickets: 'tickets',
+  kpiMonths: 'kpi_months',
+  manpower: 'manpower',
+  weeklyCounts: 'weekly_counts',
 }
 
 interface RemoteInspectionRow {
@@ -111,7 +122,15 @@ export async function syncNow(): Promise<SyncResult> {
   // Claim the lock before the first await: app-open background sync and a
   // manual "Sync now" could otherwise both pass the check and interleave.
   syncing = true
-  const result: SyncResult = { pushed: 0, pulled: 0, photosUp: 0, photosDown: 0, deleted: 0, failed: 0 }
+  const result: SyncResult = {
+    pushed: 0,
+    pulled: 0,
+    photosUp: 0,
+    photosDown: 0,
+    deleted: 0,
+    records: 0,
+    failed: 0,
+  }
   // One bad record must not abort the whole sync (and with it every future
   // sync): per-record errors are collected and reported at the end instead.
   const failures: string[] = []
@@ -132,7 +151,8 @@ export async function syncNow(): Promise<SyncResult> {
     const tombstones = await db.tombstones.toArray()
     for (const t of tombstones) {
       try {
-        const table = t.table === 'inspections' ? 'inspections' : 'photos'
+        const table =
+          t.table === 'inspections' || t.table === 'photos' ? t.table : REMOTE_TABLE[t.table]
         const deletedAt = new Date().toISOString()
         const { error } = await c
           .from(table)
@@ -338,8 +358,22 @@ export async function syncNow(): Promise<SyncResult> {
       }
     }
 
+    // 4. Co-pilot records + activity log
+    for (const table of Object.keys(REMOTE_TABLE) as RecordTable[]) {
+      try {
+        await syncRecordTable(c, userId, table, result, fail)
+      } catch (err) {
+        fail(`Sync ${table}`, err)
+      }
+    }
+    try {
+      await syncActivity(c, userId, result)
+    } catch (err) {
+      fail('Sync activity log', err)
+    }
+
     localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString())
-    const summary = `up ${result.pushed + result.photosUp}, down ${result.pulled + result.photosDown}, deleted ${result.deleted}`
+    const summary = `up ${result.pushed + result.photosUp}, down ${result.pulled + result.photosDown}, records ${result.records}, deleted ${result.deleted}`
     if (result.failed > 0) {
       logEvent(
         null,
@@ -355,6 +389,108 @@ export async function syncNow(): Promise<SyncResult> {
     throw err
   } finally {
     syncing = false
+  }
+}
+
+type SyncedRecord = { uuid: string; updatedAt: string }
+
+/**
+ * Last-write-wins sync of one uuid-keyed record table (same row shape as
+ * `inspections`: uuid, user_id, data jsonb, updated_at, deleted).
+ */
+async function syncRecordTable(
+  c: SupabaseClient,
+  userId: string,
+  table: RecordTable,
+  result: SyncResult,
+  fail: (what: string, err: unknown) => void,
+): Promise<void> {
+  const remoteName = REMOTE_TABLE[table]
+  const local = db.table(table) as unknown as {
+    toArray(): Promise<SyncedRecord[]>
+    put(r: SyncedRecord): Promise<unknown>
+    delete(k: string): Promise<void>
+  }
+  const remote = await selectAll<RemoteInspectionRow>(c, remoteName, 'uuid, updated_at, deleted')
+  const remoteMap = new Map(remote.map((r) => [r.uuid, r]))
+  const localMap = new Map((await local.toArray()).map((r) => [r.uuid, r]))
+
+  for (const r of remote) {
+    const l = localMap.get(r.uuid)
+    if (!r.deleted || !l || newer(l.updatedAt, r.updated_at)) continue
+    await local.delete(r.uuid)
+    localMap.delete(r.uuid)
+    result.deleted++
+  }
+
+  const toPush = [...localMap.values()].filter((l) => {
+    const r = remoteMap.get(l.uuid)
+    return !r || newer(l.updatedAt, r.updated_at)
+  })
+  for (let i = 0; i < toPush.length; i += 200) {
+    const batch = toPush.slice(i, i + 200)
+    try {
+      const { error } = await c.from(remoteName).upsert(
+        batch.map((l) => ({ uuid: l.uuid, user_id: userId, data: l, updated_at: l.updatedAt, deleted: false })),
+      )
+      if (error) throw new Error(error.message)
+      result.records += batch.length
+    } catch (err) {
+      fail(`Push ${table}`, err)
+    }
+  }
+
+  const toPull = remote
+    .filter((r) => {
+      if (r.deleted) return false
+      const l = localMap.get(r.uuid)
+      return !l || newer(r.updated_at, l.updatedAt)
+    })
+    .map((r) => r.uuid)
+  for (let i = 0; i < toPull.length; i += 200) {
+    const ids = toPull.slice(i, i + 200)
+    try {
+      const { data, error } = await c.from(remoteName).select('uuid, data, updated_at').in('uuid', ids)
+      if (error) throw new Error(error.message)
+      for (const row of (data ?? []) as { uuid: string; data: SyncedRecord; updated_at: string }[]) {
+        await local.put({ ...row.data, uuid: row.uuid, updatedAt: row.updated_at })
+        result.records++
+      }
+    } catch (err) {
+      fail(`Pull ${table}`, err)
+    }
+  }
+}
+
+/** Activity log is append-only: push unsent entries, pull ones this device lacks. */
+async function syncActivity(c: SupabaseClient, userId: string, result: SyncResult): Promise<void> {
+  const unsent = (await db.activity.toArray()).filter((a) => !a.synced)
+  for (let i = 0; i < unsent.length; i += 200) {
+    const batch = unsent.slice(i, i + 200)
+    const { error } = await c.from('activity_log').upsert(
+      batch.map((a) => {
+        const { synced: _s, ...data } = a
+        void _s
+        return { uuid: a.uuid, user_id: userId, time: a.time, data }
+      }),
+      { onConflict: 'uuid', ignoreDuplicates: true },
+    )
+    if (error) throw new Error(error.message)
+    await db.activity.bulkPut(batch.map((a) => ({ ...a, synced: true })))
+    result.records += batch.length
+  }
+  const remote = await selectAll<{ uuid: string }>(c, 'activity_log', 'uuid')
+  const have = new Set((await db.activity.toCollection().primaryKeys()) as string[])
+  const missing = remote.map((r) => r.uuid).filter((u) => !have.has(u))
+  for (let i = 0; i < missing.length; i += 200) {
+    const { data, error } = await c
+      .from('activity_log')
+      .select('data')
+      .in('uuid', missing.slice(i, i + 200))
+    if (error) throw new Error(error.message)
+    const rows = ((data ?? []) as { data: ActivityEntry }[]).map((r) => ({ ...r.data, synced: true }))
+    await db.activity.bulkPut(rows)
+    result.records += rows.length
   }
 }
 

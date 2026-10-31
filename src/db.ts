@@ -1,5 +1,16 @@
 import Dexie, { type Table } from 'dexie'
-import type { Inspection, LogEntry, Photo, Tombstone } from './types'
+import type {
+  ActivityEntry,
+  Contractor,
+  Inspection,
+  KpiMonth,
+  LogEntry,
+  Manpower,
+  Photo,
+  Ticket,
+  Tombstone,
+  WeeklyCount,
+} from './types'
 
 export const newUuid = (): string => {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
@@ -18,6 +29,12 @@ class WWDatabase extends Dexie {
   photos!: Table<Photo, number>
   logs!: Table<LogEntry, number>
   tombstones!: Table<Tombstone, number>
+  contractors!: Table<Contractor, string>
+  tickets!: Table<Ticket, string>
+  kpiMonths!: Table<KpiMonth, string>
+  manpower!: Table<Manpower, string>
+  weeklyCounts!: Table<WeeklyCount, string>
+  activity!: Table<ActivityEntry, string>
 
   constructor() {
     super('ww-app')
@@ -41,15 +58,46 @@ class WWDatabase extends Dexie {
           if (!p.updatedAt) p.updatedAt = p.createdAt
         })
       })
+    this.version(3).stores({
+      contractors: 'uuid, name',
+      tickets: 'uuid, status, contractorUuid, openedAt, ticketNo',
+      kpiMonths: 'uuid, &[contractorUuid+month], month',
+      manpower: 'uuid, &[contractorUuid+month], month',
+      weeklyCounts: 'uuid, weekEnding',
+      activity: 'uuid, time, entity, entityUuid',
+    })
   }
 }
 
 export const db = new WWDatabase()
 
-/** Append an entry to the activity log (fire-and-forget). */
+/** Audit milestones that also go into the co-pilot activity log. */
+const AUDIT_ACTIVITY: Record<string, ActivityEntry['action']> = {
+  'Inspection created': 'add',
+  'Details edited': 'edit',
+  'Inspection completed': 'close',
+  'Inspection reopened': 'reopen',
+}
+
+/** Append an entry to the technical log (fire-and-forget). */
 export function logEvent(inspectionId: number | null, event: string, detail = ''): void {
-  void db.logs
-    .add({ inspectionId, time: new Date().toISOString(), event, detail })
+  const time = new Date().toISOString()
+  void db.logs.add({ inspectionId, time, event, detail }).catch(() => {})
+  const action = AUDIT_ACTIVITY[event]
+  if (inspectionId === null || !action) return
+  void db.inspections
+    .get(inspectionId)
+    .then((ins) =>
+      db.activity.add({
+        uuid: newUuid(),
+        time,
+        entity: 'audit',
+        entityUuid: ins?.uuid ?? String(inspectionId),
+        action,
+        label: `Audit · ${ins?.info?.contractorNames || ins?.info?.facilityLocation || 'inspection'}`,
+        changes: [],
+      }),
+    )
     .catch(() => {})
 }
 
@@ -78,11 +126,20 @@ interface BackupPhoto extends Omit<Photo, 'blob'> {
 }
 interface BackupFile {
   app: 'ww-app'
-  version: 1
+  /** 1 = inspections + photos only; 2 adds the co-pilot records. */
+  version: 1 | 2
   exportedAt: string
   inspections: Inspection[]
   photos: BackupPhoto[]
+  contractors?: Contractor[]
+  tickets?: Ticket[]
+  kpiMonths?: KpiMonth[]
+  manpower?: Manpower[]
+  weeklyCounts?: WeeklyCount[]
+  activity?: ActivityEntry[]
 }
+
+const RECORD_KEYS = ['contractors', 'tickets', 'kpiMonths', 'manpower', 'weeklyCounts', 'activity'] as const
 
 const blobToBase64 = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
@@ -109,10 +166,16 @@ export async function createBackup(): Promise<{ blob: Blob; fileName: string }> 
   }
   const payload: BackupFile = {
     app: 'ww-app',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     inspections,
     photos: backupPhotos,
+    contractors: await db.contractors.toArray(),
+    tickets: await db.tickets.toArray(),
+    kpiMonths: await db.kpiMonths.toArray(),
+    manpower: await db.manpower.toArray(),
+    weeklyCounts: await db.weeklyCounts.toArray(),
+    activity: await db.activity.toArray(),
   }
   const date = new Date().toISOString().slice(0, 10)
   logEvent(null, 'Backup saved', `${inspections.length} inspections, ${photos.length} photos`)
@@ -126,7 +189,9 @@ export async function createBackup(): Promise<{ blob: Blob; fileName: string }> 
  * Imports a backup file. Inspections/photos whose uuid already exists locally
  * are skipped, so restoring twice never duplicates data.
  */
-export async function restoreBackup(file: Blob): Promise<{ inspections: number; photos: number }> {
+export async function restoreBackup(
+  file: Blob,
+): Promise<{ inspections: number; photos: number; records: number }> {
   const parsed = JSON.parse(await file.text()) as BackupFile
   if (parsed.app !== 'ww-app' || !Array.isArray(parsed.inspections) || !Array.isArray(parsed.photos)) {
     throw new Error('Not a WW App backup file')
@@ -166,14 +231,38 @@ export async function restoreBackup(file: Blob): Promise<{ inspections: number; 
       }
     }
   })
-  logEvent(null, 'Backup restored', `${inspections} inspections, ${photos} photos added`)
-  return { inspections, photos }
+  // Co-pilot records: keep whichever copy is newer, never duplicate.
+  let records = 0
+  for (const key of RECORD_KEYS) {
+    const rows = (parsed[key] ?? []) as { uuid: string; updatedAt?: string; time?: string }[]
+    if (rows.length === 0) continue
+    const table = db.table(key)
+    await db.transaction('rw', table, async () => {
+      for (const row of rows) {
+        const existing = (await table.get(row.uuid)) as { updatedAt?: string } | undefined
+        if (existing && (key === 'activity' || (existing.updatedAt ?? '') >= (row.updatedAt ?? ''))) continue
+        await table.put(row)
+        records++
+      }
+    })
+  }
+  logEvent(null, 'Backup restored', `${inspections} inspections, ${photos} photos, ${records} records added`)
+  return { inspections, photos, records }
 }
 
 export async function deleteInspection(id: number): Promise<void> {
-  await db.transaction('rw', db.inspections, db.photos, db.tombstones, async () => {
+  await db.transaction('rw', db.inspections, db.photos, db.tombstones, db.activity, async () => {
     const ins = await db.inspections.get(id)
     if (ins?.uuid) await db.tombstones.add({ table: 'inspections', uuid: ins.uuid })
+    await db.activity.add({
+      uuid: newUuid(),
+      time: new Date().toISOString(),
+      entity: 'audit',
+      entityUuid: ins?.uuid ?? String(id),
+      action: 'delete',
+      label: `Audit · ${ins?.info?.contractorNames || ins?.info?.facilityLocation || 'inspection'}`,
+      changes: [],
+    })
     const photoList = await db.photos.where('inspectionId').equals(id).toArray()
     for (const p of photoList) {
       if (p.uuid) await db.tombstones.add({ table: 'photos', uuid: p.uuid })

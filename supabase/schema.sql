@@ -50,3 +50,45 @@ create policy "own photo files" on storage.objects
   with check (
     bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ---------------------------------------------------------------------------
+-- Co-pilot records (tickets, contractors, monthly KPIs, manpower counts,
+-- weekly open-ticket counts). Same shape as inspections: whole record as JSON,
+-- last-write-wins by updated_at, soft deletes. Safe to re-run.
+-- ---------------------------------------------------------------------------
+do $$
+declare t text;
+begin
+  foreach t in array array['contractors', 'tickets', 'kpi_months', 'manpower', 'weekly_counts'] loop
+    execute format(
+      'create table if not exists public.%I (
+         uuid uuid primary key,
+         user_id uuid not null references auth.users (id) on delete cascade,
+         data jsonb not null,
+         updated_at timestamptz not null,
+         deleted boolean not null default false
+       )', t);
+    execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists "own rows" on public.%I', t);
+    execute format(
+      'create policy "own rows" on public.%I for all using (auth.uid() = user_id) with check (auth.uid() = user_id)',
+      t);
+  end loop;
+end $$;
+
+-- Activity log: append-only. Only insert + select policies exist, so rows can
+-- never be edited or deleted through the API.
+create table if not exists public.activity_log (
+  uuid uuid primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  time timestamptz not null,
+  data jsonb not null
+);
+create index if not exists activity_log_time_idx on public.activity_log (time);
+alter table public.activity_log enable row level security;
+drop policy if exists "own activity read" on public.activity_log;
+create policy "own activity read" on public.activity_log
+  for select using (auth.uid() = user_id);
+drop policy if exists "own activity add" on public.activity_log;
+create policy "own activity add" on public.activity_log
+  for insert with check (auth.uid() = user_id);

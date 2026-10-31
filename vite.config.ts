@@ -23,7 +23,7 @@ export default defineConfig({
         description:
           'Offline-first worker welfare inspection & audit checklists with photo observations and Excel/Word export.',
         theme_color: '#146c43',
-        background_color: '#f2f6f3',
+        background_color: '#f2f2f7',
         display: 'standalone',
         orientation: 'portrait',
         start_url: './',

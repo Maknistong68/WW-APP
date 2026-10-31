@@ -593,7 +593,7 @@ export default function ChecklistPage() {
     <>
       <div className={`top-stack${compact ? ' compact' : ''}`}>
         <header className="app-header">
-          <button className="back" onClick={() => navigate('/')} aria-label="Back">
+          <button className="back" onClick={() => navigate('/audits')} aria-label="Back">
             <Icon name="chevron-left" size={26} />
           </button>
           <h1>

@@ -16,11 +16,11 @@ import {
 // Assessment Questionnaire · Summary of observations · Photo Evidence.
 // Only the content (answers, observations, photos, general info) changes.
 
-const NAVY = 'FF003865'
+export const NAVY = 'FF003865'
 const GOLD = 'FFEBC03F'
 const CREAM = 'FFFEF8E3'
 const GRAY = 'FFCCCCCC'
-const WHITE = 'FFFFFFFF'
+export const WHITE = 'FFFFFFFF'
 
 const FMT_DATE_LONG = '[$-409]mmmm\\ d\\,\\ yyyy'
 const FMT_DATE_SHORT = '[$-409]d\\-mmm\\-yy;@'
@@ -29,15 +29,15 @@ const FMT_DATE_DDMMM = '[$-409]dd\\-mmm\\-yy;@'
 type Cell = ExcelJS.Cell
 
 const thin = { style: 'thin' as const }
-const BORDER = { top: thin, left: thin, bottom: thin, right: thin }
+export const BORDER = { top: thin, left: thin, bottom: thin, right: thin }
 
-const fill = (argb: string): ExcelJS.FillPattern => ({
+export const fill = (argb: string): ExcelJS.FillPattern => ({
   type: 'pattern',
   pattern: 'solid',
   fgColor: { argb },
 })
 
-const font = (opts: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({
+export const font = (opts: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({
   name: 'Arial',
   size: 10,
   ...opts,
@@ -49,7 +49,7 @@ const sheetTitle = (cell: Cell, text: string, center = false) => {
   if (center) cell.alignment = { horizontal: 'center', vertical: 'middle' }
 }
 
-const tableHeader = (cell: Cell, text: string) => {
+export const tableHeader = (cell: Cell, text: string) => {
   cell.value = text
   cell.font = font({ color: { argb: WHITE } })
   cell.fill = fill(NAVY)

@@ -155,7 +155,7 @@ export interface LogEntry {
 
 export interface Tombstone {
   id?: number
-  table: 'inspections' | 'photos'
+  table: 'inspections' | 'photos' | RecordTable
   uuid: string
 }
 
@@ -189,3 +189,113 @@ export const EVIDENCE_NOTES: string[] = [
   'NO DOCUMENTATION PROVIDED',
   'BASED ON WORKER INTERVIEWS',
 ]
+
+// ---------------------------------------------------------------------------
+// Co-pilot records (tickets, contractors, KPIs, manpower). All are keyed by
+// uuid locally and in Supabase, and every change goes through
+// lib/records.ts so the activity log writes itself.
+// ---------------------------------------------------------------------------
+
+/** Dexie table names of the uuid-keyed record tables (also the sync tables). */
+export type RecordTable = 'contractors' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts'
+
+interface RecordBase {
+  uuid: string
+  updatedAt: string
+}
+
+export interface Contractor extends RecordBase {
+  name: string
+  workOrder: string
+  active: boolean
+  /** Every other spelling of this contractor met in files or audits. */
+  aliases: string[]
+  notes: string
+}
+
+export type TicketSource = '' | 'Internal'
+export type TicketStatus = 'Open' | 'In progress' | 'Closed'
+
+export interface Ticket extends RecordBase {
+  source: TicketSource
+  /** ticket number, e.g. WWCMPL0009640. */
+  ticketNo: string
+  channel: string
+  contractorUuid: string
+  subcontractor: string
+  category: string
+  issue: string
+  /** 1 Critical · 2 High · 3 Moderate · 4 Low */
+  priority: number
+  severity: string
+  workers: number
+  violations: number
+  assignedTo: string
+  status: TicketStatus
+  /** YYYY-MM-DD */
+  openedAt: string
+  /** YYYY-MM-DD, set when closed */
+  closedAt: string
+  contractorAction: string
+  wwAction: string
+  notes: string
+}
+
+export interface KpiMonth extends RecordBase {
+  contractorUuid: string
+  /** YYYY-MM */
+  month: string
+  wps: boolean
+  manpowerDecl: boolean
+  salaryDecl: boolean
+  /** 0–100, null = not scored */
+  accommodationPct: number | null
+  onboardingPct: number | null
+  offboarded: number | null
+  offboardTotal: number | null
+  /** 0–100 */
+  meetingPct: number | null
+  quarterlyAuditPct: number | null
+  /** Percentages typed straight into the old Excel KPI tracker (import only). */
+  legacy?: { offboardingPct?: number | null; formalPct?: number | null }
+}
+
+export interface Manpower extends RecordBase {
+  contractorUuid: string
+  /** YYYY-MM */
+  month: string
+  totalWorkers: number
+  illegalOrFreelance: number
+  visaExpiring30d: number
+  paidRecruitmentFees: number
+}
+
+/** Open tickets counted in one weekly snapshot (imported history). */
+export interface WeeklyCount extends RecordBase {
+  /** YYYY-MM-DD */
+  weekEnding: string
+  openTickets: number
+}
+
+export type ActivityEntity = 'ticket' | 'contractor' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import'
+export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'import'
+
+export interface ActivityChange {
+  field: string
+  from: unknown
+  to: unknown
+}
+
+/** Append-only activity log entry. */
+export interface ActivityEntry {
+  uuid: string
+  time: string
+  entity: ActivityEntity
+  entityUuid: string
+  action: ActivityAction
+  /** Short human label, e.g. "RPCO · Salary not received". */
+  label: string
+  changes: ActivityChange[]
+  /** Set once the entry reached Supabase. */
+  synced?: boolean
+}

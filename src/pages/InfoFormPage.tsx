@@ -228,7 +228,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
     </div>
   )
 
-  const backTo = mode === 'edit' ? `/inspection/${inspectionId}` : '/'
+  const backTo = mode === 'edit' ? `/inspection/${inspectionId}` : '/audits'
 
   return (
     <>

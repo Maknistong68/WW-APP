@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
-import { db } from '../db'
+import { saveAs } from 'file-saver'
+import { createBackup, db, restoreBackup } from '../db'
 import {
   getClient,
   getSyncConfig,
@@ -11,6 +12,7 @@ import {
   syncNow,
 } from '../lib/sync'
 import Icon from '../components/Icon'
+import Page from '../components/Page'
 import { showToast } from '../components/Toast'
 import { canInstall, isIos, isStandalone, onInstallChange, promptInstall } from '../lib/installPrompt'
 
@@ -30,6 +32,37 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState(false)
   const [lastSync, setLastSync] = useState(lastSyncAt())
   const [installable, setInstallable] = useState(canInstall())
+
+  const restoreRef = useRef<HTMLInputElement>(null)
+  const activityCount = useLiveQuery(() => db.activity.count())
+
+  const doBackup = async () => {
+    setBusy(true)
+    try {
+      const { blob, fileName } = await createBackup()
+      saveAs(blob, fileName)
+      showToast({ text: `Backup saved: ${fileName}. Keep it in Drive or email.`, duration: 6000 })
+    } catch (err) {
+      showToast({ text: `Backup failed: ${err instanceof Error ? err.message : String(err)}` })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const doRestore = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    try {
+      const r = await restoreBackup(file)
+      showToast({ text: `Restored ${r.inspections} audits, ${r.photos} photos, ${r.records} records` })
+    } catch (err) {
+      showToast({ text: `Restore failed: ${err instanceof Error ? err.message : String(err)}`, duration: 7000 })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const logs = useLiveQuery(() => db.logs.orderBy('time').reverse().limit(100).toArray())
 
@@ -116,9 +149,11 @@ export default function SettingsPage() {
       } else {
         showToast({
           text:
-            up + down + r.deleted === 0
+            up + down + r.deleted + r.records === 0
               ? 'Already up to date'
-              : `Synced: ${up} sent, ${down} received${r.deleted ? `, ${r.deleted} removed` : ''}`,
+              : `Synced: ${up} sent, ${down} received${r.records ? `, ${r.records} records` : ''}${
+                  r.deleted ? `, ${r.deleted} removed` : ''
+                }`,
         })
       }
     } catch (err) {
@@ -129,14 +164,44 @@ export default function SettingsPage() {
   }
 
   return (
-    <>
-      <header className="app-header">
-        <button className="back" onClick={() => navigate('/')} aria-label="Back">
-          <Icon name="chevron-left" size={26} />
-        </button>
-        <h1>Settings</h1>
-      </header>
-      <main className="page">
+    <Page title="Settings" back=".." backLabel="Back">
+        <div className="section-label">Your data</div>
+        <div className="list">
+          <button className="row" onClick={() => navigate('/settings/import')}>
+            <span className="row-icon">
+              <Icon name="inbox" size={18} />
+            </span>
+            <span className="row-main">Import history</span>
+            <span className="row-chev">
+              <Icon name="chevron-right" size={18} />
+            </span>
+          </button>
+          <button className="row" onClick={() => navigate('/settings/log')}>
+            <span className="row-icon">
+              <Icon name="activity" size={18} />
+            </span>
+            <span className="row-main">Activity log</span>
+            <span className="row-trail">{activityCount ?? ''}</span>
+            <span className="row-chev">
+              <Icon name="chevron-right" size={18} />
+            </span>
+          </button>
+          <button className="row" disabled={busy} onClick={() => void doBackup()}>
+            <span className="row-icon">
+              <Icon name="download" size={18} />
+            </span>
+            <span className="row-main">Save backup file</span>
+          </button>
+          <button className="row" disabled={busy} onClick={() => restoreRef.current?.click()}>
+            <span className="row-icon">
+              <Icon name="upload" size={18} />
+            </span>
+            <span className="row-main">Restore backup file</span>
+          </button>
+        </div>
+        <input ref={restoreRef} type="file" accept="application/json,.json" hidden onChange={doRestore} />
+        <div className="list-foot">Backup = everything: audits, photos, tickets, contractors, KPIs, log.</div>
+
         <div className="section-label">App</div>
         <div className="card">
           {isStandalone() ? (
@@ -167,7 +232,7 @@ export default function SettingsPage() {
           {!config ? (
             <>
               <p className="note" style={{ marginTop: 0 }}>
-                Optional: back up and sync your inspections to your own free Supabase database, so
+                Optional: back up and sync everything (audits, tickets, contractors, KPIs, activity log) to your own free Supabase database, so
                 nothing is lost with the phone and you can work from any device. One-time setup: create a
                 project at supabase.com, run <code>supabase/schema.sql</code> (in this app's repository) in
                 its SQL Editor, then paste the project's URL and anon key here (Supabase → Settings → API).
@@ -261,7 +326,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        <div className="section-label">Activity log</div>
+        <div className="section-label">Sync &amp; system log</div>
         <div className="card" style={{ padding: 0 }}>
           {!logs || logs.length === 0 ? (
             <div className="empty">Nothing logged yet. Actions like edits, exports, backups and syncs appear here.</div>
@@ -289,7 +354,6 @@ export default function SettingsPage() {
             </>
           )}
         </div>
-      </main>
-    </>
+    </Page>
   )
 }
