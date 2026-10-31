@@ -17,6 +17,54 @@ import Page from '../components/Page'
 import { showToast } from '../components/Toast'
 import { canInstall, isIos, isStandalone, onInstallChange, promptInstall } from '../lib/installPrompt'
 
+const RECOVERY_KEY = 'ww.passwordRecovery'
+
+/** Password field with a show / hide eye. */
+function PasswordInput({
+  value,
+  onChange,
+  autoComplete,
+}: {
+  value: string
+  onChange: (v: string) => void
+  autoComplete: string
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        autoComplete={autoComplete}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        style={{ paddingRight: 48 }}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        aria-label={show ? 'Hide password' : 'Show password'}
+        onClick={() => setShow(!show)}
+        style={{
+          position: 'absolute',
+          right: 6,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          border: 'none',
+          background: 'none',
+          fontSize: 20,
+          padding: 8,
+          cursor: 'pointer',
+          opacity: show ? 1 : 0.6,
+        }}
+      >
+        👁
+      </button>
+    </div>
+  )
+}
+
 const fmtTime = (iso: string) => {
   const d = new Date(iso)
   return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
@@ -30,6 +78,9 @@ export default function SettingsPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [newPassword2, setNewPassword2] = useState('')
+  const [recovering, setRecovering] = useState(() => localStorage.getItem(RECOVERY_KEY) === '1')
   const [busy, setBusy] = useState(false)
   const [lastSync, setLastSync] = useState(lastSyncAt())
   const [installable, setInstallable] = useState(canInstall())
@@ -80,7 +131,10 @@ export default function SettingsPage() {
     void getClient().then((c) => {
       if (!c) return
       void c.auth.getSession().then(({ data }) => setSession(data.session))
-      const { data: sub } = c.auth.onAuthStateChange((_e, s) => setSession(s))
+      const { data: sub } = c.auth.onAuthStateChange((e, s) => {
+        setSession(s)
+        if (e === 'PASSWORD_RECOVERY') setRecovering(true)
+      })
       unsub = () => sub.subscription.unsubscribe()
     })
     return () => unsub?.()
@@ -111,6 +165,55 @@ export default function SettingsPage() {
     showToast({ text: 'Cloud sync disconnected. Your local data is untouched.' })
   }
 
+  const authError = (err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/invalid login credentials/i.test(msg)) {
+      return 'Wrong email or password. Tap 👁 to check what is typed, or use "Forgot password".'
+    }
+    return msg
+  }
+
+  const forgotPassword = async () => {
+    const c = await getClient()
+    if (!c) return
+    if (!email.trim()) return showToast({ text: 'Type your email first, then tap Forgot password' })
+    setBusy(true)
+    try {
+      const { error } = await c.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}${window.location.pathname}`,
+      })
+      if (error) throw error
+      localStorage.setItem(RECOVERY_KEY, '1')
+      showToast({ text: 'Reset link sent — open it on this phone to set a new password.', duration: 9000 })
+    } catch (err) {
+      showToast({ text: authError(err), duration: 8000 })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const changePassword = async () => {
+    const c = await getClient()
+    if (!c) return
+    const pw = newPassword.trim()
+    if (pw.length < 8) return showToast({ text: 'Use at least 8 characters' })
+    if (pw !== newPassword2.trim()) return showToast({ text: 'The two passwords are different' })
+    setBusy(true)
+    try {
+      const { error } = await c.auth.updateUser({ password: pw })
+      if (error) throw error
+      localStorage.removeItem(RECOVERY_KEY)
+      setRecovering(false)
+      setNewPassword('')
+      setNewPassword2('')
+      showToast({ text: 'Password changed. Use the new one next time you sign in.', duration: 6000 })
+    } catch (err) {
+      showToast({ text: authError(err), duration: 8000 })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const signIn = async (create: boolean) => {
     const c = await getClient()
     if (!c) return
@@ -119,7 +222,7 @@ export default function SettingsPage() {
       if (create) {
         const { error } = await c.auth.signUp({
           email: email.trim(),
-          password,
+          password: password.trim(),
           // Confirmation link opens this app, not Supabase's default localhost URL.
           options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
         })
@@ -129,12 +232,12 @@ export default function SettingsPage() {
           duration: 9000,
         })
       } else {
-        const { error } = await c.auth.signInWithPassword({ email: email.trim(), password })
+        const { error } = await c.auth.signInWithPassword({ email: email.trim(), password: password.trim() })
         if (error) throw error
         showToast({ text: 'Signed in' })
       }
     } catch (err) {
-      showToast({ text: err instanceof Error ? err.message : String(err), duration: 7000 })
+      showToast({ text: authError(err), duration: 8000 })
     } finally {
       setBusy(false)
     }
@@ -284,12 +387,7 @@ export default function SettingsPage() {
               </div>
               <div className="field">
                 <label>Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                />
+                <PasswordInput value={password} onChange={setPassword} autoComplete="current-password" />
               </div>
               <div className="btn-row">
                 <button className="btn primary" disabled={busy || !email || !password} onClick={() => void signIn(false)}>
@@ -299,6 +397,9 @@ export default function SettingsPage() {
                   Create account
                 </button>
               </div>
+              <button className="details-toggle" disabled={busy} onClick={() => void forgotPassword()}>
+                Forgot password? Email me a reset link
+              </button>
               {!usingBuiltInConfig() && (
                 <button className="details-toggle" onClick={() => void disconnect()}>
                   Disconnect this project
@@ -333,6 +434,24 @@ export default function SettingsPage() {
                   </button>
                 )}
               </div>
+              <div className="section-label" style={{ marginLeft: 0 }}>
+                {recovering ? 'Set a new password' : 'Change password'}
+              </div>
+              <div className="field">
+                <label>New password</label>
+                <PasswordInput value={newPassword} onChange={setNewPassword} autoComplete="new-password" />
+              </div>
+              <div className="field">
+                <label>Repeat new password</label>
+                <PasswordInput value={newPassword2} onChange={setNewPassword2} autoComplete="new-password" />
+              </div>
+              <button
+                className={`btn block${recovering ? ' primary' : ''}`}
+                disabled={busy || !newPassword}
+                onClick={() => void changePassword()}
+              >
+                Save new password
+              </button>
             </>
           )}
         </div>

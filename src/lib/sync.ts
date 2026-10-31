@@ -61,7 +61,9 @@ export async function getClient(): Promise<SupabaseClient | null> {
   const cfg = getSyncConfig()
   if (!cfg) return null
   const { createClient } = await import('@supabase/supabase-js')
-  client = createClient(cfg.url, cfg.anonKey)
+  // PKCE: email links (confirm, password reset) come back as ?code=…, which
+  // works with the app's hash routes; the client exchanges it on startup.
+  client = createClient(cfg.url, cfg.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true } })
   return client
 }
 
