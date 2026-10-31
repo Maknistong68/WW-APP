@@ -10,7 +10,21 @@ import { buildTodo, type TodoCard } from '../lib/todo'
 import { newTicket } from '../lib/useData'
 import type { Ticket } from '../types'
 
-/** One icon tile: the number of things to do on the corner, colour = urgency. */
+/** Short names under the tiles. */
+const SHORT: Record<string, string> = {
+  submission: 'Submission',
+  grievance: 'Tickets',
+  closure: 'Closure',
+  camps: 'Camps',
+  accommodation: 'Accomm.',
+  onboarding: 'Onboarding',
+  offboarding: 'Offboarding',
+  formal: 'Formal',
+  meeting: 'Meeting',
+  quarterly: 'Quarterly',
+}
+
+/** One icon tile with its name; the number of things to do on the corner, colour = urgency. */
 function Tile({ c }: { c: TodoCard }) {
   const navigate = useNavigate()
   const timer = useRef<number | undefined>(undefined)
@@ -21,7 +35,7 @@ function Tile({ c }: { c: TodoCard }) {
 
   return (
     <button
-      className={`tile ${tone}`}
+      className="tile-app"
       aria-label={name}
       title={name}
       onPointerDown={() => {
@@ -39,13 +53,16 @@ function Tile({ c }: { c: TodoCard }) {
         navigate(c.to)
       }}
     >
-      <Icon name={c.todo === 0 ? 'check' : c.icon} size={30} strokeWidth={2} />
-      {c.todo > 0 && <span className={`tile-badge ${tone}`}>{c.todo > 99 ? '99+' : c.todo}</span>}
+      <span className={`tile ${tone}`}>
+        <Icon name={c.todo === 0 ? 'check' : c.icon} size={30} strokeWidth={2} />
+        {c.todo > 0 && <span className={`tile-badge ${tone}`}>{c.todo > 99 ? '99+' : c.todo}</span>}
+      </span>
+      <span className="tile-name">{SHORT[c.key] ?? c.title}</span>
     </button>
   )
 }
 
-/** Home: the monthly routine as icon tiles, alerts first. */
+/** Home: the monthly routine as named icon tiles, alerts first. */
 export default function TodoPage() {
   const d = useAllData()
   const [adding, setAdding] = useState<Ticket | null>(null)
@@ -54,7 +71,7 @@ export default function TodoPage() {
 
   return (
     <Page
-      title="To-do"
+      title="Home"
       actions={
         <>
           <button className="nav-btn" aria-label="New ticket" onClick={() => setAdding(newTicket())}>
@@ -73,7 +90,7 @@ export default function TodoPage() {
         ))}
       </div>
       <div className="list-foot" style={{ textAlign: 'center' }}>
-        Tap a tile to fix it · hold it to see what it is
+        Tap to open · hold for details
       </div>
       {adding && <TicketSheet ticket={adding} onClose={() => setAdding(null)} />}
     </Page>

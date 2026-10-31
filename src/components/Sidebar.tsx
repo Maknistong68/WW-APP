@@ -54,7 +54,7 @@ export default function Sidebar() {
   }, [d])
 
   const items: Item[] = [
-    { path: '/', label: 'To-do', icon: 'check', badge: badges.todo },
+    { path: '/', label: 'Home', icon: 'home', badge: badges.todo },
     { path: '/tickets', label: 'Tickets', icon: 'ticket', badge: badges.late },
     { path: '/contractors', label: 'Contractors', icon: 'users' },
     { path: '/camps', label: 'Camps', icon: 'tent', badge: badges.camps },

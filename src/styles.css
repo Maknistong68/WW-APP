@@ -1188,9 +1188,33 @@ button.row:active { background: var(--gray-bg); }
 .side-foot { margin-top: auto; padding: 14px 12px 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
 
 /* To-do icon tiles */
-.tile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+.tile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 10px; margin-bottom: 14px; }
+.tile-app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.tile-name {
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .tile {
   position: relative;
+  width: 100%;
   aspect-ratio: 1;
   border: none;
   border-radius: 18px;
@@ -1204,7 +1228,7 @@ button.row:active { background: var(--gray-bg); }
   user-select: none;
   transition: transform 0.12s ease;
 }
-.tile:active { transform: scale(0.94); }
+.tile-app:active .tile { transform: scale(0.94); }
 .tile.bad { background: var(--red-bg); color: var(--red); }
 .tile.warn { background: var(--amber-bg); color: var(--amber); }
 .tile.todo { background: var(--card); color: var(--brand); }

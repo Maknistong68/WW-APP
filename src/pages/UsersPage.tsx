@@ -58,7 +58,7 @@ export default function UsersPage() {
 
   if (me.role !== 'admin') {
     return (
-      <Page title="Users" back="/" backLabel="To-do">
+      <Page title="Users" back="/" backLabel="Home">
         <div className="empty-state">
           <b>Admins only</b>
         </div>

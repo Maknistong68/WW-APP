@@ -85,7 +85,7 @@ export default function CampSheet({ camp, onClose }: { camp: Camp; onClose: () =
             />
           </label>
         </div>
-        <div className="list-foot">Shows as expired on To-do when not inspected within the cycle (default 90 days).</div>
+        <div className="list-foot">Shows as expired on Home when not inspected within the cycle (default 90 days).</div>
       </div>
     </Modal>
   )
