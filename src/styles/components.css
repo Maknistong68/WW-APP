@@ -36,7 +36,7 @@
 .card-title svg { color: var(--brand); flex-shrink: 0; }
 /* the heading sits outside the card, like One UI's group titles */
 .clist { margin-bottom: 18px; }
-.clist-head { display: flex; align-items: center; gap: 8px; margin: 0; padding: 4px 8px 10px; font-size: 15px; font-weight: 700; color: var(--muted); }
+.clist-head { display: flex; align-items: center; gap: 8px; margin: 0; padding: 4px 0 10px; font-size: 15px; font-weight: 700; color: var(--muted); }
 .clist-count { font-variant-numeric: tabular-nums; color: var(--faint); font-weight: 600; }
 .clist-body { overflow: hidden; }
 

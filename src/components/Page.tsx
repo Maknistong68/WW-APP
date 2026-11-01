@@ -7,10 +7,10 @@ import { useGoBack } from '../lib/nav'
 import { onScrollSettled, snapSuppressed, subscribeScrollY } from '../lib/scroll'
 
 /**
- * Screen frame in One UI style: a tall title area (big title low, within
- * thumb reach) that collapses into a pinned toolbar as you scroll, and snaps
- * open or shut when you stop halfway. Main screens show your avatar (opens
- * the profile drawer), others a back button.
+ * Screen frame in One UI style: a slim top row (Back or your avatar, the
+ * screen's buttons) with the big title under it. Scrolling tucks the title
+ * into the top row, which turns blurred; stopping halfway snaps it open or
+ * shut. Title, avatar and Back line up with the cards' edges.
  */
 export default function Page({
   title,
@@ -50,13 +50,15 @@ export default function Page({
     const hero = heroRef.current
     let travel = 0
     let last = ''
+    // The title area sits under the top row, so it is gone after scrolling its own height.
     const measure = () => {
-      travel = hero ? Math.max(0, hero.offsetHeight - (parseFloat(getComputedStyle(bar).top) || 0)) : 0
+      travel = hero ? hero.offsetHeight : 0
     }
     const update = (y: number) => {
-      // 0 = title area open … 1 = collapsed into the toolbar
+      // 0 = big title showing … 1 = title tucked into the top row
       const p = expandable ? (travel ? Math.min(1, Math.max(0, y / travel)) : 1) : album ? Math.min(1, Math.max(0, (y - 40) / 40)) : 1
-      const collapsed = y > 4 && (!expandable || !travel || p >= 1)
+      // the bar turns solid as soon as anything slides under it
+      const collapsed = y > 2
       const key = `${p.toFixed(3)}|${collapsed}`
       if (key === last) return
       last = key
@@ -93,16 +95,9 @@ export default function Page({
 
   return (
     <div className={`screen${expandable ? ' has-hero' : ''}${back ? ' detail' : ''}`}>
-      <div className="statusbar-scrim" aria-hidden="true" />
-      {expandable && (
-        <div className="appbar-hero" ref={heroRef}>
-          <h1 className="large-title">{title}</h1>
-          {subtitle && <p className="large-sub">{subtitle}</p>}
-        </div>
-      )}
       <header className="nav-bar" ref={barRef}>
         {back && (
-          <button className="round-btn" onClick={() => goBack(back)} aria-label={`Back to ${backLabel}`}>
+          <button className="round-btn lead" onClick={() => goBack(back)} aria-label={`Back to ${backLabel}`}>
             <Icon name="chevron-left" size={24} strokeWidth={2.4} />
           </button>
         )}
@@ -112,6 +107,12 @@ export default function Page({
         <div className="nav-side right">{actions}</div>
         {!back && avatar}
       </header>
+      {expandable && (
+        <div className="appbar-hero" ref={heroRef}>
+          <h1 className="large-title">{title}</h1>
+          {subtitle && <p className="large-sub">{subtitle}</p>}
+        </div>
+      )}
       <main className="page">{children}</main>
     </div>
   )

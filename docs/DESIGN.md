@@ -73,16 +73,19 @@ per screen.
   Never below 13. Sentence case, no ALL-CAPS labels.
 
 ## Chrome
-- **Expandable app bar** (`Page`):
-  - main screens open with a tall title area, about a quarter of the screen
-    (`clamp(112px, 18svh, 190px)`; detail screens `clamp(88px, 12svh, 140px)`);
-  - the big title sits low, with an optional `subtitle` (Today shows the date);
-  - the toolbar row underneath holds Back or the avatar, the actions, and the small title;
-  - scrolling collapses the area into that toolbar, which pins with a blurred background;
-  - stopping halfway snaps it open or shut;
-  - there is no title area in landscape or below 640px height;
-  - `album` screens (their own summary card) have no title area, and the small title fades in
-    on scroll.
+- **App bar** (`Page`):
+  - a slim sticky top row holds Back (detail screens) or the avatar (main screens, always last)
+    and the screen's buttons;
+  - the big title, with an optional `subtitle` (Today shows the date), sits right under it;
+  - scrolling tucks the title into the top row (the small title fades in), and the row turns
+    blurred as soon as anything slides under it;
+  - stopping halfway snaps the title open or shut;
+  - `album` screens (their own summary card) have the top row only, and the small title fades
+    in on scroll.
+- **Two edges only.** The big title, group titles, notes, the avatar and the Back chevron sit
+  on the cards' edge (`--gutter`; centred 720px column on wide screens). Card contents use the
+  card's inner padding. Icon buttons are pulled out by their 10px inner padding so the glyph,
+  not the tap area, meets the edge.
 - **Tab bar:**
   - a floating, blurred pill holds Home · Tickets · Dashboard · Library, with a green highlight
     that slides (a gentle spring) to the selected tab;
