@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useShownLocation } from './RouteTransition'
 import Icon, { type IconName } from './Icon'
@@ -7,6 +7,7 @@ import { campState } from '../lib/camps'
 import { useAllData } from '../lib/kpiData'
 import { lastSyncAt } from '../lib/sync'
 import { pendingCount } from '../pages/UsersPage'
+import { usePresence } from '../lib/usePresence'
 
 const OPEN_EVENT = 'ww:sidebar'
 /** Open the drawer from anywhere (the avatar button). */
@@ -28,6 +29,15 @@ export default function Sidebar() {
   const { pathname } = useShownLocation()
   const me = useAuthInfo()
   const d = useAllData()
+  const { mounted, closing } = usePresence(open, 200)
+  const after = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(after.current), [])
+  /** Close first, then go: the drawer is gone before the screen slides. */
+  const go = (path: string) => {
+    setOpen(false)
+    window.clearTimeout(after.current)
+    after.current = window.setTimeout(() => navigate(path), 160)
+  }
 
   useEffect(() => {
     const on = () => setOpen(true)
@@ -62,9 +72,9 @@ export default function Sidebar() {
   const active = (p: string) => (p === '/' ? pathname === '/' : pathname === p || (p !== '/settings' && pathname.startsWith(`${p}/`)))
   const sync = lastSyncAt()
 
-  if (!open) return null
+  if (!mounted) return null
   return (
-    <div className="side-backdrop" onClick={() => setOpen(false)}>
+    <div className={`side-backdrop${closing ? ' closing' : ''}`} onClick={() => setOpen(false)}>
       <nav className="sidebar" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
         <div className="side-profile">
           <span className="side-avatar" aria-hidden="true">
@@ -86,7 +96,7 @@ export default function Sidebar() {
               key={i.path}
               className={`side-item${active(i.path) ? ' active' : ''}`}
               aria-current={active(i.path) ? 'page' : undefined}
-              onClick={() => navigate(i.path)}
+              onClick={() => go(i.path)}
             >
               <Icon name={i.icon} size={22} />
               <span className="side-label">{i.label}</span>

@@ -59,7 +59,9 @@ export default function NavProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const from = shownRef.current.location
-    if (location.key === from.key) return // first mount (and StrictMode's second run)
+    // Same object = nothing new (first mount, StrictMode's second run). Keys
+    // alone can't tell: hash changes made outside the router all use 'default'.
+    if (location === from) return
     const toIdx = historyIdx()
     const browserAnimated = takeBrowserAnimated()
     const kind = navKind({

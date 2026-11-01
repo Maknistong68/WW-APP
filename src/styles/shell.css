@@ -171,6 +171,7 @@ body.has-actionbar .tabbar { display: none; }
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--sheet); border-radius: var(--r-panel); box-shadow: var(--shadow-panel);
   animation: sheetIn var(--dur-in) var(--ease-90);
+  transition: transform var(--dur-med) var(--ease-90);
 }
 .modal-backdrop.closing .modal { transform: translateY(32px); opacity: 0; transition: transform var(--dur-out) var(--ease-exit), opacity var(--dur-out) var(--ease-exit); }
 .modal-head { position: relative; display: flex; align-items: center; gap: 4px; padding: 22px 10px 8px 22px; touch-action: none; }

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import Modal from './Modal'
+import { useState, useRef } from 'react'
+import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { saveRecord } from '../lib/records'
 import { db } from '../db'
@@ -18,6 +18,7 @@ export default function ContractorSheet({
   const [aliases, setAliases] = useState(contractor.aliases.join(', '))
   const isNew = !contractor.updatedAt
 
+  const sheet = useRef<ModalHandle>(null)
   const save = async () => {
     const name = c.name.trim()
     if (!name) {
@@ -34,11 +35,14 @@ export default function ContractorSheet({
     }
     const saved = await saveRecord('contractors', rec, name)
     onSaved?.(saved)
-    onClose()
+    // slide the sheet away, then close
+    if (sheet.current) sheet.current.close()
+    else onClose()
   }
 
   return (
     <Modal
+      ref={sheet}
       title={isNew ? 'New contractor' : 'Edit contractor'}
       onClose={onClose}
       header={
@@ -91,6 +95,7 @@ export function WorkOrderSheet({
 }) {
   const [w, setW] = useState(workOrder)
   const isNew = !workOrder.updatedAt
+  const sheet = useRef<ModalHandle>(null)
   const save = async () => {
     const number = w.number.trim()
     if (!number) return showToast({ text: 'Work order number is required' })
@@ -102,10 +107,12 @@ export function WorkOrderSheet({
     if (dup) return showToast({ text: `WO ${number} already exists for ${contractor.name}` })
     await saveRecord('workOrders', { ...w, number, label: w.label.trim() }, `${contractor.name} · WO ${number}`)
     showToast({ text: isNew ? 'Work order added' : 'Work order saved' })
-    onClose()
+    if (sheet.current) sheet.current.close()
+    else onClose()
   }
   return (
     <Modal
+      ref={sheet}
       title={isNew ? 'New work order' : `WO ${workOrder.number}`}
       onClose={onClose}
       header={

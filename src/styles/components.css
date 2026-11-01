@@ -128,9 +128,9 @@ button.hero { cursor: pointer; width: 100%; }
   animation: barIn var(--dur-in) var(--ease-90);
 }
 .actionbar-main {
-  flex: 1; min-height: 54px; border: none; border-radius: var(--r-btn);
+  flex: 1; min-width: 0; min-height: 54px; padding: 0 16px; border: none; border-radius: var(--r-btn);
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  background: var(--brand); color: var(--brand-ink); font: 700 17px var(--font); cursor: pointer;
+  background: var(--brand); color: var(--brand-ink); font: 700 16px/1.2 var(--font); cursor: pointer; text-wrap: balance;
 }
 .actionbar-icon {
   flex: none; width: 54px; height: 54px; border-radius: 50%; border: none;

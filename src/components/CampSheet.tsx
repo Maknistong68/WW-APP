@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import Modal from './Modal'
+import { useState, useRef } from 'react'
+import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { saveRecord } from '../lib/records'
 import { useContractors } from '../lib/useData'
@@ -12,16 +12,20 @@ export default function CampSheet({ camp, onClose }: { camp: Camp; onClose: () =
   const isNew = !camp.updatedAt
   const wos = workOrders.filter((w) => w.contractorUuid === c.contractorUuid)
 
+  const sheet = useRef<ModalHandle>(null)
   const save = async () => {
     const name = c.name.trim()
     if (!name) return showToast({ text: 'Camp name is required' })
     await saveRecord('camps', { ...c, name, location: c.location.trim(), cycleDays: c.cycleDays || 90 }, name)
     showToast({ text: isNew ? 'Camp added' : 'Camp saved' })
-    onClose()
+    // slide the sheet away, then close
+    if (sheet.current) sheet.current.close()
+    else onClose()
   }
 
   return (
     <Modal
+      ref={sheet}
       title={isNew ? 'New camp' : 'Edit camp'}
       onClose={onClose}
       header={

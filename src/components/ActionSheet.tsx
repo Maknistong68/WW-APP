@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Icon, { type IconName } from './Icon'
+import { EXIT_MS, reducedMotion } from '../lib/motion'
 
 export interface SheetAction {
   label: string
@@ -55,12 +56,15 @@ export default function ActionSheetHost({ canEdit }: { canEdit: boolean }) {
   }, [spec])
 
   const close = (then?: () => void) => {
-    setClosing(true)
-    window.setTimeout(() => {
+    if (closing) return
+    const done = () => {
       setSpec(null)
       setClosing(false)
       then?.()
-    }, 150)
+    }
+    if (reducedMotion()) return done()
+    setClosing(true)
+    window.setTimeout(done, EXIT_MS)
   }
 
   if (!spec) return null
@@ -80,11 +84,13 @@ export default function ActionSheetHost({ canEdit }: { canEdit: boolean }) {
         onPointerMove={(e) => {
           if (!drag.current || !sheet.current) return
           drag.current.dy = Math.max(0, e.clientY - drag.current.y)
+          sheet.current.style.transition = 'none'
           sheet.current.style.transform = `translateY(${drag.current.dy}px)`
         }}
         onPointerUp={() => {
           if (!drag.current || !sheet.current) return
           const far = drag.current.dy > 80
+          sheet.current.style.transition = ''
           sheet.current.style.transform = ''
           drag.current = null
           if (far) close()

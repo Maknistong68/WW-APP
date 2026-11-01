@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import Modal from './Modal'
+import { useState, useRef } from 'react'
+import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import Icon from './Icon'
 import { saveRecord } from '../lib/records'
@@ -42,6 +42,7 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
   const addingContractor = t.contractorUuid === NEW
   const cWos = workOrders.filter((w) => w.contractorUuid === t.contractorUuid)
 
+  const sheet = useRef<ModalHandle>(null)
   const save = async () => {
     let rec = { ...t, ticketNo: t.ticketNo.trim().toUpperCase() }
     if (addingContractor) {
@@ -58,11 +59,14 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
     if (!rec.issue) return showToast({ text: 'Pick an issue' })
     await saveRecord('tickets', rec, ticketLabel(rec, byUuid))
     showToast({ text: isNew ? 'Ticket added' : 'Ticket saved' })
-    onClose()
+    // slide the sheet away, then close
+    if (sheet.current) sheet.current.close()
+    else onClose()
   }
 
   return (
     <Modal
+      ref={sheet}
       title={isNew ? 'New ticket' : 'Edit ticket'}
       onClose={onClose}
       header={
@@ -248,6 +252,7 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
   const [contractorAction, setContractorAction] = useState(ticket.contractorAction)
   const [date, setDate] = useState(localDate())
 
+  const sheet = useRef<ModalHandle>(null)
   const save = async () => {
     if (date < ticket.openedAt) return showToast({ text: 'Closing date is before the opening date' })
     await saveRecord(
@@ -257,11 +262,14 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
       'close',
     )
     showToast({ text: 'Ticket closed' })
-    onClose()
+    // slide the sheet away, then close
+    if (sheet.current) sheet.current.close()
+    else onClose()
   }
 
   return (
     <Modal
+      ref={sheet}
       title="Close ticket"
       onClose={onClose}
       header={

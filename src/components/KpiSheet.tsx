@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import Modal from './Modal'
+import { useState, useRef } from 'react'
+import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { saveRecord } from '../lib/records'
 import { monthLabel, shortDate } from '../lib/dates'
@@ -60,6 +60,7 @@ export default function KpiSheet({
   const set = <F extends keyof KpiMonth>(f: F, v: KpiMonth[F]) => setK((p) => ({ ...p, [f]: v }))
   const closeout = closeoutState(k)
 
+  const sheet = useRef<ModalHandle>(null)
   const save = async () => {
     if (k.offboarded !== null && k.offboardTotal !== null && k.offboarded > k.offboardTotal) {
       return showToast({ text: 'Offboarded can’t be more than the total' })
@@ -69,11 +70,14 @@ export default function KpiSheet({
     }
     await saveRecord('kpiMonths', k, `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
     showToast({ text: 'KPIs saved' })
-    onClose()
+    // slide the sheet away, then close
+    if (sheet.current) sheet.current.close()
+    else onClose()
   }
 
   return (
     <Modal
+      ref={sheet}
       title={`${monthLabel(k.month)} · ${subjectLabel.replace(`${contractor.name} · `, '')}`}
       onClose={onClose}
       header={
@@ -170,15 +174,18 @@ export function ManpowerSheet({
       <input inputMode="numeric" value={String(m[f])} onChange={(e) => setM({ ...m, [f]: num(e.target.value) ?? 0 })} />
     </label>
   )
+  const sheet = useRef<ModalHandle>(null)
   const save = async () => {
     const over = (['illegalOrFreelance', 'visaExpiring30d', 'paidRecruitmentFees'] as const).some((f) => m[f] > m.totalWorkers)
     if (over) return showToast({ text: 'Counts can’t be more than total workers' })
     await saveRecord('manpower', m, `${subjectLabel} · ${monthLabel(m.month)} manpower`)
     showToast({ text: 'Manpower saved' })
-    onClose()
+    if (sheet.current) sheet.current.close()
+    else onClose()
   }
   return (
     <Modal
+      ref={sheet}
       title={`${monthLabel(m.month)} manpower · ${subjectLabel}`}
       onClose={onClose}
       header={
