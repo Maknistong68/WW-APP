@@ -10,6 +10,7 @@ import { haptic } from '../lib/haptics'
 import { kpiStatus, pct, type KpiResult } from '../lib/kpi'
 import { campActions, inspectionActions, ticketActions, workOrderActions, type MenuAction } from '../lib/menuSpec'
 import { sarShort } from '../lib/money'
+import { ticketLink } from '../lib/ticketFilter'
 import { saveRecord } from '../lib/records'
 import type { KpiSubject } from '../lib/subjects'
 import { kpiTone, ticketTone, type Tone } from '../lib/tone'
@@ -87,7 +88,7 @@ export function ticketMenu(
   })
 }
 
-/** Long-press on a contractor: fill in a work order's month, edit. */
+/** Long-press on a contractor: its trends and tickets, fill in a work order's month, edit. */
 export function contractorMenu(
   c: Contractor,
   o: { subjects: KpiSubject[]; kpi?: KpiResult; kpiMonth: string; openTickets?: number; spark?: (number | null)[] },
@@ -106,6 +107,8 @@ export function contractorMenu(
       ...(o.openTickets !== undefined ? [{ label: 'Open tickets', value: o.openTickets }] : []),
     ],
     actions: [
+      { label: 'See trends', icon: 'activity', onSelect: () => go(`/contractors/${c.uuid}?tab=trends`) },
+      { label: 'Open tickets', icon: 'ticket', onSelect: () => go(ticketLink({ c: c.uuid, f: 'open' }, `/contractors/${c.uuid}`)) },
       ...o.subjects.slice(0, 4).map((s) => ({
         label: `Fill in ${short(month)}${s.workOrder ? ` · WO ${s.workOrder.number}` : ''}`,
         icon: 'gauge' as const,
@@ -117,7 +120,7 @@ export function contractorMenu(
   })
 }
 
-/** Long-press on a work order: fill in its month, workers, its contractor, turn it off or on. */
+/** Long-press on a work order: fill in its month, workers, its tickets and trends, its contractor, turn it off or on. */
 export function workOrderMenu(s: KpiSubject & { workOrder: NonNullable<KpiSubject['workOrder']> }, o: { month?: string; sub?: string } = {}) {
   const month = o.month ?? fillMonth()
   const wo = s.workOrder
@@ -139,6 +142,12 @@ export function workOrderMenu(s: KpiSubject & { workOrder: NonNullable<KpiSubjec
       edit: true,
       onSelect: () => openSheet({ kind: 'manpower', contractorUuid: s.contractor.uuid, workOrderUuid: wo.uuid, month }),
     },
+    tickets: {
+      label: 'Open tickets',
+      icon: 'ticket',
+      onSelect: () => go(ticketLink({ c: s.contractor.uuid, wo: wo.uuid, f: 'open' }, `/contractors/${s.contractor.uuid}`)),
+    },
+    trends: { label: 'See trends', icon: 'activity', onSelect: () => go(`/contractors/${s.contractor.uuid}?tab=trends&wo=${wo.uuid}`) },
     contractor: { label: 'Open contractor', icon: 'buildings', onSelect: () => go(`/contractors/${s.contractor.uuid}`) },
     turnOff: {
       label: 'Turn off',

@@ -132,6 +132,14 @@ per screen.
     day).
   - A Watch card (KPI below 70%, illegal workers, visas, recruitment fees) and the month's progress
     sit at the end.
+- **Contractor:** two tabs, **This month | Trends** (`?tab=trends`).
+  - Trends (`src/pages/ContractorTrends.tsx`, numbers from `src/lib/trends.ts`) shows the overall
+    KPI line with the 90% / 70% lines (tap a month to open it), each KPI item with a sparkline,
+    and tickets, money and workers per month.
+  - The range (6 months / 1 year / All) and the work order change every chart. Work orders that
+    were switched off still count in their past months.
+  - A KPI row opens `/contractors/:id/kpi/:key`: how it's scored, its line, and a month table
+    that says what made each score (e.g. "2 closed · avg 19 days").
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
 - **Dashboard:** views as a One UI sub-tab track, a month stepper, hero numbers, then charts.

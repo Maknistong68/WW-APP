@@ -19,6 +19,7 @@ import AddButton from './components/AddButton'
 import TabBar from './components/TabBar'
 import ActionSheetHost from './components/ActionSheet'
 import SheetHost from './components/SheetHost'
+import ContractorKpiPage from './pages/ContractorKpiPage'
 import NavProvider, { useShown } from './components/RouteTransition'
 import type { NavKind } from './lib/nav'
 import LibraryPage from './pages/LibraryPage'
@@ -121,6 +122,7 @@ function AppRoutes() {
         <Route path="/tickets/:uuid" element={<TicketDetailPage />} />
         <Route path="/contractors" element={<ContractorsPage />} />
         <Route path="/contractors/:uuid" element={<ContractorDetailPage />} />
+        <Route path="/contractors/:uuid/kpi/:key" element={<ContractorKpiPage />} />
         <Route path="/audits" element={<AuditsPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route

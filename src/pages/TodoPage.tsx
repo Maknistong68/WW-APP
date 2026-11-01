@@ -80,6 +80,11 @@ function taskMenu(t: Task, d: AllData) {
       { label: `Fill in ${monthLabel(month)}`, icon: 'gauge', edit: true, onSelect: () => openSheet({ kind: 'kpi', ...t.subject! }) },
       { label: `Workers for ${monthLabel(month).slice(0, 3)}`, icon: 'users', edit: true, onSelect: () => openSheet({ kind: 'manpower', ...t.subject! }) },
       { label: 'Open contractor', icon: 'buildings', onSelect: () => go(`/contractors/${t.subject!.contractorUuid}?m=${month}`) },
+      {
+        label: 'See trends',
+        icon: 'activity',
+        onSelect: () => go(`/contractors/${t.subject!.contractorUuid}?tab=trends${t.subject!.workOrderUuid ? `&wo=${t.subject!.workOrderUuid}` : ''}`),
+      },
     )
   } else if (t.to) {
     actions.push({ label: t.members ? 'Open the list' : 'Open', icon: 'arrow-right', onSelect: () => go(t.to) })

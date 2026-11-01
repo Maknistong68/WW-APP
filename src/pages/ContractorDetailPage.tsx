@@ -23,6 +23,7 @@ import StatusChip from '../components/StatusChip'
 import ActionBar from '../components/ActionBar'
 import { kpiTone } from '../lib/tone'
 import { workOrderMenu } from '../components/menus'
+import ContractorTrends from './ContractorTrends'
 import { useLongPress } from '../lib/useLongPress'
 
 function Ring({ value, status }: { value: number | null; status: string }) {
@@ -93,7 +94,14 @@ export default function ContractorDetailPage() {
   const { uuid = '' } = useParams()
   const navigate = useNavigate()
   const d = useAllData()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'trends' ? 'trends' : 'month'
+  const setTab = (t: 'month' | 'trends') => {
+    const next = new URLSearchParams(params)
+    if (t === 'trends') next.set('tab', 'trends')
+    else next.delete('tab')
+    setParams(next, { replace: true })
+  }
   const linked = params.get('m')
   // Opened from a month (Dashboard, KPI list, activity log): show that month.
   const [month, setMonth] = useState(linked && /^\d{4}-\d{2}$/.test(linked) && linked <= monthOf() ? linked : monthOf())
@@ -193,6 +201,27 @@ export default function ContractorDetailPage() {
             : undefined
         }
       />
+      <div className="segmented" role="tablist" aria-label="Contractor views" style={{ gridTemplateColumns: '1fr 1fr', display: 'grid' }}>
+        <button role="tab" aria-selected={tab === 'month'} className={tab === 'month' ? 'on' : ''} onClick={() => setTab('month')}>
+          This month
+        </button>
+        <button role="tab" aria-selected={tab === 'trends'} className={tab === 'trends' ? 'on' : ''} onClick={() => setTab('trends')}>
+          Trends
+        </button>
+      </div>
+
+      {tab === 'trends' ? (
+        <ContractorTrends
+          d={d}
+          c={c}
+          onOpenMonth={(m) => {
+            setMonth(m)
+            setTab('month')
+            window.scrollTo({ top: 0 })
+          }}
+        />
+      ) : (
+      <>
       {!c.active && (
         <div className="list-foot" style={{ marginTop: -4 }}>
           Inactive — not scored and not in missing documents. Edit to activate.
@@ -276,7 +305,7 @@ export default function ContractorDetailPage() {
 
           <div className="list">
             {KPI_PARTS.map((p) => (
-              <button key={p.key} className="row" onClick={() => navigate(`/kpis/${p.key}?m=${month}`)}>
+              <button key={p.key} className="row" onClick={() => navigate(`/contractors/${c.uuid}/kpi/${p.key}${chosen?.workOrder ? `?wo=${chosen.workOrder.uuid}` : ''}`)}>
                 <span className="row-main">
                   {p.label}
                   {p.auto && <span className="row-sub" style={{ display: 'inline', marginLeft: 6 }}>auto</span>}
@@ -355,6 +384,8 @@ export default function ContractorDetailPage() {
 
       {c.aliases.length > 0 && <div className="list-foot">Also known as: {c.aliases.join(' · ')}</div>}
       <History uuid={c.uuid} contractors={d.byUuid} />
+      </>
+      )}
 
       {sheet === 'edit' && <ContractorSheet contractor={c} onClose={() => setSheet(null)} />}
       {sheet === 'kpi' && chosen && (

@@ -27,9 +27,10 @@ describe('Ticket menu', () => {
 })
 
 describe('Other menus', () => {
-  it('work order: fill in, manpower, contractor, turn off or on', () => {
-    expect(workOrderActions({ active: true })).toEqual(['fill', 'manpower', 'contractor', 'turnOff'])
-    expect(workOrderActions({ active: false })).toEqual(['fill', 'manpower', 'contractor', 'turnOn'])
+  it('work order: fill in, manpower, its tickets, its trends, contractor, turn off or on', () => {
+    expect(workOrderActions({ active: true })).toEqual(['fill', 'manpower', 'tickets', 'trends', 'contractor', 'turnOff'])
+    expect(workOrderActions({ active: false })).toEqual(['fill', 'manpower', 'tickets', 'trends', 'contractor', 'turnOn'])
+    expect(viewerOnly(workOrderActions({ active: true }))).toEqual(['tickets', 'trends', 'contractor'])
   })
   it('camp: inspect, contractor when linked, edit', () => {
     expect(campActions({ contractorUuid: 'c' })).toEqual(['inspect', 'contractor', 'edit'])

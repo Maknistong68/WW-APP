@@ -17,6 +17,8 @@ export type MenuAction =
   | 'turnOn'
   | 'inspect'
   | 'repeat'
+  | 'tickets'
+  | 'trends'
 
 /** Actions that change data: hidden from viewers. */
 export const EDIT_ACTIONS: ReadonlySet<MenuAction> = new Set<MenuAction>([
@@ -52,7 +54,7 @@ export function ticketActions(
 }
 
 export function workOrderActions(wo: { active: boolean }): MenuAction[] {
-  return ['fill', 'manpower', 'contractor', wo.active ? 'turnOff' : 'turnOn']
+  return ['fill', 'manpower', 'tickets', 'trends', 'contractor', wo.active ? 'turnOff' : 'turnOn']
 }
 
 export function campActions(camp: { contractorUuid: string }): MenuAction[] {

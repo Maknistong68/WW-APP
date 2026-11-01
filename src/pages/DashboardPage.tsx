@@ -656,7 +656,8 @@ export default function DashboardPage() {
                 label: c.label,
                 value: c.total,
                 detail: `${c.illegal} illegal`,
-                onClick: () => navigate(`/contractors/${c.key}`),
+                onClick: () => navigate(`/contractors/${c.key}?tab=trends`),
+                onMore: d.byUuid.has(c.key) ? () => holdContractor(c.key) : undefined,
               }))}
             />
           </Card>
