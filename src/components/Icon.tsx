@@ -1,4 +1,5 @@
 import {
+  Polygon,
   ArrowCounterClockwise,
   ArrowsOutCardinal,
   HouseLine,
@@ -147,6 +148,7 @@ const ICONS = {
   road: RoadHorizon,
   palm: TreePalm,
   village: HouseLine,
+  polygon: Polygon,
 } satisfies Record<string, PhosphorIcon>
 
 export type IconName = keyof typeof ICONS

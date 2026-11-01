@@ -4,53 +4,25 @@ import { kpiSubjects, type KpiSubject } from './subjects'
 import { nameKey, sameCompany } from './names'
 import { lastMonths } from './dashboard'
 import { localDate, monthOf } from './dates'
-import type { Contractor } from '../types'
+import { woOf } from './subjects'
+import { QUAY, WORLD, insideWorld, rectsOverlap, type Rect } from './world'
+import { DEFAULT_ZONE_SET, isWater, onLand, quayOf, type Zones } from './zones'
+import type { Contractor, Manpower } from '../types'
 
-// "Live site": the project as a construction site inside an octagon. Each
-// contractor / work order has its own scope of works and a site office whose
-// health bar is the month's overall KPI. Pure and deterministic — the 3D view
-// and the layout editor are built on top of this.
+// "Live site": the project as a construction site in a city-scale octagon.
+// Each contractor / work order has its own barricaded site with its scope of
+// works and a site office whose health bar is the month's overall KPI; its
+// worker figures stand for the month's manpower. Pure and deterministic — the
+// 3D view and the layout editor are built on top of this.
 //
-// Grid: 1 tile = 1 world unit, x to the right, +z towards the camera / sea.
-// The octagon is |x| ≤ 40, |z| ≤ 40, |x| + |z| ≤ 57. The coast is z = 0: the
-// land half behind it is being built now; the sea half in front is the future
-// floating city (left empty). Sites can also go outside the octagon on land.
+// World and zones: see world.ts (the octagon, north = land, south = sea) and
+// zones.ts (industrial zone, port land, harbour basin, pier, floating city).
+// Land sites sit on land (the mainland, the port land or the pier); coast
+// sites sit on the basin's north quay, half on the quay and half over the
+// water, and follow the quay when the basin is moved.
 
-export const GRID = 40
-export const OCT = 57
-export const SHORE = 0
-/** How far the buildable land reaches outside the octagon. */
-export const WORLD = 96
-
-/** Octagon outline, clockwise from the back-left. */
-export const OCTAGON: [number, number][] = [
-  [-(OCT - GRID), -GRID],
-  [OCT - GRID, -GRID],
-  [GRID, -(OCT - GRID)],
-  [GRID, OCT - GRID],
-  [OCT - GRID, GRID],
-  [-(OCT - GRID), GRID],
-  [-GRID, OCT - GRID],
-  [-GRID, -(OCT - GRID)],
-]
-/** The octagon's land half (z ≤ SHORE). */
-export const OCTAGON_LAND: [number, number][] = [
-  [-(OCT - GRID), -GRID],
-  [OCT - GRID, -GRID],
-  [GRID, -(OCT - GRID)],
-  [GRID, SHORE],
-  [-GRID, SHORE],
-  [-GRID, -(OCT - GRID)],
-]
-/** The octagon's sea half: the future floating city (z ≥ SHORE). */
-export const FLOATING_CITY: [number, number][] = [
-  [GRID, SHORE],
-  [GRID, OCT - GRID],
-  [OCT - GRID, GRID],
-  [-(OCT - GRID), GRID],
-  [-GRID, OCT - GRID],
-  [-GRID, SHORE],
-]
+export { COAST, GRID, OCT, OCTAGON, OCTAGON_LAND, QUAY, WORLD, insideOctagon, insideWorld } from './world'
+export type { Rect } from './world'
 
 /** The 8 KPI items shown for a site (the quarterly audit is shown, never averaged). */
 export const FLOORS = KPI_PARTS.filter((p) => p.key !== 'quarterly')
@@ -87,7 +59,7 @@ export interface SiteDef {
   /** Footprint in tiles (unrotated): w across x, d along z. */
   w: number
   d: number
-  /** Coast sites straddle the shore, face the sea and only slide along it. */
+  /** Coast sites straddle the basin's north quay, face the water and only slide along it. */
   terrain: Terrain
   home: Place
   offices: OfficeDef[]
@@ -95,26 +67,26 @@ export interface SiteDef {
 
 const site = (s: SiteDef) => s
 
-/** The project's sites and their default layout (no overlaps, all on the octagon's land half). */
+/** The project's sites and their default layout: land sites just north of the spine road, coast sites on the basin quay. */
 export const SITES: SiteDef[] = [
   site({
     id: 'earthworks', uuid: '3b119b50-5f5f-4110-814e-f6c8696ef837', scope: 'earthworks', title: 'Earthworks', w: 16, d: 9, terrain: 'land',
-    home: { gx: -8, gz: -39, rot: 0 },
+    home: { gx: -8, gz: -45, rot: 0 },
     offices: [{ key: 'earthworks', names: ['Al Fahad'], wo: '823', at: [6.4, 3.3] }],
   }),
   site({
     id: 'pipeline', uuid: 'ed4118ef-77b8-40aa-9163-77277a80bf18', scope: 'pipeline', title: 'Pipeline', w: 34, d: 3, terrain: 'land',
-    home: { gx: -17, gz: -28, rot: 0 },
+    home: { gx: -17, gz: -34, rot: 0 },
     offices: [{ key: 'pipeline', names: ['PPCO'], wo: '1322', at: [-16.1, 0] }],
   }),
   site({
     id: 'reservoir', uuid: '92b2420a-76df-454f-a1bd-29a2ee0c3f21', scope: 'reservoir', title: 'Water reservoir', w: 7, d: 8, terrain: 'land',
-    home: { gx: -30, gz: -20, rot: 0 },
+    home: { gx: -30, gz: -26, rot: 0 },
     offices: [{ key: 'reservoir', names: ['Shapoorji'], at: [2.3, 3.3] }],
   }),
   site({
     id: 'cluster', uuid: 'f27e7b17-5c2c-4ea3-baa7-5e879b3fe571', scope: 'buildings', title: 'Buildings', w: 10, d: 10, terrain: 'land',
-    home: { gx: -19, gz: -20, rot: 0 },
+    home: { gx: -19, gz: -26, rot: 0 },
     offices: [
       { key: 'cluster-sibs', names: ['SIBS'], at: [-3.4, 4.3] },
       { key: 'cluster-882', names: ['Al Fahad'], wo: '882', at: [3.4, 4.3] },
@@ -122,42 +94,42 @@ export const SITES: SiteDef[] = [
   }),
   site({
     id: 'culvert', uuid: '5da1ece9-5d14-4d44-9bac-90f78080ea08', scope: 'culvert', title: 'Excavation + culvert', w: 4, d: 10, terrain: 'land',
-    home: { gx: -2, gz: -20, rot: 0 },
+    home: { gx: -2, gz: -26, rot: 0 },
     offices: [{ key: 'culvert', names: ['Abyatona'], wo: '1112', at: [1.15, 4.2] }],
   }),
   site({
     id: 'plant', uuid: '63651e2e-db7b-4389-b0a5-39c3145acc7a', scope: 'plant', title: 'Process plant', w: 12, d: 10, terrain: 'land',
-    home: { gx: 7, gz: -20, rot: 0 },
+    home: { gx: 7, gz: -26, rot: 0 },
     offices: [{ key: 'plant', names: ['Thyssenkrupp'], at: [4.6, 4.2] }],
   }),
   site({
     id: 'roadWest', uuid: '21ea41f5-fc92-4fd2-bf65-58745552e36e', scope: 'road', variant: 'pave', title: 'Road works', w: 20, d: 3, terrain: 'land',
-    home: { gx: -23, gz: -9, rot: 0 },
+    home: { gx: -23, gz: -15, rot: 0 },
     offices: [{ key: 'roadWest', names: ['SAMA'], at: [-9.1, 0] }],
   }),
   site({
     id: 'bridge', uuid: '5115ec92-642e-437f-8c87-3d1f3c1f67fb', scope: 'bridge', title: 'Bridge', w: 6, d: 5, terrain: 'land',
-    home: { gx: -3, gz: -10, rot: 0 },
+    home: { gx: -3, gz: -16, rot: 0 },
     offices: [{ key: 'bridge', names: ['Abyatona'], wo: '1134', at: [2.25, 1.85] }],
   }),
   site({
     id: 'roadEast', uuid: '7cd38088-15ad-4430-b2d7-989368e62b79', scope: 'road', variant: 'base', title: 'Road works', w: 18, d: 3, terrain: 'land',
-    home: { gx: 3, gz: -9, rot: 0 },
+    home: { gx: 3, gz: -15, rot: 0 },
     offices: [{ key: 'roadEast', names: ['RPCO'], at: [8.1, 0] }],
   }),
   site({
     id: 'coastGuard', uuid: '1bd6bc09-12a6-4f4a-a14c-0bd1bfc7cc22', scope: 'coastGuard', title: 'Coast Guard building', w: 8, d: 8, terrain: 'coast',
-    home: { gx: -24, gz: -4, rot: 0 },
+    home: { gx: -24, gz: 4, rot: 0 },
     offices: [{ key: 'coastGuard', names: ['Al Fahad'], wo: '1272', at: [-3.0, -3.1] }],
   }),
   site({
     id: 'port', uuid: '269eb6df-fdec-47f8-a2a2-59a216276536', scope: 'port', title: 'Port', w: 16, d: 12, terrain: 'coast',
-    home: { gx: -8, gz: -4, rot: 0 },
+    home: { gx: -8, gz: 4, rot: 0 },
     offices: [{ key: 'port', names: ['ECH'], wo: '1131', at: [-6.8, -4.9] }],
   }),
   site({
     id: 'seawall', uuid: '473249b2-2bd3-4edc-b3c5-9cb62debf5cb', scope: 'seawall', title: 'Seawall + dredging', w: 9, d: 9, terrain: 'coast',
-    home: { gx: 14, gz: -4, rot: 0 },
+    home: { gx: 14, gz: 4, rot: 0 },
     offices: [{ key: 'seawall', names: ['Archirodon'], wo: '0876', at: [3.3, -3.4] }],
   }),
 ]
@@ -267,6 +239,8 @@ export interface SiteMonth {
   /** Offices on the map (switched-off ones left out). */
   counts: Record<KpiStatus, number>
   unmapped: { subject: KpiSubject; overall: number | null; status: KpiStatus }[]
+  /** Manpower per office (latest count up to this month); offices without a count are left out. */
+  crews: Map<string, Crew>
 }
 
 export function healthOf(key: string, r: KpiResult): OfficeHealth {
@@ -296,8 +270,51 @@ export function siteMonth(d: AllData, links: SiteLinks, month: string): SiteMont
     const overall = byKey.get(s.key)?.overall ?? null
     return { subject: s, overall, status: kpiStatus(overall) }
   })
-  return { month, offices, overall: all.avg, status: kpiStatus(all.avg), counts, unmapped }
+  return { month, offices, overall: all.avg, status: kpiStatus(all.avg), counts, unmapped, crews: officeCrews(d.manpower, links, month) }
 }
+
+// ---------------------------------------------------------------------------
+// Manpower: the worker figures on each site stand for its manpower count
+// ---------------------------------------------------------------------------
+
+export interface Crew {
+  workers: number
+  /** Month of the count (the latest one up to the shown month). */
+  month: string
+}
+
+/** Each office's manpower: per KPI subject the latest count up to `month`, added up. */
+export function officeCrews(rows: Manpower[], links: SiteLinks, month: string): Map<string, Crew> {
+  const latest = new Map<string, Manpower>()
+  for (const m of rows) {
+    if (m.month > month || !(m.totalWorkers > 0)) continue
+    const k = `${m.contractorUuid}|${m.workOrderUuid || ''}`
+    const had = latest.get(k)
+    if (!had || m.month > had.month) latest.set(k, m)
+  }
+  const out = new Map<string, Crew>()
+  for (const l of links.offices.values()) {
+    let workers = 0
+    let at = ''
+    for (const s of l.subjects) {
+      const m = latest.get(`${s.contractor.uuid}|${woOf(s)}`)
+      if (!m) continue
+      workers += m.totalWorkers
+      if (m.month > at) at = m.month
+    }
+    if (workers > 0) out.set(l.key, { workers, month: at })
+  }
+  return out
+}
+
+/** People per worker figure: the smallest round number that keeps the figures under `cap`. */
+export const CREW_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000]
+export function crewScale(total: number, cap: number): number {
+  return CREW_STEPS.find((s) => total / s <= cap) ?? CREW_STEPS[CREW_STEPS.length - 1]
+}
+
+/** Figures for a head count: at least one for any crew, none without one. */
+export const figuresFor = (workers: number, perFigure: number) => (workers > 0 ? Math.max(1, Math.round(workers / perFigure)) : 0)
 
 /** Months for the time bar: the last 12, without leading months that have no KPI rows at all. */
 export function siteMonths(d: AllData, today: string = localDate(), n = 12): string[] {
@@ -334,13 +351,6 @@ export function buildTour(links: SiteLinks, m: SiteMonth): TourStop[] {
 
 export type Layout = Record<string, Place>
 
-export interface Rect {
-  x0: number
-  z0: number
-  x1: number
-  z1: number
-}
-
 export const sizeOf = (def: SiteDef, rot: Rot) => (rot % 2 ? { w: def.d, d: def.w } : { w: def.w, d: def.d })
 
 export function footprint(def: SiteDef, p: Place): Rect {
@@ -348,13 +358,9 @@ export function footprint(def: SiteDef, p: Place): Rect {
   return { x0: p.gx, z0: p.gz, x1: p.gx + s.w, z1: p.gz + s.d }
 }
 
-export const insideOctagon = (x: number, z: number) => Math.abs(x) <= GRID && Math.abs(z) <= GRID && Math.abs(x) + Math.abs(z) <= OCT
-/** Inside the buildable world (the octagon's land half and the mainland around it). */
-export const insideWorld = (x: number, z: number) => Math.abs(x) <= WORLD && z >= -WORLD && z <= GRID
-
 export const canRotate = (def: SiteDef) => def.terrain === 'land'
 
-/** Turn 90° about the footprint's centre (rounded to a tile). Coast sites keep facing the sea. */
+/** Turn 90° about the footprint's centre (rounded to a tile). Coast sites keep facing the water. */
 export function rotatePlace(def: SiteDef, p: Place): Place {
   if (!canRotate(def)) return p
   const a = sizeOf(def, p.rot)
@@ -363,7 +369,7 @@ export function rotatePlace(def: SiteDef, p: Place): Place {
   return { gx: Math.round(p.gx + a.w / 2 - b.w / 2), gz: Math.round(p.gz + a.d / 2 - b.d / 2), rot }
 }
 
-/** Snap a drag: the ground point under the finger minus where the site was grabbed. Coast sites slide along the shore. */
+/** Snap a drag: the ground point under the finger minus where the site was grabbed. Coast sites slide along the quay. */
 export function snapPlace(def: SiteDef, p: Place, hitX: number, hitZ: number, grab: { ox: number; oz: number }): Place {
   return {
     gx: Math.round(hitX - grab.ox),
@@ -371,6 +377,21 @@ export function snapPlace(def: SiteDef, p: Place, hitX: number, hitZ: number, gr
     rot: p.rot,
   }
 }
+
+/** How far the basin's quay is from its default line (coast sites move with it). */
+export const quayShift = (zones: Zones) => (quayOf(zones)?.z ?? QUAY) - QUAY
+
+/** Put the coast sites on the basin's quay (saved rows keep the default quay line). */
+export function alignCoast(layout: Layout, zones: Zones): Layout {
+  const dz = quayShift(zones)
+  if (!dz) return layout
+  const out = { ...layout }
+  for (const s of SITES) if (s.terrain === 'coast' && out[s.id]) out[s.id] = { ...out[s.id], gz: s.home.gz + dz }
+  return out
+}
+
+/** World z of a coast site's shore line (its quay edge). */
+export const shoreOf = (def: SiteDef, p: Place) => p.gz + (QUAY - def.home.gz)
 
 export type FitReason = 'ok' | 'outside' | 'overlap' | 'shore'
 
@@ -381,9 +402,18 @@ export interface Fit {
   other?: string
 }
 
-const overlaps = (a: Rect, b: Rect) => a.x0 < b.x1 && b.x0 < a.x1 && a.z0 < b.z1 && b.z0 < a.z1
+/** Points over a rectangle, a little in from its edges, at most `step` apart. */
+function samples(x0: number, z0: number, x1: number, z1: number, step = 2): [number, number][] {
+  const e = 0.25
+  const nx = Math.max(1, Math.ceil((x1 - x0 - 2 * e) / step))
+  const nz = Math.max(1, Math.ceil((z1 - z0 - 2 * e) / step))
+  const out: [number, number][] = []
+  for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) out.push([x0 + e + ((x1 - x0 - 2 * e) * i) / nx, z0 + e + ((z1 - z0 - 2 * e) * j) / nz])
+  return out
+}
 
-export function fitCheck(layout: Layout, id: string): Fit {
+/** Does a site fit where it is? (Pass the coast-aligned layout.) */
+export function fitCheck(layout: Layout, id: string, zones: Zones = DEFAULT_ZONE_SET): Fit {
   const def = SITE_BY_ID.get(id)
   const p = layout[id]
   if (!def || !p) return { ok: false, reason: 'outside' }
@@ -395,22 +425,30 @@ export function fitCheck(layout: Layout, id: string): Fit {
     [r.x1, r.z1],
   ]
   if (!corners.every(([x, z]) => insideWorld(x, z))) return { ok: false, reason: 'outside' }
-  if (def.terrain === 'land' ? r.z1 > SHORE : !(r.z0 < SHORE && r.z1 > SHORE)) return { ok: false, reason: 'shore' }
+  if (def.terrain === 'land') {
+    if (!samples(r.x0, r.z0, r.x1, r.z1).every(([x, z]) => onLand(zones, x, z))) return { ok: false, reason: 'shore' }
+  } else {
+    // half on the quay, half over the basin's water
+    const shore = shoreOf(def, p)
+    const land = samples(r.x0, r.z0, r.x1, shore).every(([x, z]) => onLand(zones, x, z))
+    const water = samples(r.x0, shore, r.x1, r.z1).every(([x, z]) => isWater(zones, x, z))
+    if (!land || !water) return { ok: false, reason: 'shore' }
+  }
   for (const other of SITES) {
     if (other.id === id || !layout[other.id]) continue
-    if (overlaps(r, footprint(other, layout[other.id]))) return { ok: false, reason: 'overlap', other: other.id }
+    if (rectsOverlap(r, footprint(other, layout[other.id]))) return { ok: false, reason: 'overlap', other: other.id }
   }
   return { ok: true, reason: 'ok' }
 }
 
 export function fitHint(f: Fit, def: SiteDef): string {
   if (f.reason === 'outside') return 'Too far out'
-  if (f.reason === 'shore') return def.terrain === 'land' ? 'Must stay on land' : 'Must stay on the shore'
+  if (f.reason === 'shore') return def.terrain === 'land' ? 'Must stay on land' : 'Must stay on the basin quay'
   if (f.reason === 'overlap') return `Overlaps ${SITE_BY_ID.get(f.other ?? '')?.title ?? 'another site'}`
   return 'Fits'
 }
 
-/** Only Admins arrange the map (sites, roads, trees, camps). */
+/** Only Admins arrange the map (sites, roads, trees, camps, zones). */
 export const canEditLayout = (role: string) => role === 'admin'
 
 export const homeLayout = (): Layout => Object.fromEntries(SITES.map((s) => [s.id, { ...s.home }]))
@@ -418,23 +456,39 @@ export const homeLayout = (): Layout => Object.fromEntries(SITES.map((s) => [s.i
 const isRot = (n: unknown): n is Rot => n === 0 || n === 1 || n === 2 || n === 3
 const isTile = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && Math.abs(n) <= WORLD
 
-/** Layout format: 2 = the bigger octagon (shore at z = 0). Rows without `v` are from the first version. */
-export const LAYOUT_VERSION = 2
+/** Layout format: 3 = the city-scale octagon, 2 = the bigger octagon, no `v` = the first version. */
+export const LAYOUT_VERSION = 3
 
-/** Default places in the first (smaller) octagon, to carry over moves saved with it. */
-const V1_HOME: Record<string, [number, number]> = {
-  earthworks: [-8, -24],
-  pipeline: [-17, -14],
-  reservoir: [-23, -9],
-  cluster: [-14, -10],
-  culvert: [-2, -10],
-  plant: [4, -10],
-  roadWest: [-23, 1],
-  bridge: [-3, 0],
-  roadEast: [3, 1],
-  coastGuard: [-20, 6],
-  port: [-8, 6],
-  seawall: [10, 6],
+/** Default places of the older formats, to carry over moves saved with them. */
+const OLD_HOME: Record<1 | 2, Record<string, [number, number]>> = {
+  1: {
+    earthworks: [-8, -24],
+    pipeline: [-17, -14],
+    reservoir: [-23, -9],
+    cluster: [-14, -10],
+    culvert: [-2, -10],
+    plant: [4, -10],
+    roadWest: [-23, 1],
+    bridge: [-3, 0],
+    roadEast: [3, 1],
+    coastGuard: [-20, 6],
+    port: [-8, 6],
+    seawall: [10, 6],
+  },
+  2: {
+    earthworks: [-8, -39],
+    pipeline: [-17, -28],
+    reservoir: [-30, -20],
+    cluster: [-19, -20],
+    culvert: [-2, -20],
+    plant: [7, -20],
+    roadWest: [-23, -9],
+    bridge: [-3, -10],
+    roadEast: [3, -9],
+    coastGuard: [-24, -4],
+    port: [-8, -4],
+    seawall: [14, -4],
+  },
 }
 
 /** The layout from saved rows: unknown sites and broken rows are ignored; missing sites stay at home. */
@@ -445,9 +499,10 @@ export function layoutFrom(rows: { siteId: string; gx: number; gz: number; rot: 
     if (!def || !isTile(r.gx) || !isTile(r.gz) || !isRot(r.rot)) continue
     let gx = r.gx
     let gz = r.gz
-    if ((r.v ?? 1) < LAYOUT_VERSION) {
+    const v = r.v ?? 1
+    if (v < LAYOUT_VERSION) {
       // keep the move relative to the old default place
-      const old = V1_HOME[def.id]
+      const old = OLD_HOME[v === 1 ? 1 : 2][def.id]
       if (!old) continue
       gx = def.home.gx + (r.gx - old[0])
       gz = def.home.gz + (r.gz - old[1])

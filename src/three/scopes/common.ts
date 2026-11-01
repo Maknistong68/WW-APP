@@ -2,6 +2,7 @@ import { Kit } from '../kit/build'
 import { C } from '../kit/colors'
 import type { MachineSpec } from '../kit/machines'
 import type { SiteDef } from '../../lib/site'
+import { QUAY } from '../../lib/world'
 
 // What one site's builder returns (all in the site's own frame: centred,
 // unrotated, w along x and d along z).
@@ -135,4 +136,54 @@ export function rebar(b: Built, x0: number, x1: number, z: number, y: number, h 
     if (along === 'x') b.solid.box(0.02, h, 0.02, C.rebar, { x: t, y, z })
     else b.solid.box(0.02, h, 0.02, C.rebar, { x: z, y, z: t })
   }
+}
+
+const GATE = 1.7
+
+/**
+ * Site hoarding all round the site (for coast sites, round the part on the
+ * quay — the water side stays open for the berth), with a gate on the side
+ * nearest the site office. Every project is barricaded.
+ */
+export function barricade(b: Built, def: SiteDef) {
+  const k = b.solid
+  const W = def.w / 2 - 0.1
+  const back = -def.d / 2 + 0.1
+  const front = def.terrain === 'coast' ? QUAY - (def.home.gz + def.d / 2) - 0.1 : def.d / 2 - 0.1
+  const edges: [number, number, number, number][] = [
+    [-W, back, W, back],
+    [W, back, W, front],
+    [-W, back, -W, front],
+  ]
+  if (def.terrain === 'land') edges.push([-W, front, W, front])
+  const [ox, oz] = def.offices[0].at
+  const far = edges.map(([x0, z0, x1]) => (x0 === x1 ? Math.abs(ox - x0) : Math.abs(oz - z0)))
+  const gate = far.indexOf(Math.min(...far))
+  const panel = (x0: number, z0: number, x1: number, z1: number) => {
+    const len = Math.hypot(x1 - x0, z1 - z0)
+    if (len < 0.2) return
+    const alongX = z0 === z1
+    const at = { x: (x0 + x1) / 2, z: (z0 + z1) / 2 }
+    k.box(alongX ? len : 0.05, 0.4, alongX ? 0.05 : len, C.white, { ...at, y: 0.07 })
+    k.box(alongX ? len : 0.06, 0.07, alongX ? 0.06 : len, C.blue, { ...at, y: 0.4 })
+    const n = Math.max(1, Math.round(len / 1.6))
+    for (let i = 0; i <= n; i++) k.box(0.06, 0.5, 0.06, C.steelDark, { x: x0 + ((x1 - x0) * i) / n, y: 0.04, z: z0 + ((z1 - z0) * i) / n })
+  }
+  edges.forEach(([x0, z0, x1, z1], i) => {
+    if (i !== gate) return panel(x0, z0, x1, z1)
+    // leave a gate opposite the office
+    const alongX = z0 === z1
+    const a = alongX ? x0 : z0
+    const c = alongX ? x1 : z1
+    const lo = Math.min(a, c)
+    const hi = Math.max(a, c)
+    const mid = Math.max(lo + GATE / 2 + 0.3, Math.min(hi - GATE / 2 - 0.3, alongX ? ox : oz))
+    const p = (t: number): [number, number] => (alongX ? [t, z0] : [x0, t])
+    panel(...p(lo), ...p(mid - GATE / 2))
+    panel(...p(mid + GATE / 2), ...p(hi))
+    for (const t of [mid - GATE / 2, mid + GATE / 2]) {
+      const [x, z] = p(t)
+      k.box(0.12, 0.62, 0.12, C.navy, { x, y: 0.04, z })
+    }
+  })
 }

@@ -234,20 +234,22 @@ export interface SitePlace extends RecordBase {
   gz: number
   /** Quarter turns, 0–3. */
   rot: number
-  /** Layout format (2 = the bigger octagon); missing = the first version. */
+  /** Layout format (3 = the city-scale octagon, 2 = the bigger octagon); missing = the first version. */
   v?: number
 }
 
-/** Something the Admin added to the "Live site" map: a road, highway, palms, camp or village. */
+/** Something on the "Live site" map the Admin can change: a road, highway, palms, camp, village or zone. */
 export interface MapItemRecord extends RecordBase {
   kind: string
-  /** Roads / highways: the line; palms: one point per tree. */
+  /** Roads / highways: the line; palms: one point per tree; zones: the outline. */
   points?: [number, number][]
   x?: number
   z?: number
   rot?: number
   /** Hidden (lets default items be deleted too). */
   removed?: boolean
+  /** Map format (3 = the city-scale octagon); missing = drawn on the small octagon. */
+  v?: number
 }
 
 /** A worker accommodation camp, inspected every `cycleDays`. */

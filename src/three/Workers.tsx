@@ -1,14 +1,18 @@
 import { useEffect, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { Kit } from './kit/build'
+import { Kit, rng } from './kit/build'
 import { C } from './kit/colors'
 import { shuttle } from './kit/machines'
+import { SITES } from '../lib/site'
+import { QUAY } from '../lib/world'
 import type { SiteRig } from './rig'
 import type { Built, WorkerSpec } from './scopes'
 
 // Generic site workers (vest + helmet; no faces, no names). They walk their
-// beat or work on the spot. Not linked to manpower numbers.
+// beat or work on the spot. Each site shows as many figures as its manpower
+// count asks for (one figure = a round number of people, set by the page);
+// a site with no count yet shows its small default crew.
 
 let figure: THREE.BufferGeometry | null = null
 function workerGeometry() {
@@ -28,10 +32,65 @@ function workerGeometry() {
 
 const GROUND = 0.07
 
-export default function Workers({ rig, builds, motion, material, lite, blobs, shadows }: { rig: SiteRig; builds: Built[]; motion: boolean; material: THREE.Material; lite: boolean; blobs: boolean; shadows: boolean }) {
+/** `n` workers for one site: its own crew first, then copies of the ground crew nearby, then people spread over the site. */
+export function crewOf(site: number, b: Built, n: number | null, lite: boolean): WorkerSpec[] {
+  const base = b.workers
+  if (n === null) return base.filter((_, i) => !lite || i % 2 === 0)
+  const def = SITES[site]
+  const x1 = def.w / 2 - 0.45
+  const z0 = -def.d / 2 + 0.45
+  // coast sites: only the part on the quay
+  const z1 = def.terrain === 'coast' ? QUAY - (def.home.gz + def.d / 2) - 0.45 : def.d / 2 - 0.45
+  const cx = (x: number) => Math.max(-x1, Math.min(x1, x))
+  const cz = (z: number) => Math.max(z0, Math.min(z1, z))
+  const ground = base.filter((w) => w.y === undefined && w.z <= z1 && (w.bz ?? w.z) <= z1)
+  const r = rng(site * 97 + 13)
+  const out: WorkerSpec[] = []
+  for (let k = 0; k < n; k++) {
+    if (k < base.length) {
+      out.push(base[k])
+      continue
+    }
+    if (ground.length && k < base.length + ground.length * 3) {
+      const w = ground[k % ground.length]
+      const a = k * 2.399
+      const rad = 0.35 + 0.22 * Math.floor((k - base.length) / ground.length)
+      const dx = Math.cos(a) * rad
+      const dz = Math.sin(a) * rad
+      out.push({ ...w, x: cx(w.x + dx), z: cz(w.z + dz), bx: w.bx === undefined ? undefined : cx(w.bx + dx), bz: w.bz === undefined ? undefined : cz(w.bz + dz), phase: (k * 0.37) % 1 })
+      continue
+    }
+    const x = cx(-x1 + r() * 2 * x1)
+    const z = cz(z0 + r() * (z1 - z0))
+    out.push(r() < 0.45 ? { x, z } : { x, z, bx: cx(x + (r() - 0.5) * 3), bz: cz(z + (r() - 0.5) * 3), period: 7 + r() * 6, phase: r() })
+  }
+  return out
+}
+
+export default function Workers({
+  rig,
+  builds,
+  crews,
+  motion,
+  material,
+  lite,
+  blobs,
+  shadows,
+}: {
+  rig: SiteRig
+  builds: Built[]
+  /** Figures per site (null = no manpower count: the default crew). */
+  crews: (number | null)[]
+  motion: boolean
+  material: THREE.Material
+  lite: boolean
+  blobs: boolean
+  shadows: boolean
+}) {
+  const crewKey = crews.join(',')
   const { mesh, blob, list } = useMemo(() => {
     const list: { site: number; w: WorkerSpec; seed: number }[] = []
-    builds.forEach((b, site) => b.workers.forEach((w, i) => (!lite || i % 2 === 0) && list.push({ site, w, seed: site * 7 + i })))
+    builds.forEach((b, site) => crewOf(site, b, crews[site] ?? null, lite).forEach((w, i) => list.push({ site, w, seed: site * 7 + i })))
     const mesh = new THREE.InstancedMesh(workerGeometry(), material, Math.max(1, list.length))
     mesh.frustumCulled = false
     mesh.castShadow = shadows
@@ -43,7 +102,8 @@ export default function Workers({ rig, builds, motion, material, lite, blobs, sh
     blob.frustumCulled = false
     blob.renderOrder = 1
     return { mesh, blob, list }
-  }, [builds, material, lite, shadows])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [builds, material, lite, shadows, crewKey])
 
   useEffect(
     () => () => {

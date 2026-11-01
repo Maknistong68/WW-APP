@@ -1,12 +1,12 @@
 import { C } from '../kit/colors'
 import type { Builder } from './common'
 import { SEA_Y, built, clutter, lamp, office, pad, pallet, rebar, yawTo } from './common'
-import { SHORE } from '../../lib/site'
+import { QUAY } from '../../lib/world'
 
 const G = 0.07
 
-/** Local z of the shore line for a coast site at its home row. */
-const shoreZ = (gz: number, d: number) => SHORE - (gz + d / 2)
+/** Local z of the quay edge for a coast site (the same wherever the quay is; the site moves with it). */
+const shoreZ = (gz: number, d: number) => QUAY - (gz + d / 2)
 
 // ---------------------------------------------------------------------------
 // Al Fahad 1272 · Coast Guard building (4 floors, facing the sea)
