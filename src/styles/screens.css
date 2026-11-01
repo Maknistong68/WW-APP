@@ -64,3 +64,34 @@
 }
 .city-spinner { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--brand); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- Home task list ----------------------------------------------------------- */
+.due-strip {
+  display: inline-flex; align-items: center; margin: 0 0 14px; padding: 8px 14px; border-radius: var(--r-btn);
+  font-size: 14px; font-weight: 600; background: var(--info-tint); color: var(--info);
+}
+.due-strip.bad { background: var(--bad-tint); color: var(--bad); }
+.task-trail { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.task-trail .schip { white-space: nowrap; }
+.task-caret { color: var(--faint); transition: transform var(--dur-med) var(--ease-90); }
+.task-caret.open { transform: rotate(180deg); }
+/* A grouped row's own rows, opened in place. */
+.task-member { background: var(--bg); animation: cardIn var(--dur-med) var(--ease-90) both; }
+.task-member .irow { padding-left: 28px; }
+.watch-n { min-width: 44px; justify-content: center; font-size: 15px; font-weight: 700; padding: 8px 10px; }
+.caught-up {
+  display: flex; align-items: center; gap: 16px; margin: 16px 0 4px; padding: 18px 16px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r-card);
+}
+.caught-up b { display: block; font-size: 18px; font-weight: 700; }
+.caught-up span { display: block; margin-top: 2px; font-size: 14px; color: var(--muted); }
+.progress-card { margin-top: 16px; padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-card); }
+.progress-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.progress-head b { font-size: 17px; }
+.progress-head span { font-size: 14px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.progress-card .progress-bar { height: 10px; }
+.progress-card .progress-bar > div { background: var(--good); }
+/* Task rows show the whole name and what's missing: up to two lines each. */
+.tasks .irow-title, .tasks .irow-sub {
+  white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}

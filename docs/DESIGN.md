@@ -117,8 +117,21 @@ per screen.
   screen is the target (so its scroll returns), otherwise it opens the target as a "back" move.
 
 ## Screens
-- **Today (Home):** three stat cards (Overdue / Due soon / Done), then sections of big cards in
-  that order; Done is collapsed.
+- **Today (Home):** a named task list (`src/lib/tasks.ts`).
+  - Three counters (Overdue / This week / Done) work as filters.
+  - Then the sections Overdue, This week, Later, and Done (collapsed).
+  - Urgent rows are named one by one, e.g. "RPCO · WO 882 · Oct: WPS, Salary missing · 1d late".
+    Later ones are grouped per month; tap a group to open it in place.
+  - Due dates: a month's declarations by the 15th of the next month, its KPIs by the end of the
+    next month (`src/lib/due.ts`).
+  - Gaps are chased from October 2026 (`TASKS_FROM`), for up to 3 ended months.
+  - **Editors:** tap or swipe left to do it (Fill in / Close / Start). **Viewers:** tap opens the
+    record. Everyone can hold for more.
+  - A finished row turns into a drawn check and slides away, with a success buzz; Done bumps.
+  - With nothing overdue or due this week, "All caught up" shows its check (with a burst once a
+    day).
+  - A Watch card (KPI below 70%, illegal workers, visas, recruitment fees) and the month's progress
+    sit at the end.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
 - **Dashboard:** views as a One UI sub-tab track, a month stepper, hero numbers, then charts.

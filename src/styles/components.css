@@ -233,7 +233,17 @@ button.row { cursor: pointer; }
 
 /* Swipe-to-close rows */
 .swipe { position: relative; overflow: hidden; background: var(--card); }
-.swipe-action { position: absolute; top: 0; right: 0; bottom: 0; width: 104px; border: none; background: var(--good); color: #fff; font: 700 16px var(--font); cursor: pointer; }
+.swipe-action {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 104px; border: none; background: var(--good); color: #fff;
+  font: 700 15px var(--font); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.swipe-action.info { background: var(--info); }
+.swipe-action.warn { background: var(--warn); }
+.swipe-action.bad { background: var(--bad); }
+/* The icon grows as the row is dragged, and pops when the swipe will trigger. */
+.swipe-action .swipe-icon { display: grid; transform: scale(var(--grow, 0.4)); transition: transform var(--dur-fast) var(--ease-spring); }
+.swipe-action.armed .swipe-icon { transform: scale(1.15); }
 .swipe-content { position: relative; background: var(--card); touch-action: pan-y; transition: transform var(--dur-med) var(--ease-90); }
 .swipe-content.dragging { transition: none; }
 

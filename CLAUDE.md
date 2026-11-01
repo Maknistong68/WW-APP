@@ -17,7 +17,8 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
   Writes are enforced by RLS `private.can_edit()`; viewers sync pull-only and the UI hides edit
   controls via `useAuthInfo().canEdit`. An admin cannot change their own role.
 - No Import and no bulk KPI entry: the history is already in Supabase. New data comes from the
-  one + button (`src/components/AddButton.tsx`); Home tiles open `/missing/:item` lists.
+  one + button (`src/components/AddButton.tsx`); Home is a named task list (overdue / this week /
+  later) whose rows open the right form or record.
 - Short, simple UI wording. "Field tool" design in Samsung One UI 9 style: light by default
   (true-black dark follows the phone), colour = status (menu icons use fixed hues from
   `src/lib/hues.ts`), One UI app-icon tiles, expandable app bars, rounded grouped cards, a
@@ -34,7 +35,10 @@ npm run build   # strict tsc + vite build
 ## Where things are
 - Data model: `src/types.ts`; every write goes through `src/lib/records.ts` (activity log).
 - KPI rules: `src/lib/kpi.ts`; per-work-order subjects: `src/lib/subjects.ts`, `src/lib/kpiData.ts`.
-- Home tiles and their missing-lists: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
+- Home task list: `src/lib/tasks.ts` (due rules in `src/lib/due.ts`); the per-work-order checks and
+  the `/missing/:item` lists: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
+- Long-press menus: `src/components/menus.tsx` (rules in `src/lib/menuSpec.ts`), sheets opened from
+  anywhere via `SheetHost`; ticket drill-down filters: `src/lib/ticketFilter.ts`.
 - Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
 - Dashboard numbers: `src/lib/dashboard.ts`; charts in `src/components/charts/`.
 - 3D "Live site" (Dashboard → 3D): world `src/lib/world.ts` (city-scale octagon, coast), zones

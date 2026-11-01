@@ -33,6 +33,3 @@ export const campTone = (s: CampStatus): Tone => (s === 'ok' ? 'good' : s === 'd
 export const closeoutTone = (s: CloseoutStatus): Tone =>
   s === 'overdue' ? 'bad' : s === 'due' ? 'warn' : s === 'closed' ? 'good' : 'info'
 
-/** Home item: its alert level, otherwise neutral to-do or done. */
-export const todoTone = (c: { alert?: { level: 'bad' | 'warn' }; todo: number }): Tone =>
-  c.alert?.level ?? (c.todo > 0 ? 'info' : 'good')

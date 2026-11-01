@@ -98,3 +98,27 @@ html[data-lite] .as-pop .as-item { animation: none; }
   :root[data-nav]::view-transition-old(root) { animation: vt-fade-out 150ms linear both !important; }
   :root[data-nav]::view-transition-new(root) { animation: vt-fade-in 150ms linear both !important; }
 }
+
+/* ---- Done: a ring springs in, the tick draws, dots burst (all caught up) ----- */
+.done-check { position: relative; display: inline-grid; place-items: center; flex: none; }
+.done-check svg { overflow: visible; }
+.done-ring { fill: var(--good); transform-box: fill-box; transform-origin: center; animation: doneRing var(--dur-in) var(--ease-spring) both; }
+.done-tick { fill: none; stroke: #fff; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; animation: draw 420ms var(--ease-80) 160ms both; }
+.done-dot {
+  position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%;
+  background: var(--good); opacity: 0; animation: doneBurst 700ms var(--ease-90) 240ms both;
+}
+.done-dot:nth-child(odd) { background: var(--chart-2); }
+@keyframes doneRing { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+@keyframes doneBurst {
+  0% { opacity: 0; transform: rotate(var(--a)) translateY(0) scale(0.6); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(var(--r) * -1)) scale(0.3); }
+}
+/* A finished task: its tile becomes the check, then the row slides away. */
+.task-leaving { animation: taskOut 360ms var(--ease-exit) 620ms both; pointer-events: none; }
+@keyframes taskOut { to { opacity: 0; transform: translateX(32px); } }
+/* The Done counter bumps when it goes up (the number, so the card's entry stays put). */
+.stat.bump .stat-num { display: inline-block; animation: bump var(--dur-in) var(--ease-spring); }
+@keyframes bump { 40% { transform: scale(1.25); } }
+html[data-lite] .done-dot { display: none; }

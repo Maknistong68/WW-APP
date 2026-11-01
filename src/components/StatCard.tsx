@@ -11,6 +11,7 @@ export default function StatCard({
   label,
   onClick,
   active,
+  bump,
 }: {
   icon: IconName
   tone?: Tone
@@ -19,6 +20,8 @@ export default function StatCard({
   onClick?: () => void
   /** Selected as a filter. */
   active?: boolean
+  /** Give a little spring (the number just went up). */
+  bump?: boolean
 }) {
   const body = (
     <>
@@ -32,7 +35,7 @@ export default function StatCard({
     </>
   )
   return onClick ? (
-    <button className={`stat${active ? ' active' : ''}`} aria-pressed={active} onClick={onClick}>
+    <button className={`stat${active ? ' active' : ''}${bump ? ' bump' : ''}`} aria-pressed={active} onClick={onClick}>
       {body}
     </button>
   ) : (
