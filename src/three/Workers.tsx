@@ -4,8 +4,7 @@ import * as THREE from 'three'
 import { Kit, rng } from './kit/build'
 import { C } from './kit/colors'
 import { shuttle } from './kit/machines'
-import { SITES } from '../lib/site'
-import { QUAY } from '../lib/world'
+import { SITES, localShore } from '../lib/site'
 import type { SiteRig } from './rig'
 import type { Built, WorkerSpec } from './scopes'
 
@@ -39,8 +38,8 @@ export function crewOf(site: number, b: Built, n: number | null, lite: boolean):
   const def = SITES[site]
   const x1 = def.w / 2 - 0.45
   const z0 = -def.d / 2 + 0.45
-  // coast sites: only the part on the quay
-  const z1 = def.terrain === 'coast' ? QUAY - (def.home.gz + def.d / 2) - 0.45 : def.d / 2 - 0.45
+  // coast and shore sites: only the part on land
+  const z1 = def.terrain === 'land' ? def.d / 2 - 0.45 : localShore(def) - 0.45
   const cx = (x: number) => Math.max(-x1, Math.min(x1, x))
   const cz = (z: number) => Math.max(z0, Math.min(z1, z))
   const ground = base.filter((w) => w.y === undefined && w.z <= z1 && (w.bz ?? w.z) <= z1)

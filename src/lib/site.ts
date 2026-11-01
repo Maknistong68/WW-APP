@@ -28,7 +28,7 @@ export type { Rect } from './world'
 export const FLOORS = KPI_PARTS.filter((p) => p.key !== 'quarterly')
 
 export type Scope = 'earthworks' | 'pipeline' | 'reservoir' | 'buildings' | 'culvert' | 'plant' | 'road' | 'bridge' | 'coastGuard' | 'port' | 'seawall'
-export type Terrain = 'land' | 'coast'
+export type Terrain = 'land' | 'coast' | 'shore'
 export type Rot = 0 | 1 | 2 | 3
 
 /** Where a site sits: the min corner of its (rotated) footprint, in tiles. */
@@ -59,15 +59,20 @@ export interface SiteDef {
   /** Footprint in tiles (unrotated): w across x, d along z. */
   w: number
   d: number
-  /** Coast sites straddle the basin's north quay, face the water and only slide along it. */
+  /**
+   * land: anywhere on land. coast: straddles the basin's north quay, faces the water and only slides along it.
+   * shore: half on land, half over the water, anywhere and any way round (moved and turned freely).
+   */
   terrain: Terrain
+  /** Local z (site frame) of the water's edge, for shore sites; coast sites work it out from the quay. */
+  shoreAt?: number
   home: Place
   offices: OfficeDef[]
 }
 
 const site = (s: SiteDef) => s
 
-/** The project's sites and their default layout: land sites just north of the spine road, coast sites on the basin quay. */
+/** The project's sites and their default layout: land sites south of the spine road, port and seawall on the basin quay, the Coast Guard on the island's tip. */
 export const SITES: SiteDef[] = [
   site({
     id: 'earthworks', uuid: '3b119b50-5f5f-4110-814e-f6c8696ef837', scope: 'earthworks', title: 'Earthworks', w: 16, d: 9, terrain: 'land',
@@ -118,8 +123,9 @@ export const SITES: SiteDef[] = [
     offices: [{ key: 'roadEast', names: ['RPCO'], at: [8.1, 0] }],
   }),
   site({
-    id: 'coastGuard', uuid: '1bd6bc09-12a6-4f4a-a14c-0bd1bfc7cc22', scope: 'coastGuard', title: 'Coast Guard building', w: 8, d: 8, terrain: 'coast',
-    home: { gx: -24, gz: 4, rot: 0 },
+    // on the island's tip, its jetty and patrol boat facing the harbour entrance (east)
+    id: 'coastGuard', uuid: '1bd6bc09-12a6-4f4a-a14c-0bd1bfc7cc22', scope: 'coastGuard', title: 'Coast Guard building', w: 8, d: 8, terrain: 'shore', shoreAt: 0,
+    home: { gx: 41, gz: 28, rot: 3 },
     offices: [{ key: 'coastGuard', names: ['Al Fahad'], wo: '1272', at: [-3.0, -3.1] }],
   }),
   site({
@@ -358,9 +364,12 @@ export function footprint(def: SiteDef, p: Place): Rect {
   return { x0: p.gx, z0: p.gz, x1: p.gx + s.w, z1: p.gz + s.d }
 }
 
-export const canRotate = (def: SiteDef) => def.terrain === 'land'
+export const canRotate = (def: SiteDef) => def.terrain !== 'coast'
 
-/** Turn 90° about the footprint's centre (rounded to a tile). Coast sites keep facing the water. */
+/** Local z (site frame, unrotated) of a coast or shore site's water edge: the building side is below it, the water side above. */
+export const localShore = (def: SiteDef) => def.shoreAt ?? QUAY - (def.home.gz + def.d / 2)
+
+/** Turn 90° about the footprint's centre (rounded to a tile). Quay sites keep facing the basin. */
 export function rotatePlace(def: SiteDef, p: Place): Place {
   if (!canRotate(def)) return p
   const a = sizeOf(def, p.rot)
@@ -369,7 +378,7 @@ export function rotatePlace(def: SiteDef, p: Place): Place {
   return { gx: Math.round(p.gx + a.w / 2 - b.w / 2), gz: Math.round(p.gz + a.d / 2 - b.d / 2), rot }
 }
 
-/** Snap a drag: the ground point under the finger minus where the site was grabbed. Coast sites slide along the quay. */
+/** Snap a drag: the ground point under the finger minus where the site was grabbed. Quay (coast) sites slide along the quay. */
 export function snapPlace(def: SiteDef, p: Place, hitX: number, hitZ: number, grab: { ox: number; oz: number }): Place {
   return {
     gx: Math.round(hitX - grab.ox),
@@ -427,6 +436,12 @@ export function fitCheck(layout: Layout, id: string, zones: Zones = DEFAULT_ZONE
   if (!corners.every(([x, z]) => insideWorld(x, z))) return { ok: false, reason: 'outside' }
   if (def.terrain === 'land') {
     if (!samples(r.x0, r.z0, r.x1, r.z1).every(([x, z]) => onLand(zones, x, z))) return { ok: false, reason: 'shore' }
+  } else if (def.terrain === 'shore') {
+    // building half mostly on land, water half mostly water (a tip or a bend of the shore is fine)
+    const { land, water } = shoreHalves(def, p)
+    const share = (pts: [number, number][], f: (x: number, z: number) => boolean) => pts.filter(([x, z]) => f(x, z)).length / pts.length
+    if (share(samples(land.x0, land.z0, land.x1, land.z1, 1), (x, z) => onLand(zones, x, z)) < 0.4) return { ok: false, reason: 'shore' }
+    if (share(samples(water.x0, water.z0, water.x1, water.z1, 1), (x, z) => isWater(zones, x, z)) < 0.6) return { ok: false, reason: 'shore' }
   } else {
     // half on the quay, half over the basin's water
     const shore = shoreOf(def, p)
@@ -441,9 +456,24 @@ export function fitCheck(layout: Layout, id: string, zones: Zones = DEFAULT_ZONE
   return { ok: true, reason: 'ok' }
 }
 
+/** A shore site's building half and water half, in world tiles (the water side turns with the site). */
+export function shoreHalves(def: SiteDef, p: Place): { land: Rect; water: Rect } {
+  const r = footprint(def, p)
+  const c = toWorld(def, p)
+  const [dx, dz] = turnXZ(0, 1, p.rot)
+  // the water's edge, in world terms, along the direction the water side faces
+  const edge = localShore(def)
+  if (dx !== 0) {
+    const ex = c.x + dx * edge
+    return dx > 0 ? { land: { ...r, x1: ex }, water: { ...r, x0: ex } } : { land: { ...r, x0: ex }, water: { ...r, x1: ex } }
+  }
+  const ez = c.z + dz * edge
+  return dz > 0 ? { land: { ...r, z1: ez }, water: { ...r, z0: ez } } : { land: { ...r, z0: ez }, water: { ...r, z1: ez } }
+}
+
 export function fitHint(f: Fit, def: SiteDef): string {
   if (f.reason === 'outside') return 'Too far out'
-  if (f.reason === 'shore') return def.terrain === 'land' ? 'Must stay on land' : 'Must stay on the basin quay'
+  if (f.reason === 'shore') return def.terrain === 'land' ? 'Must stay on land' : def.terrain === 'shore' ? 'Needs land behind and water in front' : 'Must stay on the basin quay'
   if (f.reason === 'overlap') return `Overlaps ${SITE_BY_ID.get(f.other ?? '')?.title ?? 'another site'}`
   return 'Fits'
 }
@@ -456,8 +486,11 @@ export const homeLayout = (): Layout => Object.fromEntries(SITES.map((s) => [s.i
 const isRot = (n: unknown): n is Rot => n === 0 || n === 1 || n === 2 || n === 3
 const isTile = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && Math.abs(n) <= WORLD
 
-/** Layout format: 3 = the city-scale octagon, 2 = the bigger octagon, no `v` = the first version. */
-export const LAYOUT_VERSION = 3
+/**
+ * Layout format: 4 = the Coast Guard moves freely (shore site), 3 = the city-scale octagon, 2 = the bigger
+ * octagon, no `v` = the first version.
+ */
+export const LAYOUT_VERSION = 4
 
 /** Default places of the older formats, to carry over moves saved with them. */
 const OLD_HOME: Record<1 | 2, Record<string, [number, number]>> = {
@@ -500,7 +533,9 @@ export function layoutFrom(rows: { siteId: string; gx: number; gz: number; rot: 
     let gx = r.gx
     let gz = r.gz
     const v = r.v ?? 1
-    if (v < LAYOUT_VERSION) {
+    // older rows put the Coast Guard on the quay; it now has its own place (the island's tip)
+    if (def.terrain === 'shore' && v < 4) continue
+    if (v < 3) {
       // keep the move relative to the old default place
       const old = OLD_HOME[v === 1 ? 1 : 2][def.id]
       if (!old) continue

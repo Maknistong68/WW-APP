@@ -2,6 +2,7 @@ import { C } from '../kit/colors'
 import type { Builder } from './common'
 import { SEA_Y, built, clutter, lamp, office, pad, pallet, rebar, yawTo } from './common'
 import { QUAY } from '../../lib/world'
+import { localShore } from '../../lib/site'
 
 const G = 0.07
 
@@ -9,14 +10,14 @@ const G = 0.07
 const shoreZ = (gz: number, d: number) => QUAY - (gz + d / 2)
 
 // ---------------------------------------------------------------------------
-// Al Fahad 1272 · Coast Guard building (4 floors, facing the sea)
+// Al Fahad 1272 · Coast Guard building (4 floors, facing the water; on the island's tip)
 // ---------------------------------------------------------------------------
 export const coastGuard: Builder = (def) => {
   const b = built()
   const W = def.w / 2
   const D = def.d / 2
   const k = b.solid
-  const sz = shoreZ(def.home.gz, def.d)
+  const sz = localShore(def)
   pad(b, -W, -D, W, sz, C.concreteLight, C.concreteDark)
   k.box(def.w, 0.14, 0.3, C.concrete, { y: 0, z: sz - 0.15 }).box(def.w, 0.9, 0.14, C.concreteDark, { y: -0.85, z: sz + 0.02 })
   // the building: floors 1–2 done, 3 walls going up, 4 bare frame

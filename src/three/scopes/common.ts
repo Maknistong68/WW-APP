@@ -1,8 +1,7 @@
 import { Kit } from '../kit/build'
 import { C } from '../kit/colors'
 import type { MachineSpec } from '../kit/machines'
-import type { SiteDef } from '../../lib/site'
-import { QUAY } from '../../lib/world'
+import { localShore, type SiteDef } from '../../lib/site'
 
 // What one site's builder returns (all in the site's own frame: centred,
 // unrotated, w along x and d along z).
@@ -141,15 +140,15 @@ export function rebar(b: Built, x0: number, x1: number, z: number, y: number, h 
 const GATE = 1.7
 
 /**
- * Site hoarding all round the site (for coast sites, round the part on the
- * quay — the water side stays open for the berth), with a gate on the side
+ * Site hoarding all round the site (for coast and shore sites, round the part
+ * on land — the water side stays open for the berth or jetty), with a gate on the side
  * nearest the site office. Every project is barricaded.
  */
 export function barricade(b: Built, def: SiteDef) {
   const k = b.solid
   const W = def.w / 2 - 0.1
   const back = -def.d / 2 + 0.1
-  const front = def.terrain === 'coast' ? QUAY - (def.home.gz + def.d / 2) - 0.1 : def.d / 2 - 0.1
+  const front = def.terrain === 'land' ? def.d / 2 - 0.1 : localShore(def) - 0.1
   const edges: [number, number, number, number][] = [
     [-W, back, W, back],
     [W, back, W, front],

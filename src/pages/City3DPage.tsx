@@ -436,7 +436,7 @@ export default function City3DPage() {
     if (!allFit && !editDef) return { text: 'Some sites overlap or sit in the sea — fix the red ones.', tone: 'bad' }
     switch (edit.tool) {
       case 'move':
-        if (editDef && editFit) return { text: `${editDef.title} · ${fitHint(editFit, editDef)}${canRotate(editDef) ? '' : ' · slides along the coast'}`, tone: editFit.ok ? 'good' : 'bad' }
+        if (editDef && editFit) return { text: `${editDef.title} · ${fitHint(editFit, editDef)}${canRotate(editDef) ? '' : ' · slides along the quay'}`, tone: editFit.ok ? 'good' : 'bad' }
         if (selItem) {
           const what = selItem.kind === 'trees' && edit.item!.point >= 0 ? 'Palm tree' : ITEM_LABEL[selItem.kind][0].toUpperCase() + ITEM_LABEL[selItem.kind].slice(1)
           return { text: `${what} · drag to move${selItem.kind === 'road' || selItem.kind === 'highway' ? ', drag the dots to bend it' : ''}`, tone: 'good' }
@@ -803,6 +803,7 @@ export default function City3DPage() {
             <p>
               The coloured, barricaded sites are the real projects: each contractor or work order has its own site with its scope of works (earthworks, pipeline,
               culvert, bridge, roads, buildings, plant, reservoir, port, seawall and the Coast Guard building). The pale blocks around them are only the city plan.
+              The port and the seawall sit on the basin quay; the Coast Guard building sits on the island’s tip and can be moved and turned to any shore.
             </p>
             <p>
               <b>Workers</b> on a site stand for its manpower count (from the + button){crews.total ? <>: one figure ≈ {people(crews.per)}</> : null}. A site with no

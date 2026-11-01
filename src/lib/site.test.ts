@@ -10,6 +10,8 @@ import {
   homeLayout,
   insideOctagon,
   canEditLayout,
+  canRotate,
+  shoreHalves,
   alignCoast,
   crewScale,
   figuresFor,
@@ -276,6 +278,35 @@ describe('Live site: layout editing', () => {
     const bridge = SITE_BY_ID.get('bridge')!.home
     expect(l.bridge).toEqual({ gx: bridge.gx + 2, gz: bridge.gz, rot: 0 })
     expect(Object.keys(l)).toHaveLength(12)
+  })
+})
+
+describe('Live site: the Coast Guard on the island tip', () => {
+  const cg = SITE_BY_ID.get('coastGuard')!
+  const at = (gx: number, gz: number, rot: Rot = cg.home.rot): Layout => ({ ...homeLayout(), coastGuard: { gx, gz, rot } })
+
+  it('sits on the tip of the island, its water side facing the entrance (east)', () => {
+    expect(cg.terrain).toBe('shore')
+    expect(fitCheck(homeLayout(), 'coastGuard')).toEqual({ ok: true, reason: 'ok' })
+    const { land, water } = shoreHalves(cg, cg.home)
+    expect(water.x0).toBe(land.x1)
+    expect(water.x1).toBeGreaterThan(land.x1)
+  })
+
+  it('moves and turns freely, but needs land behind it and water in front', () => {
+    expect(canRotate(cg)).toBe(true)
+    expect(snapPlace(cg, cg.home, 10.4, -3.6, { ox: 2.1, oz: 1.2 })).toEqual({ gx: 8, gz: -5, rot: cg.home.rot })
+    expect(fitCheck(at(0, -20), 'coastGuard')).toMatchObject({ ok: false, reason: 'shore' }) // all land
+    expect(fitCheck(at(0, 11), 'coastGuard')).toMatchObject({ ok: false, reason: 'shore' }) // all water (basin)
+    // on the basin's north quay facing south (rot 0) it fits too
+    expect(fitCheck(at(-40, 4, 0), 'coastGuard')).toMatchObject({ ok: true })
+    // the wrong way round there (water side on land) doesn't
+    expect(fitCheck(at(-40, 4, 2), 'coastGuard')).toMatchObject({ ok: false, reason: 'shore' })
+  })
+
+  it('old saved rows (on the quay) are ignored; new ones are kept', () => {
+    expect(layoutFrom([{ siteId: 'coastGuard', gx: -20, gz: 4, rot: 0, v: 3 }]).coastGuard).toEqual(cg.home)
+    expect(layoutFrom([{ siteId: 'coastGuard', gx: -40, gz: 4, rot: 0, v: 4 }]).coastGuard).toEqual({ gx: -40, gz: 4, rot: 0 })
   })
 })
 
