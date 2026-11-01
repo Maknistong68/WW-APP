@@ -47,6 +47,7 @@ export default function ActivityPage() {
     if (e.action === 'delete') return
     if (e.entity === 'ticket') navigate(`/tickets/${e.entityUuid}`)
     else if (e.entity === 'contractor') navigate(`/contractors/${e.entityUuid}`)
+    else if (e.entity === 'site') navigate('/dashboard/3d')
   }
 
   return (

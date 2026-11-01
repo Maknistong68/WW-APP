@@ -17,6 +17,7 @@ export const ENTITY_OF: Record<RecordTable, ActivityEntity> = {
   kpiMonths: 'kpi',
   manpower: 'manpower',
   weeklyCounts: 'weekly',
+  sitePlaces: 'site',
 }
 
 type AnyRecord = { uuid: string; updatedAt: string }

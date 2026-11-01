@@ -1,4 +1,4 @@
-/* 3D "Living site" overlay. The canvas fills the screen; controls float on top. */
+/* 3D "Live site" overlay. The canvas fills the screen; controls float on top. */
 .city { position: fixed; inset: 0; z-index: 5; background: var(--bg); overflow: hidden; touch-action: none; }
 .city canvas { display: block; }
 .city-fallback {
@@ -26,19 +26,8 @@
 .city-title b { font-size: 16px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 8px var(--bg); }
 .city-title span { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 8px var(--bg); }
 
-.city-layers {
-  position: absolute; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 62px);
-  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 4px 12px;
-}
-.city-layers::-webkit-scrollbar { display: none; }
-.city-layers button {
-  flex: none; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px dashed var(--line);
-  background: var(--card); color: var(--faint); font: 700 13px var(--font); cursor: pointer; text-decoration: line-through;
-}
-.city-layers button.on { background: var(--brand-tint); border: 1.5px solid var(--brand); color: var(--brand); text-decoration: none; }
-
 .city-caption {
-  position: absolute; left: 50%; top: calc(env(safe-area-inset-top) + 112px); transform: translateX(-50%);
+  position: absolute; left: 50%; top: calc(env(safe-area-inset-top) + 66px); transform: translateX(-50%);
   display: flex; align-items: center; gap: 10px; max-width: min(92vw, 520px); padding: 10px 10px 10px 14px;
   border-radius: 18px; background: var(--card); border: 1px solid var(--border); box-shadow: 0 8px 28px rgb(0 0 0 / 0.18);
   font-weight: 700; color: var(--text); animation: toastIn var(--motion-300) var(--ease-out);
@@ -76,7 +65,8 @@
 .city-x { flex: none; width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--press); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .city-floors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 14px; }
 .city-card .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.city-floor { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 10px; border-radius: 12px; background: var(--none-tint); color: var(--none); font-size: 13px; font-weight: 700; }
+.city-floor { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 44px; padding: 8px 10px; border: none; border-radius: 12px; background: var(--none-tint); color: var(--none); font: 700 13px var(--font); text-align: left; cursor: pointer; }
+.city-floor:active { transform: scale(0.97); }
 .city-floor span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .city-floor b { flex: none; }
 .city-floor.good { background: var(--good-tint); color: var(--good); }
@@ -97,3 +87,25 @@
 .city-guard p { margin: 0 0 8px; max-width: 340px; color: var(--muted); font-size: 15px; }
 .city-guard .btn-row { width: 100%; max-width: 360px; }
 .city-play:disabled { opacity: 0.5; }
+
+/* Site card: the same health bar as in 3D */
+.city-health { position: relative; height: 18px; margin-top: 14px; border-radius: 999px; background: var(--none-tint); overflow: hidden; box-shadow: inset 0 0 0 2px var(--border); }
+.city-health span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--none); transition: width var(--motion-300) var(--ease-out); }
+.city-health.good span { background: var(--good); }
+.city-health.warn span { background: var(--warn); }
+.city-health.bad span { background: var(--bad); }
+.city-switch { margin: 12px 0 0; }
+
+/* Edit layout */
+.city.editing .city-top { background: linear-gradient(var(--bg), transparent); }
+.city-edit {
+  padding: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 22px; box-shadow: 0 8px 28px rgb(0 0 0 / 0.16);
+  animation: sheetIn var(--motion-300) var(--ease-out);
+}
+.city-edit-hint { min-height: 22px; padding: 0 4px 10px; font-size: 15px; font-weight: 700; color: var(--muted); }
+.city-edit-hint b { color: var(--text); }
+.city-edit-hint.good { color: var(--good); }
+.city-edit-hint.bad { color: var(--bad); }
+.city-edit-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.city-edit-row .btn { min-height: 52px; padding: 0 6px; gap: 4px; font-size: 14px; }
+.city-edit-row .btn:disabled { opacity: 0.45; }

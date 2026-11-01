@@ -86,6 +86,10 @@ export interface SyncResult {
 }
 
 /** Dexie table → Supabase table for the uuid-keyed co-pilot records. */
+/** Tables the app can live without until the server is updated. */
+const OPTIONAL_TABLES = new Set<RecordTable>(['sitePlaces'])
+const missingTable = (err: unknown) => /PGRST205|42P01|could not find the table|does not exist/i.test(err instanceof Error ? err.message : String(err))
+
 export const REMOTE_TABLE: Record<RecordTable, string> = {
   contractors: 'contractors',
   workOrders: 'work_orders',
@@ -94,6 +98,7 @@ export const REMOTE_TABLE: Record<RecordTable, string> = {
   kpiMonths: 'kpi_months',
   manpower: 'manpower',
   weeklyCounts: 'weekly_counts',
+  sitePlaces: 'site_places',
 }
 
 interface RemoteInspectionRow {
@@ -386,6 +391,8 @@ export async function syncNow(): Promise<SyncResult> {
       try {
         await syncRecordTable(c, userId, table, result, fail, readOnly)
       } catch (err) {
+        // Newer, optional tables (the 3D layout) may not exist on the server yet: skip quietly.
+        if (OPTIONAL_TABLES.has(table) && missingTable(err)) continue
         fail(`Sync ${table}`, err)
       }
     }

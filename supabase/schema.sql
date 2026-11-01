@@ -286,3 +286,27 @@ create policy "team photo change" on storage.objects for update to authenticated
   with check (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.can_edit()));
 create policy "team photo remove" on storage.objects for delete to authenticated
   using (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.can_edit()));
+
+-- ---------------------------------------------------------------------------
+-- "Live site" layout (Dashboard → 3D): one row per site, shared by the team.
+-- Same row shape as the other record tables. Everyone approved can read it;
+-- only Admins and Editors can move sites. Safe to re-run.
+-- ---------------------------------------------------------------------------
+create table if not exists public.site_places (
+  uuid uuid primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz not null,
+  deleted boolean not null default false
+);
+create index if not exists site_places_user_idx on public.site_places (user_id);
+alter table public.site_places enable row level security;
+drop policy if exists "team read" on public.site_places;
+drop policy if exists "team add" on public.site_places;
+drop policy if exists "team change" on public.site_places;
+drop policy if exists "team remove" on public.site_places;
+create policy "team read" on public.site_places for select to authenticated using ((select private.is_approved()));
+create policy "team add" on public.site_places for insert to authenticated with check ((select private.can_edit()));
+create policy "team change" on public.site_places for update to authenticated
+  using ((select private.can_edit())) with check ((select private.can_edit()));
+create policy "team remove" on public.site_places for delete to authenticated using ((select private.can_edit()));

@@ -199,7 +199,7 @@ export const EVIDENCE_NOTES: string[] = [
 // ---------------------------------------------------------------------------
 
 /** Dexie table names of the uuid-keyed record tables (also the sync tables). */
-export type RecordTable = 'contractors' | 'workOrders' | 'camps' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts'
+export type RecordTable = 'contractors' | 'workOrders' | 'camps' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts' | 'sitePlaces'
 
 interface RecordBase {
   uuid: string
@@ -224,6 +224,16 @@ export interface WorkOrder extends RecordBase {
   label: string
   active: boolean
   notes: string
+}
+
+/** Where a site sits on the 3D "Live site" map (one shared row per site; uuid fixed per site). */
+export interface SitePlace extends RecordBase {
+  siteId: string
+  /** Min corner of the footprint, in tiles. */
+  gx: number
+  gz: number
+  /** Quarter turns, 0–3. */
+  rot: number
 }
 
 /** A worker accommodation camp, inspected every `cycleDays`. */
@@ -321,7 +331,7 @@ export interface WeeklyCount extends RecordBase {
   openTickets: number
 }
 
-export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import'
+export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import' | 'site'
 export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'import'
 
 export interface ActivityChange {

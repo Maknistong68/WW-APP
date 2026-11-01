@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { GRID } from '../lib/site'
 
 export interface Focus {
   x: number
@@ -13,59 +14,104 @@ export interface Focus {
   v: number
 }
 
+const HOME_AZ = 0.28
+const EDIT_POLAR = 0.42
+/** Landscape: a classic three-quarter view; portrait phones look more from above so the site fills the screen. */
+const homePolar = (aspect: number) => (aspect < 0.8 ? 0.56 : 0.74)
+
+/** Distance that fits the octagon on screen (phones crop the sides a little; one finger pans). */
+function fitDistance(fov: number, aspect: number) {
+  const tv = Math.tan((fov * Math.PI) / 360)
+  const th = tv * aspect
+  const w = 25 / th
+  const h = (24 * Math.cos(homePolar(aspect)) + 3) / tv
+  return Math.max(aspect < 0.8 ? w * 0.74 : w, h) * 1.02
+}
+
 /**
- * Orbit / pinch / pan with limits, a slow idle spin, and smooth fly-to for
- * taps and the tour. Reduced motion → jumps instead of flying.
+ * Base-builder camera: a high three-quarter view with the sea in front. One
+ * finger pans, two fingers zoom / turn (mouse: left pans, right turns). Taps
+ * and the tour fly smoothly; edit mode looks more from above. Gentle sway when
+ * idle. Reduced motion jumps instead of flying.
  */
-export default function CameraRig({ radius, inner, focus, motion }: { radius: number; inner: number; focus: Focus | null; motion: boolean }) {
+export default function CameraRig({ focus, motion, editing }: { focus: Focus | null; motion: boolean; editing: boolean }) {
   const controls = useRef<OrbitControlsImpl>(null!)
   const { camera, clock, size } = useThree()
-  const portrait = size.width / Math.max(1, size.height) < 0.8
+  const aspect = size.width / Math.max(1, size.height)
+  const fov = aspect < 0.8 ? 40 : 30
+  const dist = useMemo(() => fitDistance(fov, aspect), [fov, aspect])
+  const HOME_POLAR = homePolar(aspect)
   const goal = useRef<{ target: THREE.Vector3; pos: THREE.Vector3 } | null>(null)
   const lastTouch = useRef(-100)
-  // Frame the built-up area: higher and closer on phones (the grid is taller than wide there).
-  const home = () => ({
-    target: new THREE.Vector3(0, 1, portrait ? inner * 0.12 : 0),
-    pos: portrait ? new THREE.Vector3(inner * 0.55, inner * 1.75, inner * 1.55) : new THREE.Vector3(inner * 1.15, inner * 1.05, inner * 1.45),
-  })
+  const tmp = useMemo(() => ({ dir: new THREE.Vector3(), sph: new THREE.Spherical(), d: new THREE.Vector3() }), [])
+
+  const home = (polar = HOME_POLAR) => {
+    const target = new THREE.Vector3(0, 0, aspect < 0.8 ? 1.5 : 0.5)
+    const pos = new THREE.Vector3().setFromSpherical(new THREE.Spherical(dist, polar, HOME_AZ)).add(target)
+    return { target, pos }
+  }
 
   useEffect(() => {
-    const h = home()
     if (camera instanceof THREE.PerspectiveCamera) {
-      camera.fov = portrait ? 52 : 42
+      camera.fov = fov
+      camera.near = 0.5
+      camera.far = dist * 6
       camera.updateProjectionMatrix()
     }
+    const h = home()
     camera.position.copy(h.pos)
     camera.lookAt(h.target)
     if (controls.current) controls.current.target.copy(h.target)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inner, portrait])
+  }, [fov, dist])
 
   useEffect(() => {
     if (!focus) {
-      goal.current = home()
+      goal.current = home(editing ? EDIT_POLAR : HOME_POLAR)
       return
     }
-    const target = new THREE.Vector3(focus.x, 1.5, focus.z)
-    const dir = new THREE.Vector3(focus.x, 0, focus.z).normalize()
-    if (dir.lengthSq() < 0.01) dir.set(0.6, 0, 0.8)
-    const pos = target.clone().add(new THREE.Vector3(dir.x * focus.dist * 0.75, focus.dist * 0.7, dir.z * focus.dist * 0.75 + focus.dist * 0.35))
-    goal.current = { target, pos }
+    const c = controls.current
+    const target = new THREE.Vector3(focus.x, 0.5, focus.z)
+    const dir = c ? camera.position.clone().sub(c.target).normalize() : new THREE.Vector3(0, 0.7, 0.7)
+    goal.current = { target, pos: target.clone().addScaledVector(dir, focus.dist) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.x, focus?.z, focus?.dist, focus?.v])
+
+  // Edit mode: look more from above (same spot, same zoom).
+  useEffect(() => {
+    const c = controls.current
+    if (!c) return
+    // keep any fly-to already under way (e.g. back to the whole site), just change the angle
+    const base = goal.current ?? { target: c.target.clone(), pos: camera.position.clone() }
+    tmp.sph.setFromVector3(tmp.d.copy(base.pos).sub(base.target))
+    tmp.sph.phi = editing ? EDIT_POLAR : HOME_POLAR
+    goal.current = { target: base.target.clone(), pos: new THREE.Vector3().setFromSpherical(tmp.sph).add(base.target) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
 
   useFrame((state, dt) => {
     const c = controls.current
     if (!c) return
     const g = goal.current
     if (g) {
-      const k = motion ? 1 - Math.exp(-Math.min(dt, 0.1) * 3) : 1
+      const k = motion ? 1 - Math.exp(-Math.min(dt, 0.1) * 3.2) : 1
       c.target.lerp(g.target, k)
       camera.position.lerp(g.pos, k)
       if (camera.position.distanceTo(g.pos) < 0.05 && c.target.distanceTo(g.target) < 0.05) goal.current = null
     }
-    c.autoRotate = motion && !g && state.clock.elapsedTime - lastTouch.current > 8
+    const idle = state.clock.elapsedTime - lastTouch.current > 8
+    c.autoRotate = motion && !g && !editing && idle
+    c.autoRotateSpeed = 0.35 * Math.sin(state.clock.elapsedTime * 0.12)
     c.update()
+    // keep the view over the site
+    const lim = GRID - 1
+    const cx = Math.max(-lim, Math.min(lim, c.target.x))
+    const cz = Math.max(-lim, Math.min(lim + 2, c.target.z))
+    if (cx !== c.target.x || cz !== c.target.z || c.target.y !== 0.5) {
+      tmp.dir.set(cx - c.target.x, 0.5 - c.target.y, cz - c.target.z)
+      c.target.add(tmp.dir)
+      camera.position.add(tmp.dir)
+    }
   })
 
   return (
@@ -73,12 +119,16 @@ export default function CameraRig({ radius, inner, focus, motion }: { radius: nu
       ref={controls}
       makeDefault
       enableDamping
-      dampingFactor={0.08}
-      autoRotateSpeed={0.35}
-      minDistance={4}
-      maxDistance={radius * 3.2}
-      maxPolarAngle={Math.PI * 0.46}
-      minPolarAngle={0.15}
+      dampingFactor={0.1}
+      screenSpacePanning={false}
+      minDistance={8}
+      maxDistance={dist * 1.35}
+      minPolarAngle={0.3}
+      maxPolarAngle={1.12}
+      minAzimuthAngle={HOME_AZ - 1.25}
+      maxAzimuthAngle={HOME_AZ + 1.25}
+      touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }}
+      mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }}
       onStart={() => {
         lastTouch.current = Number.POSITIVE_INFINITY
         goal.current = null

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { KpiStatus } from '../lib/kpi'
 
-// The 3D world uses the app's own status colours (tokens.css), so a red
-// floor means the same thing as a red chip. Read once per theme change.
+// Status colours come from the app's tokens (tokens.css), so a red health bar
+// means the same thing as a red chip. The site itself uses a fixed toy palette
+// (kit/colors.ts); the light theme is day and the dark theme is night.
 
 export interface Palette {
   dark: boolean
@@ -15,15 +16,14 @@ export interface Palette {
   text: string
   muted: string
   bg: string
-  island: string
-  islandSide: string
-  plot: string
-  core: string
-  /** Floor band with no data: a quiet step from the core. */
-  noData: string
-  water: string
-  gold: string
-  sky: Record<KpiStatus, string>
+  /** Day / night environment */
+  sky: string
+  sea: string
+  hemiSky: string
+  hemiGround: string
+  hemi: number
+  sun: string
+  sunI: number
 }
 
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888888'
@@ -47,16 +47,13 @@ export function readPalette(): Palette {
     text: css('--text'),
     muted: css('--muted'),
     bg: css('--bg'),
-    island: dark ? '#1d2824' : '#e4ebe6',
-    islandSide: dark ? '#141c19' : '#c9d4cd',
-    plot: dark ? '#26332e' : '#f7faf8',
-    core: dark ? '#26302c' : '#5b6770',
-    noData: dark ? '#3c4843' : '#d7dfdb',
-    water: dark ? '#1f6f9a' : '#5fb4dc',
-    gold: '#e8b53a',
-    sky: dark
-      ? { good: '#0b1a26', warn: '#1d1a10', bad: '#24101a', none: '#0f1412' }
-      : { good: '#dcebf5', warn: '#efe8d6', bad: '#f1dede', none: '#e9eeeb' },
+    sky: dark ? '#0c1628' : '#a9dcf3',
+    sea: dark ? '#0f3552' : '#38a6dc',
+    hemiSky: dark ? '#6f86b8' : '#ffffff',
+    hemiGround: dark ? '#1a1410' : '#c9a777',
+    hemi: dark ? 0.55 : 1.15,
+    sun: dark ? '#9fb4ff' : '#fff1d6',
+    sunI: dark ? 0.55 : 1.75,
   }
 }
 
@@ -77,9 +74,6 @@ export function usePalette(): Palette {
 }
 
 export const statusColor = (p: Palette, s: KpiStatus) => (s === 'good' ? p.good : s === 'warn' ? p.warn : s === 'bad' ? p.bad : p.none)
-
-/** Pulse speed for a beacon: critical pulses fast. */
-export const pulseSpeed = (s: KpiStatus) => (s === 'bad' ? 5 : s === 'warn' ? 2.4 : s === 'good' ? 1 : 0)
 
 /** True when the person asked for less motion. */
 export const reducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
