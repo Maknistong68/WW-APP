@@ -1,29 +1,28 @@
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useShownLocation } from './RouteTransition'
-import Icon, { type IconName } from './Icon'
+import Icon from './Icon'
+import TabIcon, { type TabIconName } from './TabIcon'
 import { openCreate } from './AddButton'
 import { useAuthInfo } from '../lib/auth'
 import { useScrollDir } from '../lib/scroll'
 import type { NavState } from '../lib/nav'
 
 interface Tab {
-  key: string
+  key: TabIconName
   label: string
-  icon: IconName
   path: string
   /** Paths that light this tab. */
   match: (p: string) => boolean
 }
 
 const TABS: Tab[] = [
-  { key: 'home', label: 'Home', icon: 'home', path: '/', match: (p) => p === '/' || p.startsWith('/missing') || p === '/closeouts' },
-  { key: 'tickets', label: 'Tickets', icon: 'ticket', path: '/tickets', match: (p) => p.startsWith('/tickets') },
-  { key: 'dashboard', label: 'Dashboard', icon: 'chart', path: '/dashboard', match: (p) => p.startsWith('/dashboard') || p.startsWith('/kpis') },
+  { key: 'home', label: 'Home', path: '/', match: (p) => p === '/' || p.startsWith('/missing') || p === '/closeouts' },
+  { key: 'tickets', label: 'Tickets', path: '/tickets', match: (p) => p.startsWith('/tickets') },
+  { key: 'dashboard', label: 'Dashboard', path: '/dashboard', match: (p) => p.startsWith('/dashboard') || p.startsWith('/kpis') },
   {
     key: 'library',
     label: 'Library',
-    icon: 'library',
     path: '/library',
     match: (p) => ['/library', '/contractors', '/camps', '/audits', '/settings', '/users'].some((x) => p.startsWith(x)),
   },
@@ -63,7 +62,7 @@ export default function TabBar() {
               }
             >
               <span className="tab-icon">
-                <Icon name={t.icon} size={24} fill={on} />
+                <TabIcon name={t.key} on={on} />
               </span>
               <span className="tab-label">{t.label}</span>
             </button>

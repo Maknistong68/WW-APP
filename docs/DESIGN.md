@@ -27,7 +27,7 @@ per screen.
   One UI blue is a token swap (`#0a6bd6` with white ink in light, `#3e91ff` with dark ink in
   dark), but blue is also the "to do" status colour.
 
-## Colour means status (and nothing else)
+## Colour means status (menu icons excepted)
 
 | Tone | Meaning | Use |
 |---|---|---|
@@ -35,10 +35,15 @@ per screen.
 | `warn` (amber) | due soon / partial | tickets 11–30 days, camps due in 14 days |
 | `good` (green) | done / on track | closed out, entered, KPI ≥ 90% |
 | `none` (grey) | no data / closed / neutral | closed tickets, inactive records |
-| `info` (blue) | to do, no deadline yet | neutral list items, Create tiles |
+| `info` (blue) | to do, no deadline yet | neutral list items |
 
 - `src/lib/tone.ts` decides the tone for tickets, KPIs, camps, close-outs and Home items. Use
   it; don't invent new rules in a screen.
+- **Menu icons have their own colour, like Samsung Settings.** This covers Library shelves,
+  Create choices, the side menu, and Settings and Export rows. The hues come from
+  `MENU_HUE` in `src/lib/hues.ts`: blue, cyan, indigo, violet, plum, pink, slate. They are
+  never red, amber or green, and each menu's colours are distinct (tested). A menu item with
+  a problem keeps its colour and shows a red `StatusChip`.
 - Status is always **icon + word** (`StatusChip`), never colour alone.
 - **The accent (green) is the one interactive colour:** primary buttons, the selected tab, the
   Create button, links, switches and focus.
@@ -54,8 +59,15 @@ per screen.
   screen edges, soft shadow.
 - **Pill shapes:** buttons, search fields, filter chips and the tab bar. Fields are filled
   (white on grey), with a green outline on focus.
-- **Icon tiles** (`IconTile`): squircle-ish, 52px in lists and 64px on Home / Library; a filled
-  Phosphor icon in the tone colour on its tint.
+- **Icon tiles** (`IconTile`, also `.row-icon` and inspection `.letter`): One UI 8.5/9 app
+  icons.
+  - A squircle (30% radius) with a bright top-to-bottom gradient in its status tone or menu
+    hue (`--g-*` tokens).
+  - A white filled Phosphor icon with a little drop shadow.
+  - A faint top highlight and a soft shadow in its own colour.
+  - The white symbol keeps at least 3:1 contrast on every gradient's lower half.
+  - The same tiles in dark mode.
+  - Sizes: 36px in the side menu, 52px in lists, 64px on Home / Library.
 - **Rows:** dividers are inset and start after the tile. The "more" icon is ⋮ (vertical).
 - **On/off:** a One UI switch, i.e. `input[type=checkbox][role=switch]`.
 - **Touch targets:** rows ≥ 76px, buttons ≥ 52px, inspection answers 56px, chips 40–44px.
@@ -89,6 +101,8 @@ per screen.
 - **Tab bar:**
   - a floating, blurred pill holds Home · Tickets · Dashboard · Library, with a green highlight
     that slides (a gentle spring) to the selected tab;
+  - the tab icons are our own One UI-style drawings (`TabIcon.tsx`: house, ticket, chart panel,
+    2×2 grid): 1.8px rounded outlines, cross-fading to a filled version when selected;
   - the round green **+ Create** button sits beside it, for editors only;
   - both slide away while you scroll down and return when you scroll up or reach the top or end;
   - tapping the selected tab scrolls to the top;

@@ -5,6 +5,7 @@ import Page from '../components/Page'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
 import CountUp from '../components/CountUp'
+import { MENU_HUE } from '../lib/hues'
 import { showToast } from '../components/Toast'
 import TrendLine from '../components/charts/TrendLine'
 import BarList from '../components/charts/BarList'
@@ -597,8 +598,8 @@ export default function DashboardPage() {
           <div className="sheet-body">
             <div className="list">
               <button className="row" onClick={() => void doExport('pack')}>
-                <span className="row-icon">
-                  <Icon name="chart" size={18} />
+                <span className={`row-icon h-${MENU_HUE.exportPack}`}>
+                  <Icon name="chart" size={20} fill />
                 </span>
                 <span className="row-main">
                   <div className="row-title">KPI pack for slides</div>
@@ -606,8 +607,8 @@ export default function DashboardPage() {
                 </span>
               </button>
               <button className="row" onClick={() => void doExport('excel')}>
-                <span className="row-icon">
-                  <Icon name="table" size={18} />
+                <span className={`row-icon h-${MENU_HUE.exportExcel}`}>
+                  <Icon name="table" size={20} fill />
                 </span>
                 <span className="row-main">
                   <div className="row-title">Full data (Excel)</div>
@@ -615,8 +616,8 @@ export default function DashboardPage() {
                 </span>
               </button>
               <button className="row" onClick={() => void doExport('word')}>
-                <span className="row-icon">
-                  <Icon name="file-text" size={18} />
+                <span className={`row-icon h-${MENU_HUE.exportWord}`}>
+                  <Icon name="file-text" size={20} fill />
                 </span>
                 <span className="row-main">
                   <div className="row-title">Word summary</div>

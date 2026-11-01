@@ -66,15 +66,9 @@
 .section-head.static { cursor: default; }
 .section-head .counts { margin-left: auto; font-size: 15px; font-weight: 700; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .section-head .chev { color: var(--faint); display: inline-flex; flex-shrink: 0; }
-.section-head .letter, .assign-item .letter {
-  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
-  width: 52px; height: 52px; border-radius: 17px; font-size: 19px; font-weight: 700;
-  background: var(--none-tint); color: var(--none);
-}
-.assign-item .letter { width: 36px; height: 36px; border-radius: 10px; font-size: 14px; margin-right: 8px; }
-.letter.good { background: var(--good-tint); color: var(--good); }
-.letter.warn { background: var(--warn-tint); color: var(--warn); }
-.letter.bad { background: var(--bad-tint); color: var(--bad); }
+/* area / section tiles: One UI icon tiles (components.css), coloured by progress */
+.section-head .letter, .assign-item .letter { width: 52px; height: 52px; font-size: 19px; }
+.assign-item .letter { width: 36px; height: 36px; font-size: 14px; margin-right: 8px; }
 
 /* ---- One card per question / walkthrough line ---------------------------------- */
 .item {

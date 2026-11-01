@@ -1,20 +1,42 @@
-/* ---- Icon tiles (soft tint + filled icon, One UI squircle) --------------- */
-.itile {
+/* ---- Icon tiles: One UI app icons --------------------------------------------
+   A squircle with a bright top-to-bottom gradient, a white glyph with a little
+   depth, a faint top highlight and a soft shadow in its own colour. Status
+   tones (.bad .warn .good .none .info) for anything that shows a state; menu
+   hues (.h-*) for menu items (src/lib/hues.ts). Also used by settings rows
+   (.row-icon) and inspection area letters (.letter). */
+.itile, .row-icon, .letter {
+  --t1: var(--g-info-1); --t2: var(--g-info-2); --ts: var(--g-info-s);
   flex: none; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: var(--r-tile); background: var(--info-tint); color: var(--info);
+  border-radius: 30%; color: #fff;
+  background: linear-gradient(180deg, var(--t1), var(--t2));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28), inset 0 -1px 0 rgb(0 0 0 / 0.06), 0 4px 10px -3px var(--ts);
 }
-.itile b { font-weight: 700; letter-spacing: -0.02em; }
-.itile.s40 { width: 40px; height: 40px; border-radius: 13px; }
-.itile.s44 { width: 44px; height: 44px; border-radius: 14px; }
-.itile.s52 { width: 52px; height: 52px; border-radius: 17px; }
+.itile svg, .row-icon svg { filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.2)); }
+.itile b, .letter { font-weight: 700; letter-spacing: -0.02em; text-shadow: 0 1px 1px rgb(0 0 0 / 0.18); }
+:root[data-theme='dark'] :is(.itile, .row-icon, .letter) {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 4px 12px -3px rgb(0 0 0 / 0.6);
+}
+/* untouched inspection areas are grey until something is answered */
+.letter { --t1: var(--g-none-1); --t2: var(--g-none-2); --ts: var(--g-none-s); }
+.itile.s36 { width: 36px; height: 36px; }
+.itile.s40 { width: 40px; height: 40px; }
+.itile.s44 { width: 44px; height: 44px; }
+.itile.s52 { width: 52px; height: 52px; }
 .itile.s52 b { font-size: 18px; }
-.itile.s64 { width: 64px; height: 64px; border-radius: 21px; }
+.itile.s64 { width: 64px; height: 64px; }
 .itile.s64 b { font-size: 22px; }
-.itile.bad { background: var(--bad-tint); color: var(--bad); }
-.itile.warn { background: var(--warn-tint); color: var(--warn); }
-.itile.good { background: var(--good-tint); color: var(--good); }
-.itile.none { background: var(--none-tint); color: var(--none); }
-.itile.info { background: var(--info-tint); color: var(--info); }
+:is(.itile, .row-icon, .letter).bad { --t1: var(--g-bad-1); --t2: var(--g-bad-2); --ts: var(--g-bad-s); }
+:is(.itile, .row-icon, .letter).warn { --t1: var(--g-warn-1); --t2: var(--g-warn-2); --ts: var(--g-warn-s); }
+:is(.itile, .row-icon, .letter).good { --t1: var(--g-good-1); --t2: var(--g-good-2); --ts: var(--g-good-s); }
+:is(.itile, .row-icon, .letter).none { --t1: var(--g-none-1); --t2: var(--g-none-2); --ts: var(--g-none-s); }
+:is(.itile, .row-icon, .letter).info { --t1: var(--g-info-1); --t2: var(--g-info-2); --ts: var(--g-info-s); }
+:is(.itile, .row-icon).h-blue { --t1: var(--g-blue-1); --t2: var(--g-blue-2); --ts: var(--g-blue-s); }
+:is(.itile, .row-icon).h-cyan { --t1: var(--g-cyan-1); --t2: var(--g-cyan-2); --ts: var(--g-cyan-s); }
+:is(.itile, .row-icon).h-indigo { --t1: var(--g-indigo-1); --t2: var(--g-indigo-2); --ts: var(--g-indigo-s); }
+:is(.itile, .row-icon).h-violet { --t1: var(--g-violet-1); --t2: var(--g-violet-2); --ts: var(--g-violet-s); }
+:is(.itile, .row-icon).h-plum { --t1: var(--g-plum-1); --t2: var(--g-plum-2); --ts: var(--g-plum-s); }
+:is(.itile, .row-icon).h-pink { --t1: var(--g-pink-1); --t2: var(--g-pink-2); --ts: var(--g-pink-s); }
+:is(.itile, .row-icon).h-slate { --t1: var(--g-slate-1); --t2: var(--g-slate-2); --ts: var(--g-slate-s); }
 
 /* ---- Status chip (icon + word) ------------------------------------------- */
 .schip {
@@ -185,7 +207,7 @@ button.row { cursor: pointer; }
 .row-sub { font-size: 14px; color: var(--muted); line-height: 1.3; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-trail { color: var(--muted); font-size: 16px; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .row-chev { color: var(--faint); display: inline-flex; flex-shrink: 0; }
-.row-icon { width: 40px; height: 40px; border-radius: 13px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--info-tint); color: var(--info); }
+.row-icon { width: 36px; height: 36px; }
 .row-label { flex-shrink: 0; font-size: 16px; }
 .row.tint { color: var(--brand); font-weight: 600; }
 .row input, .row select {
@@ -281,3 +303,5 @@ button.row { cursor: pointer; }
 .irow-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .irow-meta .schip { padding: 5px 8px; font-size: 12.5px; }
 .irow-meta-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* dark: cards inside sheets are lighter than --line, so their dividers need their own tone */
+:root[data-theme='dark'] .modal :is(.list, .clist-body) > * + *::before { background: rgb(255 255 255 / 0.09); }

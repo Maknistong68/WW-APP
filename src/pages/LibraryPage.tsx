@@ -12,14 +12,14 @@ import { campState } from '../lib/camps'
 import { closeoutTotals, closeouts } from '../lib/closeout'
 import { useAllData } from '../lib/kpiData'
 import { kpiSubjects } from '../lib/subjects'
-import type { Tone } from '../lib/tone'
+import { MENU_HUE, type Hue } from '../lib/hues'
 import { pendingCount } from './UsersPage'
 
 interface Shelf {
   path: string
   title: string
   sub: string
-  tone: Tone
+  hue: Hue
   icon: IconName
   alert?: string
 }
@@ -42,12 +42,12 @@ export default function LibraryPage() {
     const late = camps.filter((c) => ['expired', 'never'].includes(campState(c, d.inspections).status)).length
     const co = closeoutTotals(closeouts(kpiSubjects(d.contractors, d.workOrders), d.kpis))
     const list: Shelf[] = [
-      { path: '/contractors', title: 'Contractors', sub: `${active.length} active · ${wos.length} work orders`, tone: 'info', icon: 'buildings' },
+      { path: '/contractors', title: 'Contractors', sub: `${active.length} active · ${wos.length} work orders`, hue: MENU_HUE.contractors, icon: 'buildings' },
       {
         path: '/camps',
         title: 'Camps',
         sub: `${camps.length} camps`,
-        tone: 'info',
+        hue: MENU_HUE.camps,
         icon: 'tent',
         alert: late ? `${late} overdue` : undefined,
       },
@@ -55,23 +55,23 @@ export default function LibraryPage() {
         path: '/closeouts',
         title: 'Audit close-out',
         sub: co.findings ? `${co.open} of ${co.findings} findings open` : 'No findings logged',
-        tone: 'info',
+        hue: MENU_HUE.closeout,
         icon: 'seal',
         alert: co.overdue ? `${co.overdue} overdue` : undefined,
       },
-      { path: '/audits', title: 'All inspections', sub: `${d.inspections.length} inspections`, tone: 'info', icon: 'clipboard' },
-      { path: '/settings/log', title: 'Activity log', sub: `${activity ?? 0} changes recorded`, tone: 'info', icon: 'activity' },
+      { path: '/audits', title: 'All inspections', sub: `${d.inspections.length} inspections`, hue: MENU_HUE.inspections, icon: 'clipboard' },
+      { path: '/settings/log', title: 'Activity log', sub: `${activity ?? 0} changes recorded`, hue: MENU_HUE.activity, icon: 'activity' },
     ]
     if (me.role === 'admin')
       list.push({
         path: '/users',
         title: 'Users',
         sub: 'Approve people and set roles',
-        tone: 'info',
+        hue: MENU_HUE.users,
         icon: 'shield',
         alert: pending ? `${pending} waiting` : undefined,
       })
-    list.push({ path: '/settings', title: 'Settings', sub: 'Sync, password, backup', tone: 'none', icon: 'settings' })
+    list.push({ path: '/settings', title: 'Settings', sub: 'Sync, password, backup', hue: MENU_HUE.settings, icon: 'settings' })
     return list
   }, [d, activity, me.role, pending])
 
@@ -81,7 +81,7 @@ export default function LibraryPage() {
         {shelves.map((s) => (
           <BigCard
             key={s.path}
-            tile={<IconTile icon={s.icon} tone={s.alert ? 'bad' : s.tone} size={64} />}
+            tile={<IconTile icon={s.icon} hue={s.hue} size={64} />}
             title={s.title}
             sub={
               <>

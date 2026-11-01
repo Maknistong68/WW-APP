@@ -13,6 +13,7 @@ import {
   usingBuiltInConfig,
 } from '../lib/sync'
 import Icon from '../components/Icon'
+import { MENU_HUE } from '../lib/hues'
 import Page from '../components/Page'
 import { useThemeMode } from '../lib/theme'
 import PasswordInput from '../components/PasswordInput'
@@ -241,8 +242,8 @@ export default function SettingsPage() {
         <div className="section-label">Your data</div>
         <div className="list">
           <button className="row" onClick={() => navigate('/settings/log')}>
-            <span className="row-icon">
-              <Icon name="activity" size={18} />
+            <span className={`row-icon h-${MENU_HUE.activity}`}>
+              <Icon name="activity" size={20} fill />
             </span>
             <span className="row-main">Activity log</span>
             <span className="row-trail">{activityCount ?? ''}</span>
@@ -251,14 +252,14 @@ export default function SettingsPage() {
             </span>
           </button>
           <button className="row" disabled={busy} onClick={() => void doBackup()}>
-            <span className="row-icon">
-              <Icon name="download" size={18} />
+            <span className={`row-icon h-${MENU_HUE.backup}`}>
+              <Icon name="download" size={20} fill />
             </span>
             <span className="row-main">Save backup file</span>
           </button>
           <button className="row" disabled={busy} onClick={() => restoreRef.current?.click()}>
-            <span className="row-icon">
-              <Icon name="upload" size={18} />
+            <span className={`row-icon h-${MENU_HUE.restore}`}>
+              <Icon name="upload" size={20} fill />
             </span>
             <span className="row-main">Restore backup file</span>
           </button>

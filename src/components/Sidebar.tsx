@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useShownLocation } from './RouteTransition'
 import Icon, { type IconName } from './Icon'
+import IconTile from './IconTile'
+import { MENU_HUE, type Hue } from '../lib/hues'
 import { ROLE_LABEL, useAuthInfo } from '../lib/auth'
 import { campState } from '../lib/camps'
 import { useAllData } from '../lib/kpiData'
@@ -17,6 +19,7 @@ interface Item {
   path: string
   label: string
   icon: IconName
+  hue: Hue
   badge?: number
   adminOnly?: boolean
 }
@@ -61,13 +64,13 @@ export default function Sidebar() {
   }, [d])
 
   const items: Item[] = [
-    { path: '/contractors', label: 'Contractors', icon: 'buildings' },
-    { path: '/camps', label: 'Camps', icon: 'tent', badge: badges.camps },
-    { path: '/closeouts', label: 'Audit close-out', icon: 'seal' },
-    { path: '/audits', label: 'All inspections', icon: 'clipboard' },
-    { path: '/settings/log', label: 'Activity log', icon: 'activity' },
-    { path: '/users', label: 'Users', icon: 'shield', badge: pending, adminOnly: true },
-    { path: '/settings', label: 'Settings', icon: 'settings' },
+    { path: '/contractors', label: 'Contractors', icon: 'buildings', hue: MENU_HUE.contractors },
+    { path: '/camps', label: 'Camps', icon: 'tent', hue: MENU_HUE.camps, badge: badges.camps },
+    { path: '/closeouts', label: 'Audit close-out', icon: 'seal', hue: MENU_HUE.closeout },
+    { path: '/audits', label: 'All inspections', icon: 'clipboard', hue: MENU_HUE.inspections },
+    { path: '/settings/log', label: 'Activity log', icon: 'activity', hue: MENU_HUE.activity },
+    { path: '/users', label: 'Users', icon: 'shield', hue: MENU_HUE.users, badge: pending, adminOnly: true },
+    { path: '/settings', label: 'Settings', icon: 'settings', hue: MENU_HUE.settings },
   ]
   const active = (p: string) => (p === '/' ? pathname === '/' : pathname === p || (p !== '/settings' && pathname.startsWith(`${p}/`)))
   const sync = lastSyncAt()
@@ -98,7 +101,7 @@ export default function Sidebar() {
               aria-current={active(i.path) ? 'page' : undefined}
               onClick={() => go(i.path)}
             >
-              <Icon name={i.icon} size={22} />
+              <IconTile icon={i.icon} hue={i.hue} size={36} />
               <span className="side-label">{i.label}</span>
               {!!i.badge && <span className="side-badge">{i.badge}</span>}
             </button>
@@ -110,7 +113,7 @@ export default function Sidebar() {
           </div>
           {me.email && (
             <button className="side-item" onClick={() => void me.signOut()}>
-              <Icon name="sign-out" size={22} />
+              <IconTile icon="sign-out" hue={MENU_HUE.signOut} size={36} />
               <span className="side-label">Sign out</span>
             </button>
           )}

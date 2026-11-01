@@ -53,6 +53,22 @@
   --chart-2: #1d5fd1;
   --grid: #e9eaed;
 
+  /* ---- icon tiles: One UI app-icon gradients (top → bottom, shadow) ----
+     Status tones for anything that shows a state; menu hues (src/lib/hues.ts)
+     for menu items, never red / amber / green. White glyph ≥ 3:1 on the bottom stop. */
+  --g-bad-1: #ff6b5f;   --g-bad-2: #d92d27;   --g-bad-s: rgb(217 45 39 / 0.35);
+  --g-warn-1: #ff9f24;  --g-warn-2: #dd6400;  --g-warn-s: rgb(221 100 0 / 0.35);
+  --g-good-1: #2fbd6c;  --g-good-2: #0f8541;  --g-good-s: rgb(15 133 65 / 0.35);
+  --g-none-1: #a4adb8;  --g-none-2: #687482;  --g-none-s: rgb(104 116 130 / 0.32);
+  --g-info-1: #4c9bff;  --g-info-2: #1d62d8;  --g-info-s: rgb(29 98 216 / 0.35);
+  --g-blue-1: #4c9bff;  --g-blue-2: #1d62d8;  --g-blue-s: rgb(29 98 216 / 0.35);
+  --g-cyan-1: #2fb9db;  --g-cyan-2: #0a87ab;  --g-cyan-s: rgb(10 135 171 / 0.35);
+  --g-indigo-1: #7b7dff; --g-indigo-2: #4446d8; --g-indigo-s: rgb(68 70 216 / 0.35);
+  --g-violet-1: #a67cff; --g-violet-2: #7446e0; --g-violet-s: rgb(116 70 224 / 0.35);
+  --g-plum-1: #d466c6;  --g-plum-2: #9c3792;  --g-plum-s: rgb(156 55 146 / 0.35);
+  --g-pink-1: #ff6fa4;  --g-pink-2: #d93474;  --g-pink-s: rgb(217 52 116 / 0.35);
+  --g-slate-1: #9ba5b3; --g-slate-2: #5f6a79; --g-slate-s: rgb(95 106 121 / 0.32);
+
   /* ---- shape & size ---- */
   --r-card: 26px;
   --r-panel: 28px;

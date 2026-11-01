@@ -6,6 +6,7 @@ import IconTile from './IconTile'
 import CardList from './CardList'
 import ItemRow from './ItemRow'
 import { campTone } from '../lib/tone'
+import { MENU_HUE, type Hue } from '../lib/hues'
 import TicketSheet from './TicketSheet'
 import CampSheet from './CampSheet'
 import { MonthStepper, SubjectEditor, SubjectList } from './SubjectPicker'
@@ -24,11 +25,11 @@ export const openCreate = () => window.dispatchEvent(new Event(CREATE_EVENT))
 
 type Step = 'menu' | 'kpi' | 'inspection'
 
-const CHOICES: { key: 'ticket' | 'kpi' | 'inspection' | 'camp'; label: string; sub: string; icon: IconName }[] = [
-  { key: 'ticket', label: 'Ticket', sub: 'Log a complaint', icon: 'ticket' },
-  { key: 'kpi', label: 'Monthly KPIs', sub: 'Score a work order', icon: 'gauge' },
-  { key: 'inspection', label: 'Inspection', sub: 'Start a camp inspection', icon: 'clipboard' },
-  { key: 'camp', label: 'Camp', sub: 'Add a camp to track', icon: 'tent' },
+const CHOICES: { key: 'ticket' | 'kpi' | 'inspection' | 'camp'; label: string; sub: string; icon: IconName; hue: Hue }[] = [
+  { key: 'ticket', label: 'Ticket', sub: 'Log a complaint', icon: 'ticket', hue: MENU_HUE.ticket },
+  { key: 'kpi', label: 'Monthly KPIs', sub: 'Score a work order', icon: 'gauge', hue: MENU_HUE.kpis },
+  { key: 'inspection', label: 'Inspection', sub: 'Start a camp inspection', icon: 'clipboard', hue: MENU_HUE.inspections },
+  { key: 'camp', label: 'Camp', sub: 'Add a camp to track', icon: 'tent', hue: MENU_HUE.camps },
 ]
 
 const RANK = { never: 0, expired: 1, due: 2, ok: 3 } as const
@@ -77,7 +78,7 @@ export default function AddButton() {
             <div className="create-grid">
               {CHOICES.map((c) => (
                 <button key={c.key} className="create-card" onClick={() => choose(c.key)}>
-                  <IconTile icon={c.icon} tone="info" size={52} />
+                  <IconTile icon={c.icon} hue={c.hue} size={52} />
                   <span className="create-label">{c.label}</span>
                   <span className="create-sub">{c.sub}</span>
                 </button>

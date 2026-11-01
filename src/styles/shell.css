@@ -148,9 +148,9 @@ body.has-actionbar .tabbar { display: none; }
   border: none; border-radius: 18px; background: none; color: var(--text); font: 500 17px var(--font); cursor: pointer; text-align: left;
   transition: background-color var(--dur-fast) var(--ease-80);
 }
-.side-item svg { color: var(--muted); }
+.side-item > svg { color: var(--muted); }
 .side-item.active { background: var(--brand-tint); color: var(--brand); font-weight: 600; }
-.side-item.active svg { color: var(--brand); }
+.side-item.active > svg { color: var(--brand); }
 .side-label { flex: 1; }
 .side-badge { min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 13px; font-weight: 700; line-height: 24px; text-align: center; }
 .side-foot { margin-top: auto; color: var(--muted); }
@@ -261,3 +261,13 @@ body.has-actionbar .toast { bottom: calc(var(--bottom-gap) + var(--actionbar-h) 
   .tab { font-size: 11.5px; letter-spacing: -0.02em; }
   .tab-fab { width: 58px; height: 58px; }
 }
+
+/* One UI tab icons (TabIcon.tsx): outline when idle, filled when selected */
+.tab-svg { display: block; overflow: visible; }
+.tab-svg .ti-line, .tab-svg .ti-solid {
+  transform-box: fill-box; transform-origin: 50% 60%;
+  transition: opacity var(--dur-fast) var(--ease-80), transform var(--dur-in) var(--ease-spring);
+}
+.tab-svg .ti-solid { opacity: 0; transform: scale(0.82); }
+.tab-svg.on .ti-solid { opacity: 1; transform: none; }
+.tab-svg.on .ti-line { opacity: 0; }
