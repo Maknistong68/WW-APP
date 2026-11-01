@@ -10,7 +10,11 @@ import {
   homeLayout,
   insideOctagon,
   canEditLayout,
+  alignCoast,
+  crewScale,
+  figuresFor,
   layoutFrom,
+  officeCrews,
   linkOffices,
   officeWorld,
   rotatePlace,
@@ -25,7 +29,9 @@ import {
 import { itemStats, subjectKpis, type AllData } from './kpiData'
 import { emptyKpi } from './subjects'
 import type { KpiResult } from './kpi'
-import type { Contractor, KpiMonth, WorkOrder } from '../types'
+import { DEFAULT_ITEMS } from './mapItems'
+import { zonesOf } from './zones'
+import type { Contractor, KpiMonth, Manpower, WorkOrder } from '../types'
 
 const c = (uuid: string, name: string, active = true, aliases: string[] = []) => ({ uuid, name, active, aliases }) as unknown as Contractor
 const wo = (uuid: string, contractorUuid: string, number: string, active = true) => ({ uuid, contractorUuid, number, label: '', active }) as unknown as WorkOrder
@@ -216,29 +222,47 @@ describe('Live site: layout editing', () => {
     expect(snapPlace(port, port.home, 3.2, -15, { ox: 8, oz: 2 })).toEqual({ gx: -5, gz: port.home.gz, rot: 0 })
   })
 
-  it('fit check: outside the octagon is fine on land; too far out, overlaps and the sea are not', () => {
+  it('fit check: land sites anywhere on land (mainland, port land, outside the octagon); not in the basin, the sea or the floating city', () => {
     const at = (id: string, gx: number, gz: number, rot: Rot = 0): Layout => ({ ...homeLayout(), [id]: { gx, gz, rot } })
     // outside the octagon (mainland) is allowed: the project extends beyond it
-    expect(insideOctagon(42, -30)).toBe(false)
-    expect(fitCheck(at('plant', 30, -30), 'plant')).toMatchObject({ ok: true })
-    expect(fitCheck(at('plant', 90, -20), 'plant')).toMatchObject({ ok: false, reason: 'outside' })
-    expect(fitCheck(at('plant', 0, -20), 'plant')).toMatchObject({ ok: false, reason: 'overlap', other: 'culvert' })
-    expect(fitCheck(at('reservoir', -30, -4), 'reservoir')).toMatchObject({ ok: false, reason: 'shore' })
-    expect(fitCheck(at('pipeline', -1, -28, 1), 'pipeline')).toMatchObject({ ok: false, reason: 'shore' })
-    // coast sites can slide along the coast outside the octagon too
+    expect(insideOctagon(105, -30)).toBe(false)
+    expect(fitCheck(at('plant', 110, -30), 'plant')).toMatchObject({ ok: true })
+    expect(fitCheck(at('plant', 145, -30), 'plant')).toMatchObject({ ok: false, reason: 'outside' })
+    expect(fitCheck(at('plant', 0, -26), 'plant')).toMatchObject({ ok: false, reason: 'overlap', other: 'culvert' })
+    // port land west of the basin is land; the basin, the open sea and the floating city are not
+    expect(fitCheck(at('reservoir', -80, 10), 'reservoir')).toMatchObject({ ok: true })
+    expect(fitCheck(at('reservoir', -30, 10), 'reservoir')).toMatchObject({ ok: false, reason: 'shore' })
+    expect(fitCheck(at('reservoir', 0, 50), 'reservoir')).toMatchObject({ ok: false, reason: 'shore' })
+    expect(fitCheck(at('pipeline', 80, -20, 1), 'pipeline')).toMatchObject({ ok: false, reason: 'shore' })
+    // coast sites slide along the basin's north quay, but not past its ends
     expect(fitCheck(at('seawall', 50, port.home.gz), 'seawall')).toMatchObject({ ok: true })
+    expect(fitCheck(at('seawall', 65, port.home.gz), 'seawall')).toMatchObject({ ok: false, reason: 'shore' })
+    expect(fitCheck(at('seawall', -70, port.home.gz), 'seawall')).toMatchObject({ ok: false, reason: 'shore' })
     expect(canEditLayout('admin')).toBe(true)
     expect(canEditLayout('editor')).toBe(false)
     expect(canEditLayout('viewer')).toBe(false)
   })
 
-  it('saved rows: unknown or broken rows are ignored; coast rows keep their shore line; old rows carry over', () => {
+  it('coast sites follow the quay when the basin is moved', () => {
+    const items = DEFAULT_ITEMS.map((i) => (i.kind === 'basin' ? { ...i, points: i.points!.map(([x, z]) => [x, z + 4] as [number, number]) } : i))
+    const zones = zonesOf(items)
+    const l = alignCoast(homeLayout(), zones)
+    expect(l.port.gz).toBe(port.home.gz + 4)
+    expect(l.plant).toEqual(plant.home)
+    for (const s of SITES) expect([s.id, fitCheck(l, s.id, zones).ok]).toEqual([s.id, true])
+    // without the shift the port would sit on the old quay line, half on land
+    expect(fitCheck(homeLayout(), 'port', zones)).toMatchObject({ ok: false, reason: 'shore' })
+  })
+
+  it('saved rows: unknown or broken rows are ignored; coast rows keep their quay line; old rows carry over', () => {
     const l = layoutFrom([
-      { siteId: 'plant', gx: 12, gz: -9, rot: 1, v: 2 },
-      { siteId: 'nope', gx: 0, gz: 0, rot: 0, v: 2 },
-      { siteId: 'culvert', gx: 1.5, gz: 0, rot: 0, v: 2 },
-      { siteId: 'reservoir', gx: 0, gz: 0, rot: 7, v: 2 },
-      { siteId: 'port', gx: -6, gz: -3, rot: 2, v: 2 },
+      { siteId: 'plant', gx: 12, gz: -9, rot: 1, v: 3 },
+      { siteId: 'nope', gx: 0, gz: 0, rot: 0, v: 3 },
+      { siteId: 'culvert', gx: 1.5, gz: 0, rot: 0, v: 3 },
+      { siteId: 'reservoir', gx: 0, gz: 0, rot: 7, v: 3 },
+      { siteId: 'port', gx: -6, gz: -3, rot: 2, v: 3 },
+      // saved with the bigger octagon (v2): moves 6 tiles north with the land half
+      { siteId: 'earthworks', gx: 2, gz: -40, rot: 0, v: 2 },
       // saved with the first (smaller) octagon: 2 tiles right of its old default
       { siteId: 'bridge', gx: -1, gz: 0, rot: 0 },
     ])
@@ -246,8 +270,33 @@ describe('Live site: layout editing', () => {
     expect(l.culvert).toEqual(SITE_BY_ID.get('culvert')!.home)
     expect(l.reservoir).toEqual(SITE_BY_ID.get('reservoir')!.home)
     expect(l.port).toEqual({ gx: -6, gz: port.home.gz, rot: 0 })
+    expect(l.earthworks).toEqual({ gx: 2, gz: -46, rot: 0 })
     const bridge = SITE_BY_ID.get('bridge')!.home
     expect(l.bridge).toEqual({ gx: bridge.gx + 2, gz: bridge.gz, rot: 0 })
     expect(Object.keys(l)).toHaveLength(12)
+  })
+})
+
+describe('Live site: manpower', () => {
+  const mp = (contractorUuid: string, workOrderUuid: string, month: string, totalWorkers: number): Manpower =>
+    ({ uuid: `${contractorUuid}${workOrderUuid}${month}`, updatedAt: '', contractorUuid, workOrderUuid, month, totalWorkers, illegalOrFreelance: 0, visaExpiring30d: 0, paidRecruitmentFees: 0 }) as Manpower
+
+  it('each office shows its latest count up to the month, never a later one', () => {
+    const links = linkOffices(data())
+    const rows = [mp('sam', '', '2026-08', 2800), mp('sam', '', '2026-09', 3000), mp('sam', '', '2026-11', 3500), mp('fah', 'w823', '2026-07', 120), mp('ppc', 'w1322', '2026-09', 0)]
+    const crews = officeCrews(rows, links, '2026-10')
+    expect(crews.get('roadWest')).toEqual({ workers: 3000, month: '2026-09' })
+    expect(crews.get('earthworks')).toEqual({ workers: 120, month: '2026-07' })
+    expect(crews.has('pipeline')).toBe(false)
+    expect(crews.has('port')).toBe(false)
+  })
+
+  it('one figure stands for a round number of people; a 3,000 crew stays drawable', () => {
+    expect(crewScale(150, 200)).toBe(1)
+    expect(crewScale(3120, 200)).toBe(20)
+    expect(crewScale(12000, 100)).toBe(200)
+    expect(figuresFor(3000, 20)).toBe(150)
+    expect(figuresFor(5, 20)).toBe(1)
+    expect(figuresFor(0, 20)).toBe(0)
   })
 })

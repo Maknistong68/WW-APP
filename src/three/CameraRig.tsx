@@ -19,20 +19,20 @@ const EDIT_POLAR = 0.42
 /** Landscape: a classic three-quarter view; portrait phones look more from above so the site fills the screen. */
 const homePolar = (aspect: number) => (aspect < 0.8 ? 0.56 : 0.74)
 
-/** Where the home view looks: the octagon's land half with the edge of the floating city in front. */
-const HOME_Z = -13
+/** Where the home view looks: the middle of the octagon (the spine road), land behind, basin and floating city in front. */
+const HOME_Z = 6
 
-/** Distance that fits the land half on screen (phones crop the sides; one finger pans). */
+/** Distance that fits the whole octagon on screen (phones crop the sides; one finger pans). */
 function fitDistance(fov: number, aspect: number) {
   const tv = Math.tan((fov * Math.PI) / 360)
   const th = tv * aspect
-  const w = (GRID + 2) / th
-  const h = (25 * Math.cos(homePolar(aspect)) + 4) / tv
-  return Math.max(aspect < 0.8 ? w * 0.62 : w, h) * 1.02
+  const w = (GRID + 6) / th
+  const h = (GRID * Math.cos(homePolar(aspect)) + 6) / tv
+  return Math.max(aspect < 0.8 ? w * 0.62 : w, h) * 1.12
 }
 
 /**
- * Base-builder camera: a high three-quarter view with the sea in front. One
+ * Base-builder camera: a high three-quarter view from the sea, land at the back. One
  * finger pans, two fingers zoom / turn (mouse: left pans, right turns). Taps
  * and the tour fly smoothly; edit mode looks more from above. Gentle sway when
  * idle. Reduced motion jumps instead of flying.
@@ -49,7 +49,7 @@ export default function CameraRig({ focus, motion, editing }: { focus: Focus | n
   const tmp = useMemo(() => ({ dir: new THREE.Vector3(), sph: new THREE.Spherical(), d: new THREE.Vector3() }), [])
 
   const home = (polar = HOME_POLAR) => {
-    const target = new THREE.Vector3(0, 0.5, aspect < 0.8 ? HOME_Z + 2 : HOME_Z)
+    const target = new THREE.Vector3(0, 0.5, aspect < 0.8 ? HOME_Z + 4 : HOME_Z)
     const pos = new THREE.Vector3().setFromSpherical(new THREE.Spherical(dist, polar, HOME_AZ)).add(target)
     return { target, pos }
   }
@@ -112,9 +112,9 @@ export default function CameraRig({ focus, motion, editing }: { focus: Focus | n
     c.autoRotate = motion && !g && !editing && idle
     c.autoRotateSpeed = 0.35 * Math.sin(state.clock.elapsedTime * 0.12)
     c.update()
-    // keep the view over the buildable land (the octagon and the land around it)
+    // keep the view over the map (the octagon and the land around it)
     const cx = Math.max(-WORLD, Math.min(WORLD, c.target.x))
-    const cz = Math.max(-WORLD, Math.min(GRID, c.target.z))
+    const cz = Math.max(-WORLD, Math.min(GRID + 10, c.target.z))
     if (cx !== c.target.x || cz !== c.target.z || c.target.y !== 0.5) {
       tmp.dir.set(cx - c.target.x, 0.5 - c.target.y, cz - c.target.z)
       c.target.add(tmp.dir)

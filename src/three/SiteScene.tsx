@@ -4,6 +4,7 @@ import { PerformanceMonitor } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { GRID, SITES, WORLD, samePlace, sizeOf, snapPlace, type Fit, type Layout, type OfficeHealth, type Place } from '../lib/site'
+import Zones from './Zones'
 import { moveItem, movePoint, type MapItem, type XZ } from '../lib/mapItems'
 import MapItems from './MapItems'
 import { buildSite, type Built } from './scopes'
@@ -20,6 +21,7 @@ import { FirstFrame } from './SceneGuard'
 import type { Palette } from './theme3d'
 
 export interface SceneProps {
+  /** Where the sites are drawn (coast sites already on the basin quay). */
   layout: Layout
   offices: BarOffice[]
   health: Map<string, OfficeHealth>
@@ -38,7 +40,9 @@ export interface SceneProps {
   onEditGrab: (siteId: string) => void
   onEditMove: (siteId: string, place: Place) => void
   onEditDrop: (siteId: string) => void
-  /** Map items (roads, highways, palms, camps, villages) and the edit tool. */
+  /** Worker figures per site (null = no manpower count yet). */
+  crews: (number | null)[]
+  /** Map items (roads, highways, palms, camps, villages, zones) and the edit tool. */
   items: MapItem[]
   tool: EditTool
   drawing: XZ[] | null
@@ -53,7 +57,7 @@ export interface SceneProps {
   onLost: () => void
 }
 
-export type EditTool = 'move' | 'road' | 'trees' | 'camp' | 'village'
+export type EditTool = 'move' | 'road' | 'trees' | 'camp' | 'village' | 'zone'
 
 const hasIdle = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
 const idle = (fn: () => void): number => (hasIdle ? window.requestIdleCallback(fn, { timeout: 120 }) : window.setTimeout(fn, 16))
@@ -94,6 +98,56 @@ function Ticker({ fps }: { fps: number }) {
     return () => window.clearInterval(id)
   }, [fps, invalidate])
   return null
+}
+
+const SUN = new THREE.Vector3(34, 64, 14).normalize().multiplyScalar(240)
+
+/** The sun: its shadow box follows what the camera looks at and grows as it zooms out, so shadows stay sharp up close. */
+function Sun({ palette, shadows }: { palette: SceneProps['palette']; shadows: boolean }) {
+  const light = useRef<THREE.DirectionalLight>(null!)
+  const camera = useThree((s) => s.camera)
+  const controls = useThree((s) => s.controls) as unknown as OrbitControlsImpl | null
+  useFrame(() => {
+    const l = light.current
+    if (!l) return
+    const t = controls?.target
+    const tx = t?.x ?? 0
+    const tz = t?.z ?? 0
+    const ext = Math.max(40, Math.min(150, Math.round(camera.position.distanceTo(t ?? l.target.position) * 0.5 / 10) * 10))
+    // move in whole shadow texels so the edges don't shimmer
+    const texel = (ext * 2) / 2048
+    const sx = Math.round(tx / texel) * texel
+    const sz = Math.round(tz / texel) * texel
+    l.position.set(sx + SUN.x, SUN.y, sz + SUN.z)
+    l.target.position.set(sx, 0, sz)
+    l.target.updateMatrixWorld()
+    const cam = l.shadow.camera
+    if (cam.right !== ext) {
+      cam.left = -ext
+      cam.right = ext
+      cam.top = ext
+      cam.bottom = -ext
+      cam.updateProjectionMatrix()
+    }
+  })
+  return (
+    <directionalLight
+      ref={light}
+      position={[SUN.x, SUN.y, SUN.z]}
+      intensity={palette.sunI}
+      color={palette.sun}
+      castShadow={shadows}
+      shadow-mapSize={[2048, 2048]}
+      shadow-camera-left={-80}
+      shadow-camera-right={80}
+      shadow-camera-top={80}
+      shadow-camera-bottom={-80}
+      shadow-camera-near={1}
+      shadow-camera-far={520}
+      shadow-bias={-0.0006}
+      shadow-normalBias={0.03}
+    />
+  )
 }
 
 function World(props: SceneProps & { degraded: boolean; shadows: boolean }) {
@@ -237,33 +291,32 @@ function World(props: SceneProps & { degraded: boolean; shadows: boolean }) {
     onMove: ev.onMove,
     onDrop: ev.onDrop,
   }
+  const zoneTool = props.editing && props.tool === 'zone'
+  const zoneEv = { ...itemEv, canGrab: zoneTool }
   useEffect(() => {
     if (!props.editing && controls) controls.enabled = true
   }, [props.editing, controls])
 
   const night = palette.dark
-  const near = lite ? 210 : 170
+  const near = lite ? 520 : 420
   return (
     <>
       <color attach="background" args={[palette.sky]} />
       <fog attach="fog" args={[palette.sky, near, near * 2.4]} />
       <hemisphereLight args={[palette.hemiSky, palette.hemiGround, palette.hemi]} />
-      <directionalLight
-        position={[34, 64, 14]}
-        intensity={palette.sunI}
-        color={palette.sun}
-        castShadow={shadows}
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-62}
-        shadow-camera-right={62}
-        shadow-camera-top={62}
-        shadow-camera-bottom={-62}
-        shadow-camera-near={1}
-        shadow-camera-far={220}
-        shadow-bias={-0.0006}
-        shadow-normalBias={0.03}
-      />
+      <Sun palette={palette} shadows={shadows} />
       <Ground palette={palette} editing={props.editing} shadows={shadows} motion={motion} />
+      <Zones
+        items={props.items}
+        layout={props.layout}
+        solid={mats.solid}
+        glow={mats.glow}
+        shadows={shadows}
+        editing={props.editing}
+        zoneTool={zoneTool}
+        selected={zoneTool ? props.itemSelected : null}
+        ev={zoneEv}
+      />
       <MapItems
         items={props.items}
         drawing={props.editing ? props.drawing : null}
@@ -276,7 +329,7 @@ function World(props: SceneProps & { degraded: boolean; shadows: boolean }) {
         ev={itemEv}
       />
       {props.editing && (
-        // taps on the ground: add a road point, plant a palm, place a block, or clear the selection
+        // taps on the ground: add a road point, plant a palm, place a block, or clear the selection (over water too)
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, 0, (GRID - WORLD) / 2]}
@@ -293,7 +346,7 @@ function World(props: SceneProps & { degraded: boolean; shadows: boolean }) {
       )}
       <SitePlots rig={rig} geos={geos} solid={mats.solid} glow={mats.glow} night={night} shadows={shadows} ev={ev} />
       {builds && <Fleet rig={rig} builds={builds} motion={motion} material={mats.solid} blobs={!shadows} shadows={shadows} />}
-      {builds && <Workers rig={rig} builds={builds} motion={motion} material={mats.solid} lite={lite || degraded} blobs={!shadows} shadows={shadows} />}
+      {builds && <Workers rig={rig} builds={builds} crews={props.crews} motion={motion} material={mats.solid} lite={lite || degraded} blobs={!shadows} shadows={shadows} />}
       {builds && <Effects rig={rig} builds={builds} motion={motion} puffs={!lite && !degraded} night={night} />}
       <HealthBars rig={rig} offices={props.offices} health={props.health} palette={palette} motion={motion} selected={props.selectedOffice} onPick={(k) => cb.current.onPickOffice(k)} />
       {props.editing && <LayoutEditor layout={props.layout} selected={props.editSelected} fit={props.editFit} palette={palette} motion={motion} drop={drop} />}
@@ -312,7 +365,7 @@ export default function SiteScene(props: SceneProps) {
       shadows={shadows}
       frameloop={!motion || lite ? 'demand' : 'always'}
       dpr={[1, degraded ? 1 : lite ? 1.5 : 1.75]}
-      camera={{ fov: 30, near: 0.5, far: 1000, position: [20, 60, 70] }}
+      camera={{ fov: 30, near: 0.5, far: 2600, position: [60, 220, 200] }}
       gl={{ antialias: true, preserveDrawingBuffer: import.meta.env.MODE === 'development' }}
       onPointerMissed={() => props.onNothing()}
       onCreated={({ gl }) => {

@@ -1,6 +1,7 @@
 import { rng } from '../kit/build'
 import type { Scope, SiteDef } from '../../lib/site'
 import type { Builder, Built } from './common'
+import { barricade } from './common'
 import { bridge, buildings, culvert, earthworks, pipeline, plant, reservoir, road } from './land'
 import { coastGuard, port, seawall } from './coast'
 
@@ -20,9 +21,11 @@ const BUILDERS: Record<Scope, Builder> = {
 
 const seedOf = (id: string) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
 
-/** A site's models, built once (the same on every device). */
+/** A site's models, built once (the same on every device), barricaded all round. */
 export function buildSite(def: SiteDef): Built {
-  return BUILDERS[def.scope](def, rng(seedOf(def.id)))
+  const b = BUILDERS[def.scope](def, rng(seedOf(def.id)))
+  barricade(b, def)
+  return b
 }
 
 export type { Built, FxSpec, WorkerSpec } from './common'

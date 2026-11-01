@@ -16,9 +16,12 @@ import {
   FLOORS,
   SITES,
   SITE_BY_ID,
+  alignCoast,
   buildTour,
   canEditLayout,
   canRotate,
+  crewScale,
+  figuresFor,
   fitCheck,
   fitHint,
   homeLayout,
@@ -37,8 +40,13 @@ import {
 } from '../lib/site'
 import { commitLayout, useMapItemRows, useSitePlaces } from '../lib/sitePlaces'
 import {
+  DEFAULT_ZONES,
   ITEM_LABEL,
+  addCorner,
+  canRemovePoint,
   diffItems,
+  isRectZone,
+  isZone,
   itemsFrom,
   moveItem,
   removePoint,
@@ -48,6 +56,7 @@ import {
   type MapItem,
   type XZ,
 } from '../lib/mapItems'
+import { zonesOf } from '../lib/zones'
 import { newUuid } from '../db'
 import { monthLabel } from '../lib/dates'
 import { STATUS_LABEL, kpiStatus, pct } from '../lib/kpi'
@@ -103,13 +112,20 @@ interface Edit {
   history: Snap[]
 }
 
-const TOOLS: { key: EditTool; label: string; icon: 'move' | 'road' | 'palm' | 'tent' | 'village' }[] = [
+const TOOLS: { key: EditTool; label: string; icon: 'move' | 'road' | 'palm' | 'tent' | 'village' | 'polygon' }[] = [
   { key: 'move', label: 'Move', icon: 'move' },
+  { key: 'zone', label: 'Zones', icon: 'polygon' },
   { key: 'road', label: 'Road', icon: 'road' },
   { key: 'trees', label: 'Trees', icon: 'palm' },
   { key: 'camp', label: 'Camp', icon: 'tent' },
   { key: 'village', label: 'Village', icon: 'village' },
 ]
+
+/** Most worker figures on the whole map (phones get fewer); no single site gets more than PER_SITE. */
+const CREW_CAP = { desktop: 240, phone: 120 }
+const PER_SITE = 90
+
+const people = (n: number) => `${n.toLocaleString('en-US')} worker${n === 1 ? '' : 's'}`
 
 const pushHistory = (e: Edit): Snap[] => [...e.history.slice(-40), { draft: e.draft, items: e.items }]
 
@@ -186,8 +202,10 @@ export default function City3DPage() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const m = data[cur] ?? data[start]
-  const layout = edit?.draft ?? saved
   const items = edit?.items ?? savedItems
+  const zones = useMemo(() => zonesOf(items), [items])
+  // coast sites sit on the basin's north quay wherever it is
+  const layout = useMemo(() => alignCoast(edit?.draft ?? saved, zones), [edit?.draft, saved, zones])
   const fly = (x: number, z: number, dist = 18) => setFocus((f) => ({ x, z, dist, v: (f?.v ?? 0) + 1 }))
 
   const offices: BarOffice[] = useMemo(() => {
@@ -201,6 +219,16 @@ export default function City3DPage() {
     })
     return out
   }, [links])
+  // worker figures per site: one figure for a round number of people
+  const crews = useMemo(() => {
+    const workers = SITES.map((def) => {
+      const counts = def.offices.map((o) => m?.crews.get(o.key)?.workers).filter((n): n is number => n !== undefined)
+      return counts.length ? counts.reduce((a, b) => a + b, 0) : null
+    })
+    const total = workers.reduce<number>((a, b) => a + (b ?? 0), 0)
+    const per = crewScale(total, lite ? CREW_CAP.phone : CREW_CAP.desktop)
+    return { per, total, figures: workers.map((w) => (w === null ? null : Math.min(PER_SITE, figuresFor(w, per)))) }
+  }, [m, lite])
   const officeDef = (key: string) => SITES.find((s) => s.offices.some((o) => o.key === key))
   const flyToOffice = (key: string, dist = 26) => {
     const def = officeDef(key)
@@ -252,7 +280,9 @@ export default function City3DPage() {
   const fits = useMemo(() => {
     if (!edit) return null
     const out: Record<string, Fit> = {}
-    for (const s of SITES) out[s.id] = fitCheck(edit.draft, s.id)
+    const z = zonesOf(edit.items)
+    const l = alignCoast(edit.draft, z)
+    for (const s of SITES) out[s.id] = fitCheck(l, s.id, z)
     return out
   }, [edit])
   const allFit = !!fits && Object.values(fits).every((f) => f.ok)
@@ -283,6 +313,7 @@ export default function City3DPage() {
 
   const link = sel ? links?.offices.get(sel) : undefined
   const health = sel ? m?.offices.get(sel) : undefined
+  const crew = sel ? m?.crews.get(sel) : undefined
   const selDef = sel ? officeDef(sel) : undefined
   const siblings = selDef ? selDef.offices.filter((o) => links?.offices.has(o.key)) : []
   const stop = tour !== null ? stops[tour] : undefined
@@ -331,7 +362,7 @@ export default function City3DPage() {
   }
   const groundTap = (x: number, z: number) =>
     upd((e) => {
-      if (e.tool === 'move') return { ...e, selected: null, item: null }
+      if (e.tool === 'move' || e.tool === 'zone') return { ...e, selected: null, item: null }
       if (e.tool === 'road') {
         const p = snapPoint(x, z)
         const last = e.drawing[e.drawing.length - 1]
@@ -361,10 +392,18 @@ export default function City3DPage() {
       const it = e.item ? e.items.find((i) => i.uuid === e.item!.uuid) : undefined
       if (!it) return e
       const point = e.item!.point
-      // one palm, or one corner of a road with 3+ corners; otherwise the whole thing
-      const next = point >= 0 && (it.kind === 'trees' || (it.points?.length ?? 0) > 2) ? removePoint(it, point) : null
+      // one palm, or one corner of a road / zone that has corners to spare; otherwise the whole thing
+      const next = point >= 0 && (it.kind === 'trees' || canRemovePoint(it)) ? removePoint(it, point) : null
       const items = next ? e.items.map((i) => (i.uuid === it.uuid ? next : i)) : e.items.filter((i) => i.uuid !== it.uuid)
       return { ...e, history: pushHistory(e), items, item: null }
+    })
+  const addZoneCorner = () =>
+    upd((e) => {
+      const it = e.item ? e.items.find((i) => i.uuid === e.item!.uuid) : undefined
+      if (!it || !e.item || e.item.point < 0) return e
+      const next = addCorner(it, e.item.point)
+      if (next === it) return e
+      return { ...e, history: pushHistory(e), items: e.items.map((i) => (i.uuid === it.uuid ? next : i)), item: { uuid: it.uuid, point: e.item.point + 1 } }
     })
   const undo = () =>
     upd((e) => {
@@ -403,6 +442,15 @@ export default function City3DPage() {
           return { text: `${what} · drag to move${selItem.kind === 'road' || selItem.kind === 'highway' ? ', drag the dots to bend it' : ''}`, tone: 'good' }
         }
         return { text: 'Drag sites, roads, palms, camps or villages. One finger on the ground pans.', tone: '' }
+      case 'zone': {
+        if (selItem && isZone(selItem.kind)) {
+          const what = ITEM_LABEL[selItem.kind][0].toUpperCase() + ITEM_LABEL[selItem.kind].slice(1)
+          const p = edit.item!.point
+          if (p < 0) return { text: `${what} · drag the disc to move it, the dots to reshape it`, tone: 'good' }
+          return { text: `${what} · corner ${p + 1} of ${selItem.points?.length ?? 0}${isRectZone(selItem.kind) ? ' · stays a rectangle' : ''}`, tone: 'good' }
+        }
+        return { text: 'Tap a zone’s white disc to pick it, then drag the disc or its dots.', tone: '' }
+      }
       case 'road':
         return { text: edit.drawing.length === 0 ? `Tap the ground to start a ${edit.roadKind}.` : `${edit.drawing.length} point${edit.drawing.length === 1 ? '' : 's'} · tap to add more, then Finish.`, tone: '' }
       case 'trees':
@@ -421,6 +469,7 @@ export default function City3DPage() {
         <SceneErrorBoundary onError={(msg) => setProblem(`The 3D view hit an error: ${msg}`)}>
           <SiteScene
             layout={layout}
+            crews={crews.figures}
             offices={offices}
             health={m.offices}
             palette={palette}
@@ -484,8 +533,8 @@ export default function City3DPage() {
             <b>Edit map</b>
             <span>Only Admins can change the map. Done saves it for the team.</span>
           </div>
-          <button className="city-btn" onClick={() => setSheet('reset')} aria-label="Put every site back in its default place">
-            <Icon name="undo" size={18} /> Sites
+          <button className="city-btn" onClick={() => setSheet('reset')} aria-label="Put sites or zones back in their default place">
+            <Icon name="undo" size={18} /> Reset
           </button>
           <button className="city-btn" onClick={() => setEdit(null)}>
             Cancel
@@ -557,6 +606,16 @@ export default function City3DPage() {
                   </button>
                 </>
               )}
+              {edit.tool === 'zone' && (
+                <>
+                  <button className="btn" disabled={!(selItem && isZone(selItem.kind) && !isRectZone(selItem.kind) && edit.item!.point >= 0)} onClick={addZoneCorner}>
+                    <Icon name="plus" size={18} /> Corner
+                  </button>
+                  <button className="btn danger" disabled={!(selItem && isZone(selItem.kind))} onClick={deleteSelected}>
+                    <Icon name="trash" size={18} /> {selItem && edit.item!.point >= 0 && canRemovePoint(selItem) ? 'Corner' : 'Delete'}
+                  </button>
+                </>
+              )}
               {edit.tool === 'road' && (
                 <>
                   <button className="btn" aria-pressed={edit.roadKind === 'highway'} onClick={() => upd((e) => ({ ...e, roadKind: e.roadKind === 'road' ? 'highway' : 'road' }))}>
@@ -623,6 +682,11 @@ export default function City3DPage() {
                 </button>
               ))}
             </div>
+            <div className="city-note">
+              {crew
+                ? `Manpower: ${people(crew.workers)}${crew.month !== m?.month ? ` (count from ${monthLabel(crew.month)})` : ''} · each figure ≈ ${people(crews.per)}`
+                : 'No manpower count yet: add it with the + button to show the real crew.'}
+            </div>
             {link.off && <div className="city-note">Switched off in Contractors, so it isn’t in the site KPI. Switch it on to count it.</div>}
             <div className="btn-row">
               <button className="btn primary" onClick={() => navigate(`/contractors/${link.contractor.uuid}`)}>
@@ -672,7 +736,7 @@ export default function City3DPage() {
                       key={o.key}
                       tile={<IconTile icon="hard-hat" tone={kpiTone(h?.status ?? 'none')} size={44} />}
                       title={l.label}
-                      sub={`${SITES[o.site].title} · KPI ${pct(h?.overall ?? null)}${l.off ? ' · switched off' : ''}`}
+                      sub={`${SITES[o.site].title} · KPI ${pct(h?.overall ?? null)}${m.crews.get(o.key) ? ` · ${people(m.crews.get(o.key)!.workers)}` : ''}${l.off ? ' · switched off' : ''}`}
                       onOpen={() => {
                         setSheet(null)
                         pick(o.key)
@@ -698,21 +762,30 @@ export default function City3DPage() {
         </Modal>
       )}
       {sheet === 'reset' && (
-        <Modal title="Reset the layout?" onClose={() => setSheet(null)}>
+        <Modal title="Reset the map?" onClose={() => setSheet(null)}>
           <div className="sheet-body">
-            <p className="city-note">Every site goes back to its default place. Nothing is saved until you press Done.</p>
+            <p className="city-note">Put the sites, or the zones (industrial zone, port, basin, pier, floating city), back where they started. Nothing is saved until you press Done.</p>
             <div className="btn-row">
               <button className="btn" onClick={() => setSheet(null)}>
-                Keep my layout
+                Keep my map
               </button>
               <button
                 className="btn danger"
                 onClick={() => {
-                  setEdit((e) => (e ? { ...e, draft: homeLayout(), selected: null } : e))
+                  setEdit((e) => (e ? { ...e, history: pushHistory(e), draft: homeLayout(), selected: null } : e))
                   setSheet(null)
                 }}
               >
-                Reset layout
+                Reset sites
+              </button>
+              <button
+                className="btn danger"
+                onClick={() => {
+                  setEdit((e) => (e ? { ...e, history: pushHistory(e), items: [...e.items.filter((i) => !isZone(i.kind)), ...DEFAULT_ZONES], item: null } : e))
+                  setSheet(null)
+                }}
+              >
+                Reset zones
               </button>
             </div>
           </div>
@@ -722,9 +795,17 @@ export default function City3DPage() {
         <Modal title="What am I looking at?" onClose={() => setSheet(null)}>
           <div className="sheet-body city-legend">
             <p>
-              The <b>octagon</b> is the project. Its land half is being built now: each contractor or work order has its own site with its scope of works (earthworks,
-              pipeline, culvert, bridge, roads, buildings, plant, reservoir, port, seawall and the Coast Guard building). The sea half is the <b>floating city</b>, not built
-              yet. Outside the octagon: the highway, the workers’ camp and the village.
+              The <b>octagon</b> is the whole city, half on land and half in the sea. North to south: the <b>industrial zone</b> on land with its street grid, the{' '}
+              <b>spine road</b> through the middle, the <b>harbour basin</b> with cranes along its north quay (ships come in from the east, past the <b>entrance pier</b>),
+              then the <b>floating city</b> (not built yet, shown as a pale outline). The coastal highway runs past outside and joins the spine road.
+            </p>
+            <p>
+              The coloured, barricaded sites are the real projects: each contractor or work order has its own site with its scope of works (earthworks, pipeline,
+              culvert, bridge, roads, buildings, plant, reservoir, port, seawall and the Coast Guard building). The pale blocks around them are only the city plan.
+            </p>
+            <p>
+              <b>Workers</b> on a site stand for its manpower count (from the + button){crews.total ? <>: one figure ≈ {people(crews.per)}</> : null}. A site with no
+              count yet shows a small default crew. Machines are for show.
             </p>
             <p>
               The <b>health bar</b> over each site office is that month’s overall KPI: a full bar is 100% (full compliance), an empty bar is 0%.{' '}
@@ -735,11 +816,12 @@ export default function City3DPage() {
             {canLayout && (
               <p>
                 ✎ edits the map (Admins only). <b>Move</b>: drag sites, roads, palms, camps and villages; a site turns green when it fits and red when it overlaps or sits in
-                the sea. <b>Road</b>: tap points, then Finish. <b>Trees</b>: tap to plant, or Row for a line of palms. <b>Camp</b> / <b>Village</b>: tap to place. Done saves
-                it for the whole team.
+                the water. <b>Zones</b>: tap a zone’s disc, drag it to move the zone or drag its dots to reshape it (Corner adds one); coast sites follow the basin’s quay.{' '}
+                <b>Road</b>: tap points, then Finish. <b>Trees</b>: tap to plant, or Row for a line of palms. <b>Camp</b> / <b>Village</b>: tap to place. Done saves it for
+                the whole team.
               </p>
             )}
-            <p>Day or night follows the app theme. Machines and workers are for show only; they don’t stand for real numbers.</p>
+            <p>Day or night follows the app theme.</p>
           </div>
         </Modal>
       )}
