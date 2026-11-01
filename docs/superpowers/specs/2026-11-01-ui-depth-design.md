@@ -1,6 +1,14 @@
 # WW Co-pilot: deeper UI plan (Home task list · contractor trends · drill-down · long-press)
 
-**Date:** 2026-11-01 · **Status:** approved; mockup review pending
+**Date:** 2026-11-01 · **Status:** built and deployed (steps 0–5).
+
+**Owner's follow-up:** "Choose by yourself; make it fun and easy: long-press, animations, pop-ups."
+So the open questions were decided (7-day "This week", Watch card kept, menus as pop-ups that grow
+out of the held item, swipe for the main action, a check-and-sparkle when things get done, a gentle
+spring on pop-ups only), and a **Part E: Feel** layer was built first: hold-to-pop menus with a
+spotlight and preview, haptics (`src/lib/haptics.ts`), swipe actions, the done check, chart
+callouts with Open, and the number-to-chip morph. "Open" was dropped from menus (a tap already
+opens). The live rules are in `docs/DESIGN.md`.
 
 ## Context
 
