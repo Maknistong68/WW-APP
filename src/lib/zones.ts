@@ -1,9 +1,9 @@
-import { COAST, inPoly, inRect, rectMinus, rectsOverlap, type Rect, type XZ } from './world'
+import { COAST, coastZ, inPoly, inRect, rectMinus, rectsOverlap, type Rect, type XZ } from './world'
 import { DEFAULT_ITEMS, rectCorners, type MapItem } from './mapItems'
 
 // The city's zones, read from the map items so the Admin can reshape them:
 // the industrial zone (land half), the port land with the harbour basin cut
-// into it, the entrance pier and the floating city. What is land, what is
+// into it, the island and the floating city. What is land, what is
 // water, where the quay is, and the procedural blocks that fill the zones.
 // Pure and deterministic (the same city on every device).
 
@@ -11,7 +11,7 @@ export interface Zones {
   industry: XZ[][]
   port: Rect[]
   basin: Rect[]
-  pier: XZ[][]
+  island: XZ[][]
   city: XZ[][]
 }
 
@@ -21,12 +21,12 @@ export function rectOf(pts: XZ[]): Rect {
 }
 
 export function zonesOf(items: MapItem[]): Zones {
-  const z: Zones = { industry: [], port: [], basin: [], pier: [], city: [] }
+  const z: Zones = { industry: [], port: [], basin: [], island: [], city: [] }
   for (const i of items) {
     const p = i.points ?? []
     if (i.kind === 'port' || i.kind === 'basin') {
       if (p.length >= 2) z[i.kind].push(rectOf(p))
-    } else if (i.kind === 'industry' || i.kind === 'pier' || i.kind === 'city') {
+    } else if (i.kind === 'industry' || i.kind === 'island' || i.kind === 'city') {
       if (p.length >= 3) z[i.kind].push(p)
     }
   }
@@ -38,11 +38,11 @@ export const DEFAULT_ZONE_SET: Zones = zonesOf(DEFAULT_ITEMS)
 export const inBasin = (zs: Zones, x: number, z: number) => zs.basin.some((r) => inRect(r, x, z))
 export const inCity = (zs: Zones, x: number, z: number) => zs.city.some((p) => inPoly(p, x, z))
 
-/** Solid ground to build on: the mainland, the port land and the pier, minus the basin. The floating city isn't built yet. */
+/** Solid ground to build on: the mainland, the port land and the island, minus the basin. The floating city isn't built yet. */
 export function onLand(zs: Zones, x: number, z: number) {
   if (inBasin(zs, x, z)) return false
-  if (z <= COAST) return true
-  return zs.port.some((r) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) || zs.pier.some((p) => inPoly(p, x, z))
+  if (z <= coastZ(x)) return true
+  return zs.port.some((r) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) || zs.island.some((p) => inPoly(p, x, z))
 }
 
 export const isWater = (zs: Zones, x: number, z: number) => !onLand(zs, x, z) && !inCity(zs, x, z)
@@ -53,7 +53,7 @@ export function quayOf(zs: Zones): { z: number; x0: number; x1: number } | null 
   return b ? { z: b.z0, x0: b.x0, x1: b.x1 } : null
 }
 
-/** The mainland, reaching well past the map so the horizon is desert. */
+/** The mainland north of COAST, reaching well past the map so the horizon is desert (the coast outside the octagon: world.coastLand). */
 export const MAINLAND: Rect = { x0: -460, z0: -460, x1: 460, z1: COAST }
 
 /** Land as rectangles (the basin cut out) for drawing: mainland pieces and port pieces. */

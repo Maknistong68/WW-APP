@@ -21,7 +21,7 @@ export const GRID = 100
 export const OCT = 141
 /** How far the map reaches: |x| ≤ WORLD, -WORLD ≤ z ≤ GRID. */
 export const WORLD = 150
-/** The natural coastline outside the octagon: the mainland is z ≤ COAST. */
+/** The coastline inside the octagon's width: the mainland is z ≤ COAST there (the port land carries on south of it). */
 export const COAST = 0
 /** Default north quay of the harbour basin; coast sites sit on it. */
 export const QUAY = 8
@@ -47,6 +47,33 @@ export const OCTAGON_LAND: XZ[] = [
   [-GRID, COAST],
   [-GRID, -(OCT - GRID)],
 ]
+
+const smooth = (t: number) => {
+  const u = Math.max(0, Math.min(1, t))
+  return u * u * (3 - 2 * u)
+}
+
+/**
+ * Where the coast is: the mainland is z ≤ coastZ(x). Inside the octagon's
+ * width it is COAST. Outside, the west coast bends south to meet the octagon
+ * low down (with the island it closes the west side), and the east coast meets
+ * the octagon above the harbour entrance.
+ */
+export function coastZ(x: number): number {
+  if (x <= -GRID) return 47 * smooth((x + 175) / 75)
+  if (x >= GRID) return 18 * (1 - smooth((x - GRID) / 40))
+  return COAST
+}
+
+/** The land outside the octagon south of z = COAST (west and east), as polygons for drawing. */
+export function coastLand(far = 460): XZ[][] {
+  const west: XZ[] = [[-far, COAST]]
+  for (let x = -175; x <= -GRID; x += 5) west.push([x, coastZ(x)])
+  west.push([-GRID, COAST])
+  const east: XZ[] = [[GRID, COAST]]
+  for (let x = GRID; x <= GRID + 40; x += 5) east.push([x, coastZ(x)])
+  return [west, east]
+}
 
 export const insideOctagon = (x: number, z: number) => Math.abs(x) <= GRID && Math.abs(z) <= GRID && Math.abs(x) + Math.abs(z) <= OCT
 /** Inside the map. */

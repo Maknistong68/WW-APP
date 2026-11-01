@@ -8,14 +8,14 @@ import { C } from './kit/colors'
 import { FONT_BOLD, FONT_SEMI } from './fonts'
 import { SEA_Y } from './scopes'
 import { ROAD_WIDTH, blockSize, isBlock, isLine, isZone, type MapItem, type XZ, type ZoneKind } from '../lib/mapItems'
-import { COAST, OCTAGON, OCTAGON_LAND, centroid, clipToRect, rectsOverlap, type Rect } from '../lib/world'
-import { cityBlocks, inCity, industryLots, isWater, landPieces, nearRoad, onLand, quayOf, rectOf, zonesOf, type Lot, type RoadLine, type Zones as ZoneSet } from '../lib/zones'
+import { OCTAGON, OCTAGON_LAND, centroid, clipToRect, coastLand, rectsOverlap, type Rect } from '../lib/world'
+import { cityBlocks, inBasin, inCity, industryLots, isWater, landPieces, nearRoad, onLand, quayOf, rectOf, zonesOf, type Lot, type RoadLine, type Zones as ZoneSet } from '../lib/zones'
 import { SITES, footprint, type Layout } from '../lib/site'
 import type { ItemEvents } from './MapItems'
 
 // The city around the sites, drawn from the editable zones: the mainland and
 // the port land (with the harbour basin cut out and quay walls on every water
-// edge), the entrance pier, the industrial zone's street-grid lots, cranes and
+// edge), the island, the industrial zone's street-grid lots, cranes and
 // container yards along the basin, the floating city as a pale silhouette, and
 // the octagon's boundary line. Context only — kept pale ("white model") so the
 // real, KPI-coloured sites stand out. Rebuilt when the zones change; the
@@ -24,6 +24,7 @@ import type { ItemEvents } from './MapItems'
 /** White-model palette for the context (not status colours). */
 const M = {
   lot: '#e6d6b2',
+  beach: '#ead2a0',
   wall: '#efebe3',
   wallShade: '#e1dbcf',
   roof: '#d6d0c3',
@@ -67,7 +68,7 @@ const ring = (r: Rect): XZ[] => [
   [r.x0, r.z1],
 ]
 
-/** Coping, a dark fender band and bollards on every stretch of edge that faces water; rock armour on the pier. */
+/** Coping, a dark fender band and bollards on every stretch of edge that faces the basin or harbour; rock armour where `rocks` and it faces the open water. */
 function quayEdges(k: Kit, zs: ZoneSet, poly: XZ[], rocks: boolean, r: () => number) {
   for (let i = 0; i < poly.length; i++) {
     const [ax, az] = poly[i]
@@ -90,7 +91,7 @@ function quayEdges(k: Kit, zs: ZoneSet, poly: XZ[], rocks: boolean, r: () => num
       const seg = len / n
       k.box(seg, 0.08, 0.45, M.coping, { x: mx - ox * 0.22, y: 0, z: mz - oz * 0.22, ry })
       k.box(seg, 0.22, 0.05, M.band, { x: mx + ox * 0.02, y: SEA_Y + 0.12, z: mz + oz * 0.02, ry })
-      if (rocks) {
+      if (rocks && !inBasin(zs, mx - dz * 0.9 * side, mz + dx * 0.9 * side)) {
         for (let j = 0; j < 2; j++) {
           const u = t + (j - 0.5) * seg * 0.5
           k.ball(0.45 + r() * 0.25, r() > 0.5 ? C.concreteLight : C.concrete, { x: ax + dx * u + ox * (0.6 + r() * 0.3), y: SEA_Y + 0.1, z: az + dz * u + oz * (0.6 + r() * 0.3), ry: r() * 3 }, [1, 0.75, 1], 0)
@@ -113,17 +114,28 @@ function buildLand(zs: ZoneSet) {
     const poly = clipToRect(OCTAGON_LAND, p)
     if (poly.length >= 3) flatPoly(k, poly, 0.012, C.sand)
   }
-  // beach where the mainland meets the sea
-  k.box(920, 0.08, 0.6, C.sandDark, { y: SEA_Y - 0.02, z: COAST + 0.25 })
+  // the coast outside the octagon bends south: those strips of land, with a beach along the water
+  for (const poly of coastLand()) {
+    landPoly(k, poly, C.mainland)
+    for (let i = 1; i < poly.length - 1; i++) {
+      const [ax, az] = poly[i]
+      const [bx, bz] = poly[i + 1]
+      if (Math.abs(ax) <= 100 && Math.abs(bx) <= 100) continue
+      const len = Math.hypot(bx - ax, bz - az)
+      if (len > 0.1) k.box(len, 0.08, 0.7, C.sandDark, { x: (ax + bx) / 2, y: SEA_Y - 0.02, z: (az + bz) / 2 + 0.25, ry: ryOf(ax, az, bx, bz) })
+    }
+  }
+  // beach where the mainland meets the sea outside the octagon's width
+  k.box(285, 0.08, 0.6, C.sandDark, { x: -317.5, y: SEA_Y - 0.02, z: 0.25 }).box(320, 0.08, 0.6, C.sandDark, { x: 300, y: SEA_Y - 0.02, z: 0.25 })
   for (const p of port) slab(p, M.paving)
-  for (const p of zs.pier) landPoly(k, p, M.paving)
+  for (const p of zs.island) landPoly(k, p, M.beach)
   for (const p of port) quayEdges(k, zs, ring(p), false, r)
-  for (const p of zs.pier) quayEdges(k, zs, p, true, r)
+  for (const p of zs.island) quayEdges(k, zs, p, true, r)
   return k.geometry()
 }
 
-/** The floating city: decks with canals between them and a few squares of water, low pale buildings. */
-function buildCity(polys: XZ[][]) {
+/** The floating city: decks with canals between them and a few squares of water, low pale buildings. On the island: the buildings only (no decks, it's land). */
+function buildCity(polys: XZ[][], decks = true) {
   const k = new Kit(true)
   for (const poly of polys) {
     for (const b of cityBlocks(poly)) {
@@ -131,7 +143,8 @@ function buildCity(polys: XZ[][]) {
       const d = b.z1 - b.z0
       const cx = (b.x0 + b.x1) / 2
       const cz = (b.z0 + b.z1) / 2
-      k.box(w, -SEA_Y + 0.3, d, M.deck, { x: cx, y: SEA_Y - 0.3, z: cz })
+      if (decks) k.box(w, -SEA_Y + 0.3, d, M.deck, { x: cx, y: SEA_Y - 0.3, z: cz })
+      else k.patch(b.x0, b.z0, b.x1, b.z1, 0.02, M.lot)
       const n = b.h.length
       const cols = n === 1 ? 1 : 2
       const rows = n <= 2 ? 1 : 2
@@ -296,7 +309,7 @@ const LABEL: Record<ZoneKind, [string, string?]> = {
   industry: ['Industrial zone'],
   port: ['Port'],
   basin: ['Harbour basin'],
-  pier: ['Entrance pier'],
+  island: ['Island'],
   city: ['Floating city', 'Not built yet'],
 }
 
@@ -321,8 +334,10 @@ function screenScale(camera: THREE.Camera, height: number, p: THREE.Vector3, px:
   return { d, s: (px * 2 * d * Math.tan((fov * Math.PI) / 360)) / Math.max(1, height) }
 }
 
-function ZoneLabels({ zones, always }: { zones: MapItem[]; always: boolean }) {
+function ZoneLabels({ zones: all, always }: { zones: MapItem[]; always: boolean }) {
   const { camera, size } = useThree()
+  // from far away one name per kind is enough (the port has several pieces)
+  const zones = useMemo(() => (always ? all : all.filter((z, i) => all.findIndex((o) => o.kind === z.kind) === i)), [all, always])
   const refs = useRef<(THREE.Object3D | null)[]>([])
   const tmp = useMemo(() => new THREE.Vector3(), [])
   useFrame(() => {
@@ -499,6 +514,8 @@ export default function Zones({
   const wait = editing ? 300 : 0
   const city = useSettled(zs.city, JSON.stringify(zs.city), wait)
   const cityGeo = useGeometry(() => buildCity(city), [city])
+  const island = useSettled(zs.island, JSON.stringify(zs.island), wait)
+  const islandGeo = useGeometry(() => buildCity(island, false), [island])
 
   // what the industrial lots and the port yards must keep clear of
   const fill = useMemo(() => {
@@ -520,6 +537,7 @@ export default function Zones({
     <group>
       <mesh geometry={land} material={solid} receiveShadow={shadows} raycast={() => null} />
       <mesh geometry={cityGeo} material={solid} castShadow={shadows} receiveShadow={shadows} raycast={() => null} />
+      <mesh geometry={islandGeo} material={solid} castShadow={shadows} receiveShadow={shadows} raycast={() => null} />
       <mesh geometry={lots} material={solid} castShadow={shadows} receiveShadow={shadows} raycast={() => null} />
       <mesh geometry={port} material={solid} castShadow={shadows} receiveShadow={shadows} raycast={() => null} />
       <mesh geometry={outline.dashes} material={glow} renderOrder={1} raycast={() => null} />

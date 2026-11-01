@@ -3,14 +3,14 @@ import { GRID, OCT, WORLD, clampWorld, type XZ } from './world'
 // Everything the Admin can change on the "Live site" map besides the sites:
 // roads and highways (lines), palm trees (single or in rows), workers' camps
 // and villages (blocks), and the zones of the city (industrial zone, port
-// land, harbour basin, entrance pier, floating city — polygons). Shared with
+// land, harbour basin, island, floating city — polygons). Shared with
 // the team like the site layout; the default items have fixed ids so they can
 // be moved, reshaped or removed too. Pure helpers only.
 
 export type { XZ }
 export type LineKind = 'road' | 'highway'
 export type BlockKind = 'camp' | 'village'
-export type ZoneKind = 'industry' | 'port' | 'basin' | 'pier' | 'city'
+export type ZoneKind = 'industry' | 'port' | 'basin' | 'island' | 'city'
 export type ItemKind = LineKind | 'trees' | BlockKind | ZoneKind
 
 export interface MapItem {
@@ -48,7 +48,7 @@ export const BLOCK_SIZE = { camp: [11, 7], village: [9, 9] } as const
 /** Smallest side of a rectangular zone. */
 export const MIN_RECT = 4
 
-export const ZONE_KINDS: ZoneKind[] = ['industry', 'port', 'basin', 'pier', 'city']
+export const ZONE_KINDS: ZoneKind[] = ['industry', 'port', 'basin', 'island', 'city']
 
 export const ITEM_LABEL: Record<ItemKind, string> = {
   road: 'road',
@@ -59,7 +59,7 @@ export const ITEM_LABEL: Record<ItemKind, string> = {
   industry: 'industrial zone',
   port: 'port land',
   basin: 'harbour basin',
-  pier: 'entrance pier',
+  island: 'island',
   city: 'floating city',
 }
 
@@ -293,65 +293,54 @@ export function roadRibbon(points: XZ[], width: number, joinSides = 10): number[
 export const lineLength = (pts: XZ[]) => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0)
 
 // ---------------------------------------------------------------------------
-// Default items. North → south: the coastal highway runs past the octagon's
-// land side and joins the spine road at both ends; the land half has a street
-// grid (avenues down to the spine road, cross streets, the north gate road);
-// then the port land with the harbour basin cut into it (open to the east),
-// the wedge-shaped entrance pier at the basin mouth, and the floating city.
+// Default items. North → south: the coastal highway crosses the land half and
+// bends down outside the octagon to meet the spine road at two junctions; the
+// spine road runs through the middle of the land half; avenues run from the
+// north edge down to the port quay. Then the port land (quay strip with the
+// cranes, west yard, east quay block), the harbour basin, the island (joined to
+// the land on the west), the entrance on the east and the floating city.
 // ---------------------------------------------------------------------------
 
 const id = (n: number) => `a7e3c1d0-5b2f-4c8e-9d1a-${n.toString(16).padStart(12, '0')}`
 
-/** The spine road: edge to edge through the middle of the octagon, with a gentle curve. */
-export const spineZ = (x: number) => (Math.abs(x) >= GRID ? -4 : -4 - 3 * (1 - (x / GRID) ** 2))
-const half = (n: number) => Math.round(n * 2) / 2
+/** Where the spine road crosses the octagon: through the middle of the land half, with a gentle curve. */
+export const spineZ = (x: number) => -50 + (Math.min(Math.abs(x), 91) / 91) ** 2
+/** The two junctions outside the octagon where the coastal highway meets the spine road. */
+export const JUNCTIONS: XZ[] = [
+  [-122, -56],
+  [122, -56],
+]
 
-const SPINE: XZ[] = [-114, -100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100, 114].map((x) => [x, half(spineZ(x))])
+const half = (n: number) => Math.round(n * 2) / 2
+const mirror = (pts: XZ[]): XZ[] => [...pts, ...pts.slice(0, -1).reverse().map(([x, z]) => [-x, z] as XZ)]
+
+const SPINE: XZ[] = mirror([JUNCTIONS[0], [-104, -51], [-91, -49], ...[-80, -60, -40, -20, 0].map((x) => [x, half(spineZ(x))] as XZ)])
+const HIGHWAY: XZ[] = mirror([
+  [-WORLD, -36],
+  [-142, -45],
+  JUNCTIONS[0],
+  [-106, -67],
+  [-86, -76],
+  [-63, -78],
+  [0, -78],
+])
 
 /** North end of an avenue: 3 tiles inside the octagon edge. */
 const northEnd = (x: number) => -(Math.min(GRID, OCT - Math.abs(x)) - 3)
-/** Half-width of a cross street: 3 tiles inside the octagon edge. */
-const streetHalf = (z: number) => Math.min(GRID, OCT - Math.abs(z)) - 3
-
-const avenue = (n: number, x: number): MapItem => ({ uuid: id(n), kind: 'road', points: [[x, northEnd(x)], [x, half(spineZ(x)) - 1.5]] })
-const street = (n: number, z: number): MapItem => ({ uuid: id(n), kind: 'road', points: [[-streetHalf(z), z], [streetHalf(z), z]] })
+const avenue = (n: number, x: number): MapItem => ({ uuid: id(n), kind: 'road', points: [[x, northEnd(x)], [x, -1]] })
 
 const spinePalms: XZ[] = []
 for (let x = -40; x <= 40; x += 5) for (const side of [-2.6, 2.6]) spinePalms.push(snapPoint(x, spineZ(x) + side, 0.25))
 
 export const DEFAULT_ITEMS: MapItem[] = [
-  {
-    uuid: id(1),
-    kind: 'highway',
-    points: [
-      [-WORLD, -4],
-      [-114, -4],
-      [-114, -40],
-      [-40, -114],
-      [40, -114],
-      [114, -40],
-      [114, -4],
-      [WORLD, -4],
-    ],
-  },
+  { uuid: id(1), kind: 'highway', points: HIGHWAY },
   { uuid: id(2), kind: 'highway', points: SPINE },
-  {
-    uuid: id(3),
-    kind: 'road',
-    points: [
-      [0, -114],
-      [0, -78],
-    ],
-  },
   avenue(0x10, -75),
   avenue(0x11, -45),
   avenue(0x12, 45),
   avenue(0x13, 75),
-  street(0x14, -50),
-  street(0x15, -78),
   { uuid: id(0x20), kind: 'camp', x: -62, z: -30, rot: 0 },
-  { uuid: id(0x21), kind: 'village', x: 75, z: -126, rot: 0 },
-  { uuid: id(0x22), kind: 'trees', points: [...treeRow([-2.5, -101], [-2.5, -112], 2.5), ...treeRow([2.5, -101], [2.5, -112], 2.5)] },
+  { uuid: id(0x21), kind: 'village', x: 95, z: -95, rot: 0 },
   { uuid: id(0x23), kind: 'trees', points: spinePalms },
   {
     uuid: id(0x30),
@@ -365,45 +354,77 @@ export const DEFAULT_ITEMS: MapItem[] = [
       [98, -10],
     ],
   },
+  // port land: the west yard first (its name is the one shown), then the quay strip and the east quay block
+  {
+    uuid: id(0x35),
+    kind: 'port',
+    points: [
+      [-100, 8],
+      [-62, 8],
+      [-62, 30],
+      [-100, 30],
+    ],
+  },
   {
     uuid: id(0x31),
     kind: 'port',
     points: [
       [-100, 0],
-      [70, 0],
-      [70, 32],
-      [-100, 32],
+      [100, 0],
+      [100, 8],
+      [-100, 8],
+    ],
+  },
+  {
+    uuid: id(0x36),
+    kind: 'port',
+    points: [
+      [72, 0],
+      [100, 0],
+      [100, 18],
+      [72, 18],
     ],
   },
   {
     uuid: id(0x32),
     kind: 'basin',
     points: [
-      [-50, 8],
-      [70, 8],
-      [70, 26],
-      [-50, 26],
+      [-55, 8],
+      [65, 8],
+      [65, 22],
+      [-55, 22],
     ],
   },
   {
     uuid: id(0x33),
-    kind: 'pier',
+    kind: 'island',
     points: [
-      [70, 26],
-      [99, 23],
-      [70, 34],
+      [-106, 25],
+      [-62, 26],
+      [-30, 27],
+      [0, 27.5],
+      [25, 28],
+      [40, 29],
+      [48, 31],
+      [42, 35],
+      [30, 40],
+      [12, 45],
+      [-10, 48],
+      [-40, 49.5],
+      [-70, 49.5],
+      [-88, 51],
+      [-97, 47],
+      [-106, 44],
     ],
   },
   {
     uuid: id(0x34),
     kind: 'city',
     points: [
-      [-98, 37],
-      [98, 37],
-      [98, 40],
+      [-85, 54],
+      [85, 54],
       [40, 98],
       [-40, 98],
-      [-98, 40],
     ],
   },
 ]

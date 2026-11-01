@@ -34,7 +34,11 @@ npm run build   # strict tsc + vite build
 - Home tiles and their missing-lists: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
 - Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
 - Dashboard numbers: `src/lib/dashboard.ts`; charts in `src/components/charts/`.
-- 3D "Live site" (Dashboard → 3D): model `src/lib/site.ts` (sites, octagon, layout rules) and
-  `src/lib/mapItems.ts` (roads, palms, camps, villages); scene `src/three/`; page
-  `src/pages/City3DPage.tsx`. Only Admins edit the map (`canEditLayout`).
+- 3D "Live site" (Dashboard → 3D): world `src/lib/world.ts` (city-scale octagon, coast), zones
+  `src/lib/zones.ts` (industrial zone, port land, harbour basin, island, floating city: land/water and the
+  pale fill), model `src/lib/site.ts` (sites, fit rules, coast sites on the basin quay, manpower crews) and
+  `src/lib/mapItems.ts` (highway, spine road, streets, palms, camps, villages and the zone outlines); scene
+  `src/three/` (`Zones.tsx` draws the city); page `src/pages/City3DPage.tsx`. Only Admins edit the map
+  (`canEditLayout`); the Zones tool reshapes the zones. Every site is barricaded; worker figures follow the
+  month's manpower count.
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).

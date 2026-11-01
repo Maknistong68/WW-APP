@@ -233,7 +233,9 @@ describe('Live site: layout editing', () => {
     expect(fitCheck(at('reservoir', -80, 10), 'reservoir')).toMatchObject({ ok: true })
     expect(fitCheck(at('reservoir', -30, 10), 'reservoir')).toMatchObject({ ok: false, reason: 'shore' })
     expect(fitCheck(at('reservoir', 0, 50), 'reservoir')).toMatchObject({ ok: false, reason: 'shore' })
-    expect(fitCheck(at('pipeline', 80, -20, 1), 'pipeline')).toMatchObject({ ok: false, reason: 'shore' })
+    expect(fitCheck(at('pipeline', 55, -20, 1), 'pipeline')).toMatchObject({ ok: false, reason: 'shore' })
+    // the island is land
+    expect(fitCheck(at('reservoir', -20, 32), 'reservoir')).toMatchObject({ ok: true })
     // coast sites slide along the basin's north quay, but not past its ends
     expect(fitCheck(at('seawall', 50, port.home.gz), 'seawall')).toMatchObject({ ok: true })
     expect(fitCheck(at('seawall', 65, port.home.gz), 'seawall')).toMatchObject({ ok: false, reason: 'shore' })
@@ -244,10 +246,10 @@ describe('Live site: layout editing', () => {
   })
 
   it('coast sites follow the quay when the basin is moved', () => {
-    const items = DEFAULT_ITEMS.map((i) => (i.kind === 'basin' ? { ...i, points: i.points!.map(([x, z]) => [x, z + 4] as [number, number]) } : i))
+    const items = DEFAULT_ITEMS.map((i) => (i.kind === 'basin' ? { ...i, points: i.points!.map(([x, z]) => [x, z - 2] as [number, number]) } : i))
     const zones = zonesOf(items)
     const l = alignCoast(homeLayout(), zones)
-    expect(l.port.gz).toBe(port.home.gz + 4)
+    expect(l.port.gz).toBe(port.home.gz - 2)
     expect(l.plant).toEqual(plant.home)
     for (const s of SITES) expect([s.id, fitCheck(l, s.id, zones).ok]).toEqual([s.id, true])
     // without the shift the port would sit on the old quay line, half on land

@@ -8,7 +8,7 @@ import { SEA_Y } from './scopes'
 import type { Palette } from './theme3d'
 
 // The far world: the sea all round, desert dunes and mountains inland, and the
-// tile grid while editing. The land, port, basin, pier and floating city come
+// tile grid while editing. The land, port, basin, island and floating city come
 // from the editable zones (Zones.tsx). Built once; day / night only changes
 // colours.
 
