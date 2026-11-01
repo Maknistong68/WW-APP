@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Icon, { type IconName } from './Icon'
+import CountUp from './CountUp'
 import type { Tone } from '../lib/tone'
 
 /** A number that matters: tile, big figure, short label. Tappable when it leads somewhere. */
@@ -24,7 +25,9 @@ export default function StatCard({
       <span className={`itile ${tone} s40`} aria-hidden="true">
         <Icon name={icon} size={20} fill />
       </span>
-      <span className={`stat-num ${tone}`}>{value}</span>
+      <span className={`stat-num ${tone}`}>
+        <CountUp value={value} />
+      </span>
       <span className="stat-label">{label}</span>
     </>
   )

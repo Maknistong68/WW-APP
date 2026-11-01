@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Icon from './Icon'
+import CountUp from './CountUp'
 import { useLongPress } from '../lib/useLongPress'
 
 /** Big rounded card: tile, title, one reason line, a big count and ›. Hold for more. */
@@ -31,7 +32,11 @@ export default function BigCard({
         <span className="bcard-title">{title}</span>
         {sub && <span className="bcard-sub">{sub}</span>}
       </span>
-      {count !== undefined && <span className={`bcard-count ${countTone ?? ''}`}>{count}</span>}
+      {count !== undefined && (
+        <span className={`bcard-count ${countTone ?? ''}`}>
+          <CountUp value={count} />
+        </span>
+      )}
       <Icon name="chevron-right" size={20} className="bcard-chev" />
     </button>
   )

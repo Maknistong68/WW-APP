@@ -4,6 +4,7 @@ import { saveAs } from 'file-saver'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
+import CountUp from '../components/CountUp'
 import { showToast } from '../components/Toast'
 import TrendLine from '../components/charts/TrendLine'
 import BarList from '../components/charts/BarList'
@@ -74,7 +75,9 @@ const toneOf = (status: string): Tone => (status === 'good' || status === 'warn'
 function Hero({ value, label, tone = '', onClick }: { value: ReactNode; label: string; tone?: Tone; onClick?: () => void }) {
   const body = (
     <>
-      <div className={`hero-num${tone ? ` ${tone}` : ''}`}>{value}</div>
+      <div className={`hero-num${tone ? ` ${tone}` : ''}`}>
+        <CountUp value={value} />
+      </div>
       <div className="hero-label">{label}</div>
     </>
   )
