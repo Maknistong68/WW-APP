@@ -22,18 +22,27 @@ export interface AllData {
   inspections: Inspection[]
 }
 
+type Raw = Omit<AllData, 'loaded' | 'byUuid' | 'woByUuid'>
+/** The last result, so a screen opened later shows data on its first frame
+ *  (screen transitions snapshot that frame; Back restores scroll into it). */
+let lastRaw: Raw | undefined
+
 /** Everything the Today / Dashboard / Contractors screens read, live. */
 export function useAllData(): AllData {
-  const raw = useLiveQuery(async () => ({
-    contractors: await db.contractors.orderBy('name').toArray(),
-    workOrders: await db.workOrders.toArray(),
-    camps: await db.camps.toArray(),
-    tickets: await db.tickets.toArray(),
-    kpis: await db.kpiMonths.toArray(),
-    manpower: await db.manpower.toArray(),
-    weekly: await db.weeklyCounts.toArray(),
-    inspections: await db.inspections.toArray(),
-  }))
+  const raw = useLiveQuery(async (): Promise<Raw> => {
+    const r: Raw = {
+      contractors: await db.contractors.orderBy('name').toArray(),
+      workOrders: await db.workOrders.toArray(),
+      camps: await db.camps.toArray(),
+      tickets: await db.tickets.toArray(),
+      kpis: await db.kpiMonths.toArray(),
+      manpower: await db.manpower.toArray(),
+      weekly: await db.weeklyCounts.toArray(),
+      inspections: await db.inspections.toArray(),
+    }
+    lastRaw = r
+    return r
+  }, [], lastRaw)
   return useMemo(() => {
     const d = raw ?? { contractors: [], workOrders: [], camps: [], tickets: [], kpis: [], manpower: [], weekly: [], inspections: [] }
     const workOrders = [...d.workOrders].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }))

@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
 import Icon, { type IconName } from './Icon'
+import { useBodyFlag } from '../lib/useBodyFlag'
 
 export interface BarAction {
   label: string
@@ -13,10 +13,7 @@ export interface BarAction {
  * at thumb height, plus up to two icon buttons. Hides the tab bar while shown.
  */
 export default function ActionBar({ primary, secondary = [] }: { primary?: BarAction; secondary?: BarAction[] }) {
-  useEffect(() => {
-    document.body.classList.add('has-actionbar')
-    return () => document.body.classList.remove('has-actionbar')
-  }, [])
+  useBodyFlag('has-actionbar', !!primary || secondary.length > 0)
   if (!primary && secondary.length === 0) return null
   return (
     <div className="actionbar">
