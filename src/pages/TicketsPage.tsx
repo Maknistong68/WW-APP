@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useCachedLiveQuery } from '../lib/useCachedQuery'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { db } from '../db'
 import Page from '../components/Page'
@@ -154,7 +154,7 @@ export default function TicketsPage() {
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [together, setTogether] = useState<'close' | 'combine' | null>(null)
   const { byUuid, woByUuid } = useContractors()
-  const tickets = useLiveQuery(() => db.tickets.toArray())
+  const tickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()

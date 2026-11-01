@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useShownLocation } from './RouteTransition'
 import Icon, { type IconName } from './Icon'
 import { openCreate } from './AddButton'
 import { useAuthInfo } from '../lib/auth'
@@ -36,7 +37,7 @@ const HIDE = ['/new/', '/inspection/', '/dashboard/3d']
  * round Create button beside it. Slides away while you scroll down.
  */
 export default function TabBar() {
-  const { pathname } = useLocation()
+  const { pathname } = useShownLocation()
   const navigate = useNavigate()
   const { canEdit } = useAuthInfo()
   const dir = useScrollDir()

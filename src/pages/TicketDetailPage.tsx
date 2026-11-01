@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useCachedLiveQuery } from '../lib/useCachedQuery'
 import { useNavigate, useParams } from 'react-router-dom'
 import { db } from '../db'
 import Page from '../components/Page'
@@ -41,8 +41,8 @@ export default function TicketDetailPage() {
   const { uuid = '' } = useParams()
   const navigate = useNavigate()
   const { byUuid, woByUuid } = useContractors()
-  const t = useLiveQuery(() => db.tickets.get(uuid).then((x) => x ?? null), [uuid])
-  const allTickets = useLiveQuery(() => db.tickets.toArray())
+  const t = useCachedLiveQuery(`ticket:${uuid}`, () => db.tickets.get(uuid).then((x) => x ?? null), [uuid])
+  const allTickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
   const [sheet, setSheet] = useState<'edit' | 'close' | 'closeGroup' | 'delete' | null>(null)
   const { canEdit } = useAuthInfo()
 

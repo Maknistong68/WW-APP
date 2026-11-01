@@ -17,6 +17,8 @@ describe('navKind', () => {
     expect(k('/tickets/abc', '/tickets', 'PUSH', 'back')).toBe('back')
     expect(k('/tickets/abc', '/tickets', 'POP', undefined, 3, 2)).toBe('back')
     expect(k('/tickets', '/tickets/abc', 'POP', undefined, 2, 3)).toBe('push')
+    // a tab-opened entry reached again by history back is still "back"
+    expect(k('/tickets/abc', '/tickets', 'POP', 'tab', 3, 2)).toBe('back')
   })
   it('redirects fade', () => {
     expect(k('/new/x', '/inspection/1', 'REPLACE')).toBe('fade')

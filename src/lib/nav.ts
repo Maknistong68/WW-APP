@@ -32,8 +32,10 @@ export function navKind({
   via?: string
 }): NavKind {
   if (from === to) return 'none'
-  if (via === 'tab' || (TAB_ROOTS.includes(from) && TAB_ROOTS.includes(to))) return 'tab'
+  if (TAB_ROOTS.includes(from) && TAB_ROOTS.includes(to)) return 'tab'
+  // history back/forward: the entry's own hint (how it was first opened) doesn't apply
   if (type === 'POP') return fromIdx !== null && toIdx !== null && toIdx > fromIdx ? 'push' : 'back'
+  if (via === 'tab') return 'tab'
   if (via === 'back') return 'back'
   if (type === 'REPLACE') return 'fade'
   return 'push'

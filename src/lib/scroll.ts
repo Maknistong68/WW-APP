@@ -142,7 +142,7 @@ export function onScrollSettled(fn: () => void): () => void {
  */
 export function restoreScroll(y: number) {
   if (typeof window === 'undefined') return
-  suppressSnap(900)
+  if (y > 0) suppressSnap(600)
   window.scrollTo(0, y)
   if (y <= 0 || Math.abs(window.scrollY - y) < 2 || typeof ResizeObserver === 'undefined') return
   const ro = new ResizeObserver(() => {

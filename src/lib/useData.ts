@@ -1,13 +1,13 @@
 import { useMemo } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useCachedLiveQuery } from './useCachedQuery'
 import { db, newUuid } from '../db'
 import { localDate } from './dates'
 import { TICKET_PREFIX } from './lists'
 import type { Contractor, Ticket, WorkOrder } from '../types'
 
 export function useContractors() {
-  const list = useLiveQuery(() => db.contractors.orderBy('name').toArray())
-  const wos = useLiveQuery(() => db.workOrders.toArray())
+  const list = useCachedLiveQuery('contractors', () => db.contractors.orderBy('name').toArray())
+  const wos = useCachedLiveQuery('workOrders', () => db.workOrders.toArray())
   return useMemo(() => {
     const all = list ?? []
     const workOrders = [...(wos ?? [])].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }))

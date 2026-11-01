@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useCachedLiveQuery } from '../lib/useCachedQuery'
 import { useNavigate } from 'react-router-dom'
 import { db, deleteInspection, duplicateInspection } from '../db'
 import { TEMPLATES, countItems, getTemplate } from '../templates'
@@ -29,7 +29,7 @@ function friendlyDate(iso: string): string {
 export default function AuditsPage() {
   const navigate = useNavigate()
   const { canEdit } = useAuthInfo()
-  const inspections = useLiveQuery(() => db.inspections.orderBy('createdAt').reverse().toArray())
+  const inspections = useCachedLiveQuery('inspections:recent', () => db.inspections.orderBy('createdAt').reverse().toArray())
   const [listQuery, setListQuery] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<Inspection | null>(null)
   const q = listQuery.trim().toLowerCase()

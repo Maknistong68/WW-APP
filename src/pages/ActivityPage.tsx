@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useCachedLiveQuery } from '../lib/useCachedQuery'
 import { useNavigate } from 'react-router-dom'
 import { db } from '../db'
 import Page from '../components/Page'
@@ -36,7 +36,7 @@ export default function ActivityPage() {
   const [action, setAction] = useState<ActionFilter>('all')
   const [period, setPeriod] = useState<Period>('all')
   const [limit, setLimit] = useState(PAGE)
-  const entries = useLiveQuery(() => db.activity.orderBy('time').reverse().toArray())
+  const entries = useCachedLiveQuery('activity', () => db.activity.orderBy('time').reverse().toArray())
 
   const visible = useMemo(
     () => filterActivity(entries ?? [], { entity: filter, action, period, query }),

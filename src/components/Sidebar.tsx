@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useShownLocation } from './RouteTransition'
 import Icon, { type IconName } from './Icon'
 import { ROLE_LABEL, useAuthInfo } from '../lib/auth'
 import { campState } from '../lib/camps'
@@ -24,7 +25,7 @@ export default function Sidebar() {
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(0)
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname } = useShownLocation()
   const me = useAuthInfo()
   const d = useAllData()
 

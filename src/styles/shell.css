@@ -261,3 +261,9 @@ body.has-actionbar .toast { bottom: calc(var(--bottom-gap) + var(--actionbar-h) 
   .nav-bar { padding-left: max(calc(var(--gutter) - 6px), calc(50% - 366px)); padding-right: max(calc(var(--gutter) - 6px), calc(50% - 366px)); }
   .appbar-hero { padding-left: max(calc(var(--gutter) + 8px), calc(50% - 352px)); padding-right: max(calc(var(--gutter) + 8px), calc(50% - 352px)); }
 }
+/* Small phones (360px): keep every tab label whole */
+@media (max-width: 380px) {
+  .tabbar { gap: 6px; padding: 0 8px; }
+  .tab { font-size: 11.5px; letter-spacing: -0.02em; }
+  .tab-fab { width: 58px; height: 58px; }
+}

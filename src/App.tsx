@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useRef, type ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import TodoPage from './pages/TodoPage'
 import CampsPage from './pages/CampsPage'
@@ -18,7 +18,8 @@ import Sidebar from './components/Sidebar'
 import AddButton from './components/AddButton'
 import TabBar from './components/TabBar'
 import ActionSheetHost from './components/ActionSheet'
-import RouteTransition from './components/RouteTransition'
+import NavProvider, { useShown } from './components/RouteTransition'
+import type { NavKind } from './lib/nav'
 import LibraryPage from './pages/LibraryPage'
 
 // The 3D view (three.js) loads only when opened, so the app stays light.
@@ -87,8 +88,30 @@ function AppShell() {
 
   return (
     <HashRouter>
-      <RouteTransition>
-      <Routes>
+      <NavProvider>
+        <AppRoutes />
+        <Sidebar />
+        <AddButton />
+        <TabBar />
+        <ActionSheetHost canEdit={canEdit} />
+        <ToastHost />
+      </NavProvider>
+    </HashRouter>
+  )
+}
+
+/**
+ * The screens. They render the *shown* location (it trails the router while a
+ * screen transition captures the old screen); `data-enter` tells CSS how this
+ * screen arrived, and stays fixed for its lifetime.
+ */
+function AppRoutes() {
+  const { location, kind } = useShown()
+  const entry = useRef<{ path: string; kind: NavKind } | null>(null)
+  if (!entry.current || entry.current.path !== location.pathname) entry.current = { path: location.pathname, kind }
+  return (
+    <div key={location.pathname} className="route" data-enter={entry.current.kind}>
+      <Routes location={location}>
         <Route path="/" element={<TodoPage />} />
         <Route path="/camps" element={<CampsPage />} />
         <Route path="/camps/:uuid" element={<CampDetailPage />} />
@@ -119,13 +142,7 @@ function AppShell() {
         <Route path="/kpis" element={<Navigate to="/dashboard?v=kpis" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      </RouteTransition>
-      <Sidebar />
-      <AddButton />
-      <TabBar />
-      <ActionSheetHost canEdit={canEdit} />
-      <ToastHost />
-    </HashRouter>
+    </div>
   )
 }
 
