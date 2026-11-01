@@ -35,7 +35,7 @@ function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange:
   return (
     <label className="row">
       <span className="row-main">{label}</span>
-      <input type="checkbox" checked={on} style={{ flex: 'none', width: 22, height: 22 }} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" role="switch" checked={on} onChange={(e) => onChange(e.target.checked)} />
     </label>
   )
 }

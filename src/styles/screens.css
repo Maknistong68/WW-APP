@@ -1,57 +1,57 @@
 /* ---- Home: Today ---------------------------------------------------------- */
-.today-date { color: var(--muted); font-size: 16px; margin: -12px 2px 18px; }
-.today-group { margin-top: 22px; }
-.today-group > h2 { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 800; margin: 0 2px 12px; }
-.today-group > h2 .schip { font-size: 13px; }
-.today-list { display: flex; flex-direction: column; gap: 12px; }
+.today-date { color: var(--muted); font-size: 15px; margin: -4px 8px 16px; }
+.today-group { margin-top: 24px; }
+.today-group > h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--muted); margin: 0 8px 10px; }
+.today-group > h2 .schip { font-size: 12.5px; padding: 5px 8px; }
+.today-list { display: flex; flex-direction: column; gap: 10px; }
 .show-more {
-  width: 100%; min-height: 56px; border: 1.5px dashed var(--line); border-radius: var(--r-card);
-  background: none; color: var(--muted); font: 700 16px var(--font); cursor: pointer;
+  width: 100%; min-height: 56px; border: none; border-radius: var(--r-card);
+  background: var(--card); box-shadow: inset 0 0 0 1px var(--border); color: var(--brand); font: 600 16px var(--font); cursor: pointer;
 }
 
 /* ---- Detail summary card (ticket / contractor / camp) ---------------------- */
-.summary { padding: 18px; margin-bottom: 16px; animation: fadeIn var(--motion-300) var(--ease-out); }
+.summary { padding: 20px 18px 18px; margin-bottom: 16px; animation: fadeIn var(--dur-in) var(--ease-80); }
 .summary-head { display: flex; align-items: flex-start; gap: 14px; }
 .summary-text { flex: 1; min-width: 0; }
-.summary-title { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin: 0; overflow-wrap: anywhere; }
+.summary-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; margin: 0; overflow-wrap: anywhere; }
 .summary-sub { font-size: 15px; color: var(--muted); margin-top: 4px; }
 .summary-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
-.fact { background: var(--bg); border-radius: 16px; padding: 12px 14px; }
-.fact-num { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; overflow-wrap: anywhere; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.fact { background: var(--bg); border-radius: 18px; padding: 12px 14px; }
+.fact-num { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; overflow-wrap: anywhere; }
 .fact-num.bad { color: var(--bad); }
 .fact-num.warn { color: var(--warn); }
 .fact-num.good { color: var(--good); }
 .fact-label { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
 
 /* ---- Dashboard / KPI bits ---------------------------------------------------- */
-.attn-ico { flex: none; width: 52px; height: 52px; border-radius: var(--r-tile); display: inline-flex; align-items: center; justify-content: center; }
+.attn-ico { flex: none; width: 52px; height: 52px; border-radius: 17px; display: inline-flex; align-items: center; justify-content: center; }
 .attn-ico.bad { background: var(--bad-tint); color: var(--bad); }
 .attn-ico.warn { background: var(--warn-tint); color: var(--warn); }
 
 /* ---- Audits list -------------------------------------------------------------- */
 .template-card { display: block; width: 100%; text-align: left; cursor: pointer; color: var(--text); font: inherit; }
-.template-card h3 { margin: 0 0 4px; font-size: 18px; font-weight: 800; }
+.template-card h3 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
 .template-card p { margin: 0; color: var(--muted); font-size: 15px; }
-.template-card .count { color: var(--brand); font-weight: 700; font-size: 14px; margin-top: 8px; }
-.template-card:active { transform: scale(0.99); }
+.template-card .count { color: var(--brand); font-weight: 600; font-size: 14px; margin-top: 8px; }
 .inspection-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .inspection-row .info { flex: 1; min-width: 0; }
-.inspection-row .info b { display: block; font-size: 17px; }
+.inspection-row .info b { display: block; font-size: 17px; font-weight: 600; }
 .inspection-row .info span { color: var(--muted); font-size: 14px; }
 
-/* ---- Login --------------------------------------------------------------------- */
+/* ---- Login: One UI welcome — big title low on the screen, card below --------- */
 .login {
-  min-height: 100dvh; display: flex; align-items: center; justify-content: center;
-  padding: calc(env(safe-area-inset-top) + 24px) var(--gutter) calc(env(safe-area-inset-bottom) + 24px);
+  min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  padding: calc(env(safe-area-inset-top) + 24px) var(--gutter) calc(var(--bottom-gap) + 12px);
   background: var(--bg);
 }
+@media (min-height: 760px) { .login { justify-content: center; } }
 .login-card {
-  width: 100%; max-width: 420px; padding: 26px 20px 22px;
-  background: var(--card); border: 1px solid var(--border); border-radius: 28px; box-shadow: var(--shadow), var(--edge);
-  animation: fadeIn var(--motion-300) var(--ease-out);
+  width: 100%; max-width: 420px; padding: 28px 20px 22px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r-panel);
+  animation: sheetIn var(--dur-page) var(--ease-90);
 }
-.login-title { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin: 0; }
+.login-title { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.12; margin: 0; }
 .login-sub { color: var(--muted); font-size: 16px; margin: 6px 0 4px; }
 .login-note { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
 .login .segmented { margin-top: 18px; }
@@ -60,7 +60,7 @@
 /* 3D view loading (shown before the 3D code and its styles arrive) */
 .city-loading {
   position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  padding: 24px; text-align: center; background: var(--bg); color: var(--muted); font-weight: 700;
+  padding: 24px; text-align: center; background: var(--bg); color: var(--muted); font-weight: 600;
 }
 .city-spinner { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--brand); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

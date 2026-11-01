@@ -57,8 +57,8 @@ export default function ContractorSheet({
             <span className="row-label">Active</span>
             <input
               type="checkbox"
+              role="switch"
               checked={c.active}
-              style={{ flex: 'none', width: 22, height: 22 }}
               onChange={(e) => setC({ ...c, active: e.target.checked })}
             />
           </label>
@@ -128,8 +128,8 @@ export function WorkOrderSheet({
             <span className="row-label">Active</span>
             <input
               type="checkbox"
+              role="switch"
               checked={w.active}
-              style={{ flex: 'none', width: 22, height: 22 }}
               onChange={(e) => setW({ ...w, active: e.target.checked })}
             />
           </label>

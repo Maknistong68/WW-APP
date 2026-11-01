@@ -270,7 +270,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
 
   return (
     <>
-      <header className="app-header">
+      <header className="app-header solo">
         <button className="back" onClick={() => navigate(backTo)} aria-label="Back">
           <Icon name="chevron-left" size={26} />
         </button>

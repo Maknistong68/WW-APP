@@ -1,129 +1,176 @@
-/* Field-tool theme: light by default (readable in the sun), dark when the
-   phone is dark or the person picks it. Colour means status:
+/* Field tool · Samsung One UI 9.
+   Light by default (readable in the sun); true-black dark when the phone is
+   dark or the person picks it (public/theme-boot.js + src/lib/theme.ts always
+   set <html data-theme>). Colour means status:
    red = overdue · amber = due soon · green = done · grey = no data · blue = to do.
-   Green brand is the one interactive accent. Contrast-checked (text ≥ 4.5:1). */
+   The accent is the one interactive colour. Text pairs are ≥ 4.5:1. */
 :root {
-  --bg: #f2f4f3;
+  /* ---- surfaces ---- */
+  --bg: #f3f4f6;
   --card: #ffffff;
-  --sheet: #ffffff;
-  --press: #e7ece9;
-  --line: #e1e6e3;
-  --border: rgb(14 21 18 / 0.08);
-  --text: #0e1512;
-  --muted: #55605b;
-  --faint: #7a857f;
+  --sheet: #f4f5f7;
+  --card-on-sheet: #ffffff;
+  --press: rgb(17 19 22 / 0.06);
+  --line: #e8e9ec;
+  --border: rgb(17 19 22 / 0.05);
+  --text: #111316;
+  --muted: #5c6066;
+  --faint: #686d72;
 
-  --brand: #0f7a45;
-  --brand-press: #0b6338;
-  --brand-ink: #ffffff;
-  --brand-tint: #e3f3ea;
+  /* ---- accent (swap this block to re-brand; One UI blue would be #0a6bd6 / ink #fff) ---- */
+  --accent: #0f7a45;
+  --accent-press: #0b6338;
+  --accent-ink: #ffffff;
+  --accent-tint: #e2f2e9;
 
+  /* ---- status ---- */
   --bad: #c62828;
   --bad-tint: #fdecec;
   --warn: #b45309;
   --warn-tint: #fef3e2;
   --good: #137a3a;
-  --good-tint: #e7f5ec;
+  --good-tint: #e5f4ea;
   --none: #5b6770;
-  --none-tint: #eef1f4;
+  --none-tint: #eceef1;
   --info: #1d5fd1;
-  --info-tint: #e8f0fd;
+  --info-tint: #e7effd;
 
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.05);
-  --shadow-up: 0 -1px 0 var(--line), 0 -6px 20px rgb(0 0 0 / 0.04);
-  --edge: none;
-  --scrim: rgb(14 21 18 / 0.45);
+  /* ---- floating chrome (blurred, almost solid so it reads in the sun) ---- */
+  --chrome-bar: rgb(243 244 246 / 0.84);
+  --chrome-pill: rgb(255 255 255 / 0.84);
+  --chrome-solid: #ffffff;
+  --chrome-border: rgb(17 19 22 / 0.07);
+  --blur: 20px;
+  --sat: 1.6;
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 30px rgb(0 0 0 / 0.1);
+  --shadow-panel: 0 18px 50px rgb(0 0 0 / 0.16);
+  --toast-bg: #2b2d31;
+  --toast-ink: #ffffff;
+  --scrim: rgb(0 0 0 / 0.32);
 
   /* charts (validated with the dataviz checker on #ffffff) */
   --chart: #137a3a;
   --chart-2: #1d5fd1;
-  --grid: #e6ebe8;
+  --grid: #e9eaed;
 
-  /* shape & size */
-  --r-card: 22px;
+  /* ---- shape & size ---- */
+  --r-card: 26px;
+  --r-panel: 28px;
   --r-tile: 16px;
-  --r-btn: 16px;
-  --tabbar-h: 72px;
+  --r-field: 16px;
+  --r-btn: 999px;
+  --tabbar-h: 64px;
   --actionbar-h: 84px;
   --gutter: 16px;
+  --bottom-gap: max(12px, env(safe-area-inset-bottom));
 
-  /* motion: 100/150/200/300 only; ease-out in, ease-in out */
+  /* ---- motion: Samsung SESL curves ---- */
+  --ease-90: cubic-bezier(0.33, 0, 0.1, 1);
+  --ease-80: cubic-bezier(0.33, 0, 0.2, 1);
+  --ease-70: cubic-bezier(0.33, 0, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: var(--ease-90);
+  --dur-press: 100ms;
+  --dur-fast: 150ms;
+  --dur-med: 250ms;
+  --dur-in: 350ms;
+  --dur-out: 200ms;
+  --dur-page: 400ms;
+  --dur-chart: 600ms;
+  /* older names, still used by the 3D overlay */
   --motion-100: 100ms;
   --motion-150: 150ms;
   --motion-200: 200ms;
   --motion-300: 300ms;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-out: var(--ease-90);
+  --ease-in: var(--ease-exit);
 
-  --font: 'Figtree Variable', 'Figtree', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
   color-scheme: light;
+
+  /* older names = the accent */
+  --brand: var(--accent);
+  --brand-press: var(--accent-press);
+  --brand-ink: var(--accent-ink);
+  --brand-tint: var(--accent-tint);
+  /* kept for older markup */
+  --shadow: none;
+  --edge: none;
+  --shadow-up: var(--shadow-float);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: #0f1412;
-    --card: #1a211e;
-    --sheet: #1f2724;
-    --press: #26302c;
-    --line: #2c3632;
-    --border: rgb(241 245 243 / 0.1);
-    --text: #f1f5f3;
-    --muted: #a3aea9;
-    --faint: #7f8a85;
-    --brand: #2bbf6a;
-    --brand-press: #24a65c;
-    --brand-ink: #04140a;
-    --brand-tint: #133322;
-    --bad: #ff7b7b;
-    --bad-tint: #3a1d1d;
-    --warn: #ffb547;
-    --warn-tint: #3a2c12;
-    --good: #4ade80;
-    --good-tint: #12301f;
-    --none: #94a3b8;
-    --none-tint: #232b30;
-    --info: #7aa7ff;
-    --info-tint: #1b2740;
-    --shadow: none;
-    --shadow-up: 0 -1px 0 var(--line);
-    --edge: inset 0 1px 0 rgb(255 255 255 / 0.05);
-    --scrim: rgb(0 0 0 / 0.6);
-    --chart: #2fa84f;
-    --chart-2: #3987e5;
-    --grid: #2c3632;
-    color-scheme: dark;
+/* A gentle spring for the tab highlight, where the browser supports linear(). */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-spring: linear(0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%, 0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%, 1.015 55%, 1.017 63.9%, 1.001 85.6%, 1);
   }
 }
+
 :root[data-theme='dark'] {
-  --bg: #0f1412;
-  --card: #1a211e;
-  --sheet: #1f2724;
-  --press: #26302c;
-  --line: #2c3632;
-  --border: rgb(241 245 243 / 0.1);
-  --text: #f1f5f3;
-  --muted: #a3aea9;
-  --faint: #7f8a85;
-  --brand: #2bbf6a;
-  --brand-press: #24a65c;
-  --brand-ink: #04140a;
-  --brand-tint: #133322;
+  --bg: #000000;
+  --card: #1c1c1e;
+  --sheet: #232325;
+  --card-on-sheet: #2c2c2e;
+  --press: rgb(255 255 255 / 0.08);
+  --line: #2c2c2e;
+  --border: rgb(255 255 255 / 0.06);
+  --text: #f4f4f5;
+  --muted: #a1a1a6;
+  --faint: #8e8e93;
+
+  --accent: #2bbf6a;
+  --accent-press: #24a65c;
+  --accent-ink: #04140a;
+  --accent-tint: #12301f;
+
   --bad: #ff7b7b;
-  --bad-tint: #3a1d1d;
+  --bad-tint: #3b1c1c;
   --warn: #ffb547;
-  --warn-tint: #3a2c12;
+  --warn-tint: #3a2a10;
   --good: #4ade80;
   --good-tint: #12301f;
   --none: #94a3b8;
-  --none-tint: #232b30;
+  --none-tint: #2a2a2e;
   --info: #7aa7ff;
-  --info-tint: #1b2740;
-  --shadow: none;
-  --shadow-up: 0 -1px 0 var(--line);
-  --edge: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --info-tint: #1a2640;
+
+  --chrome-bar: rgb(0 0 0 / 0.8);
+  --chrome-pill: rgb(44 44 46 / 0.84);
+  --chrome-solid: #2c2c2e;
+  --chrome-border: rgb(255 255 255 / 0.09);
+  --shadow-float: 0 10px 30px rgb(0 0 0 / 0.55);
+  --shadow-panel: 0 18px 50px rgb(0 0 0 / 0.6);
+  --toast-bg: #3a3a3c;
+  --toast-ink: #ffffff;
   --scrim: rgb(0 0 0 / 0.6);
+
   --chart: #2fa84f;
   --chart-2: #3987e5;
-  --grid: #2c3632;
+  --grid: #2c2c2e;
   color-scheme: dark;
+}
+
+/* No glass on low-end phones, when the phone asks for less transparency, or
+   where the browser can't blur: the same bars, solid. */
+:root[data-lite] {
+  --blur: 0px;
+  --chrome-bar: var(--bg);
+  --chrome-pill: var(--chrome-solid);
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root, :root[data-theme] {
+    --blur: 0px;
+    --chrome-bar: var(--bg);
+    --chrome-pill: var(--chrome-solid);
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root, :root[data-theme] {
+    --chrome-bar: var(--bg);
+    --chrome-pill: var(--chrome-solid);
+  }
+}
+
+@media (min-width: 400px) {
+  :root { --gutter: 20px; }
 }

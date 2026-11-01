@@ -35,7 +35,7 @@ export default function ItemRow({
   }
   return (
     <div
-      className={`irow${onOpen ? ' tappable' : ''}${selected ? ' selected' : ''}${wrap ? ' wrap' : ''}`}
+      className={`irow${tile ? ' has-tile' : ''}${onOpen ? ' tappable' : ''}${selected ? ' selected' : ''}${wrap ? ' wrap' : ''}`}
       role={onOpen ? 'button' : undefined}
       tabIndex={onOpen ? 0 : undefined}
       aria-pressed={selected}

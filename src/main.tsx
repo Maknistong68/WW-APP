@@ -5,7 +5,6 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import { requestPersistentStorage } from './db'
 import './lib/installPrompt'
-import '@fontsource-variable/figtree'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/shell.css'
@@ -36,6 +35,14 @@ if (window.location.hash.startsWith('#error=')) {
 }
 void requestPersistentStorage()
 initTheme()
+
+// iOS only shows :active press styles when the page listens for touches.
+document.addEventListener('touchstart', () => {}, { passive: true })
+// Low-end phones: solid bars instead of blurred glass (cheaper to draw).
+{
+  const nav = navigator as Navigator & { deviceMemory?: number }
+  if ((nav.deviceMemory ?? 8) <= 3 || (navigator.hardwareConcurrency ?? 8) <= 4) document.documentElement.setAttribute('data-lite', '')
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

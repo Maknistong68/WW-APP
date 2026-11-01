@@ -9,7 +9,7 @@ export type Theme = 'light' | 'dark'
 const KEY = 'ww.theme'
 const EVENT = 'ww:theme'
 /** Browser bar colour per theme (matches --bg). */
-export const THEME_COLOR: Record<Theme, string> = { light: '#F2F4F3', dark: '#0F1412' }
+export const THEME_COLOR: Record<Theme, string> = { light: '#F3F4F6', dark: '#000000' }
 
 export function readThemeMode(): ThemeMode {
   try {
@@ -27,12 +27,13 @@ export function resolveTheme(mode: ThemeMode, prefersDark: boolean): Theme {
 
 const prefersDark = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches
 
-/** Put the theme on <html> and the browser bar. */
+/** Put the theme on <html> (always the resolved one, so CSS has a single
+ *  dark block) and on the browser bar. public/theme-boot.js does the same
+ *  before the first paint. */
 export function applyTheme(mode: ThemeMode = readThemeMode()) {
   const root = document.documentElement
-  if (mode === 'auto') root.removeAttribute('data-theme')
-  else root.setAttribute('data-theme', mode)
   const theme = resolveTheme(mode, prefersDark())
+  root.setAttribute('data-theme', theme)
   root.style.colorScheme = theme
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[theme])
 }

@@ -28,10 +28,10 @@ function Ring({ value, status }: { value: number | null; status: string }) {
   const c = 2 * Math.PI * r
   const v = Math.max(0, Math.min(100, value ?? 0))
   const color =
-    status === 'good' ? 'var(--green)' : status === 'warn' ? 'var(--amber-border)' : status === 'bad' ? 'var(--red)' : 'var(--separator)'
+    status === 'good' ? 'var(--good)' : status === 'warn' ? 'var(--warn)' : status === 'bad' ? 'var(--bad)' : 'var(--none)'
   return (
     <svg width="76" height="76" viewBox="0 0 76 76" aria-hidden="true">
-      <circle cx="38" cy="38" r={r} fill="none" stroke="var(--gray-bg)" strokeWidth="8" />
+      <circle cx="38" cy="38" r={r} fill="none" stroke="var(--line)" strokeWidth="8" />
       <circle
         cx="38"
         cy="38"
@@ -180,8 +180,7 @@ export default function ContractorDetailPage() {
                 role="switch"
                 aria-label={`WO ${w.number} active`}
                 checked={w.active}
-                style={{ flex: 'none', width: 22, height: 22 }}
-                disabled={!canEdit}
+                  disabled={!canEdit}
                 onChange={() => toggleWo(w)}
               />
             </div>
