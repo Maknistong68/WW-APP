@@ -24,6 +24,7 @@ import { showToast } from '../components/Toast'
 import Icon from '../components/Icon'
 import { newer } from '../lib/sync'
 import { useAuthInfo } from '../lib/auth'
+import { useGoBack } from '../lib/nav'
 import {
   learnedSuggestions,
   remarkSuggestionsFor,
@@ -42,6 +43,7 @@ export default function ChecklistPage() {
   const { id } = useParams()
   const inspectionId = Number(id)
   const navigate = useNavigate()
+  const goBack = useGoBack()
   const { canEdit } = useAuthInfo()
 
   const [inspection, setInspection] = useState<Inspection | null>(null)
@@ -598,7 +600,7 @@ export default function ChecklistPage() {
     <>
       <div className={`top-stack${compact ? ' compact' : ''}`}>
         <header className="app-header">
-          <button className="back" onClick={() => navigate('/audits')} aria-label="Back">
+          <button className="back" onClick={() => goBack('/audits')} aria-label="Back">
             <Icon name="chevron-left" size={26} />
           </button>
           <h1>

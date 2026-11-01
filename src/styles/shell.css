@@ -13,9 +13,9 @@
   display: flex; flex-direction: column; justify-content: flex-end;
   height: calc(env(safe-area-inset-top) + var(--hero-h));
   padding: env(safe-area-inset-top) calc(var(--gutter) + 8px) 6px;
-  --hero-h: clamp(120px, 21svh, 210px);
+  --hero-h: clamp(112px, 18svh, 190px);
 }
-.screen.detail .appbar-hero { --hero-h: clamp(96px, 14svh, 150px); }
+.screen.detail .appbar-hero { --hero-h: clamp(88px, 12svh, 140px); }
 .large-title {
   margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.12;
   overflow-wrap: anywhere;
@@ -82,8 +82,8 @@ body.has-actionbar .page { padding-bottom: calc(var(--bottom-gap) + var(--action
 /* ---- Floating tab bar (One UI 8.5 / 9): blurred pill + Create button -------- */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: var(--bottom-gap); z-index: 30;
-  display: flex; justify-content: center; align-items: center; gap: 10px;
-  padding: 0 12px; pointer-events: none;
+  display: flex; justify-content: center; align-items: center; gap: 8px;
+  padding: 0 10px; pointer-events: none;
 }
 .tabbar > * { pointer-events: auto; }
 body.has-actionbar .tabbar { display: none; }
@@ -95,7 +95,7 @@ body.has-actionbar .tabbar { display: none; }
   opacity: 0;
 }
 .tabbar-pill {
-  position: relative; display: grid; grid-template-columns: repeat(var(--n, 4), minmax(62px, 84px));
+  position: relative; flex: 1 1 auto; max-width: 400px; display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
   height: var(--tabbar-h); padding: 5px; border-radius: var(--r-btn);
   background: var(--chrome-pill); border: 1px solid var(--chrome-border); box-shadow: var(--shadow-float);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat)); backdrop-filter: blur(var(--blur)) saturate(var(--sat));
@@ -111,7 +111,7 @@ body.has-actionbar .tabbar { display: none; }
 .tab {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   min-width: 0; padding: 0 2px; border: none; border-radius: var(--r-btn); background: none; cursor: pointer;
-  color: var(--muted); font: 600 12px var(--font);
+  color: var(--muted); font: 600 12px var(--font); letter-spacing: -0.01em;
   transition: color var(--dur-med) var(--ease-80);
 }
 .tab.on { color: var(--brand); font-weight: 700; }

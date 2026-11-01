@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useGoBack } from '../lib/nav'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, logEvent, newUuid } from '../db'
 import { getTemplate } from '../templates'
@@ -86,6 +87,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
   const { templateId, id } = useParams()
   const [params] = useSearchParams()
   const navigate = useNavigate()
+  const goBack = useGoBack()
   const [campUuid, setCampUuid] = useState(params.get('camp') ?? '')
   const camps = useLiveQuery(() => db.camps.toArray())
   const contractors = useLiveQuery(() => db.contractors.toArray())
@@ -271,7 +273,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
   return (
     <>
       <header className="app-header solo">
-        <button className="back" onClick={() => navigate(backTo)} aria-label="Back">
+        <button className="back" onClick={() => goBack(backTo)} aria-label="Back">
           <Icon name="chevron-left" size={26} />
         </button>
         <h1>{mode === 'edit' ? 'Inspection details' : `New ${template.name}`}</h1>

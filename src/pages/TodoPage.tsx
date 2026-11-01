@@ -105,8 +105,7 @@ export default function TodoPage() {
   const toggle = (g: Group) => setOnly((o) => (o === g ? null : g))
 
   return (
-    <Page title="Today">
-      <div className="today-date">{date}</div>
+    <Page title="Today" subtitle={date}>
 
       <div className="stats">
         <StatCard icon="alert" tone="bad" value={d.loaded ? count('bad') : '–'} label="Overdue" active={only === 'bad'} onClick={() => toggle('bad')} />

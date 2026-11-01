@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 
 export interface MonthBarsPoint {
   /** YYYY-MM */
@@ -111,7 +111,7 @@ export default function MonthBars({
           return (
             <g key={d.month}>
               {d.values.slice(0, n).map((v, k) => (
-                <path key={k} className={`col s${k}`} d={barPath(x0 + k * (barW + 2), y(v), barW, y(0) - y(v))} />
+                <path key={k} className={`col s${k}`} style={{ '--i': i } as CSSProperties} d={barPath(x0 + k * (barW + 2), y(v), barW, y(0) - y(v))} />
               ))}
               {(i % every === 0 || i === data.length - 1) && (data.length - 1 - i >= every || i === data.length - 1) && (
                 <text className="axis-text" x={PAD.left + i * slot + slot / 2} y={H - 4} textAnchor="middle">

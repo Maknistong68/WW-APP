@@ -1,21 +1,23 @@
+import type { CSSProperties } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Icon, { type IconName } from './Icon'
 import { openCreate } from './AddButton'
 import { useAuthInfo } from '../lib/auth'
+import { useScrollDir } from '../lib/scroll'
+import type { NavState } from '../lib/nav'
 
 interface Tab {
   key: string
   label: string
   icon: IconName
-  path?: string
+  path: string
   /** Paths that light this tab. */
-  match?: (p: string) => boolean
+  match: (p: string) => boolean
 }
 
 const TABS: Tab[] = [
   { key: 'home', label: 'Home', icon: 'home', path: '/', match: (p) => p === '/' || p.startsWith('/missing') || p === '/closeouts' },
   { key: 'tickets', label: 'Tickets', icon: 'ticket', path: '/tickets', match: (p) => p.startsWith('/tickets') },
-  { key: 'create', label: 'Create', icon: 'plus' },
   { key: 'dashboard', label: 'Dashboard', icon: 'chart', path: '/dashboard', match: (p) => p.startsWith('/dashboard') || p.startsWith('/kpis') },
   {
     key: 'library',
@@ -26,33 +28,52 @@ const TABS: Tab[] = [
   },
 ]
 
-/** Hidden while filling in an inspection (full-screen work). */
+/** Hidden while filling in an inspection (full-screen work) and in 3D. */
 const HIDE = ['/new/', '/inspection/', '/dashboard/3d']
 
-/** Spotify-style bottom bar: Home · Tickets · Create · Dashboard · Library. */
+/**
+ * One UI floating tab bar: a blurred pill with a sliding highlight, and the
+ * round Create button beside it. Slides away while you scroll down.
+ */
 export default function TabBar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { canEdit } = useAuthInfo()
-  if (HIDE.some((h) => pathname.startsWith(h))) return null
+  const dir = useScrollDir()
+  const hiddenRoute = HIDE.some((h) => pathname.startsWith(h))
+  const active = TABS.findIndex((t) => t.match(pathname))
+
+  if (hiddenRoute) return null
   return (
-    <nav className="tabbar" aria-label="Main">
-      {TABS.filter((t) => t.key !== 'create' || canEdit).map((t) => {
-        const on = !!t.match?.(pathname)
-        return (
-          <button
-            key={t.key}
-            className={`tab${on ? ' on' : ''}${t.key === 'create' ? ' create' : ''}`}
-            aria-current={on ? 'page' : undefined}
-            onClick={() => (t.path ? navigate(t.path) : openCreate())}
-          >
-            <span className="tab-icon">
-              <Icon name={t.icon} size={26} fill={on} strokeWidth={t.key === 'create' ? 2.4 : 2} />
-            </span>
-            <span className="tab-label">{t.label}</span>
-          </button>
-        )
-      })}
+    <nav className="tabbar" aria-label="Main" data-hidden={dir === 'down' || undefined}>
+      <div className="tabbar-pill" style={{ '--n': TABS.length, '--i': Math.max(0, active) } as CSSProperties}>
+        <span className="tab-indicator" data-on={active >= 0 || undefined} aria-hidden="true" />
+        {TABS.map((t, i) => {
+          const on = i === active
+          return (
+            <button
+              key={t.key}
+              className={`tab${on ? ' on' : ''}`}
+              aria-current={on ? 'page' : undefined}
+              onClick={() =>
+                on && pathname === t.path
+                  ? window.scrollTo({ top: 0, behavior: 'smooth' })
+                  : navigate(t.path, { state: { nav: 'tab' } satisfies NavState })
+              }
+            >
+              <span className="tab-icon">
+                <Icon name={t.icon} size={24} fill={on} />
+              </span>
+              <span className="tab-label">{t.label}</span>
+            </button>
+          )
+        })}
+      </div>
+      {canEdit && (
+        <button className="tab-fab" aria-label="Create" onClick={openCreate}>
+          <Icon name="plus" size={28} strokeWidth={2.4} />
+        </button>
+      )}
     </nav>
   )
 }

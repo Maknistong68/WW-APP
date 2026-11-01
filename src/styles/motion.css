@@ -1,26 +1,91 @@
+/* Motion, One UI style: Samsung SESL curves (tokens.css), transform and
+   opacity (plus a snapshot dim) only. Overlays animate in and out; screens
+   slide (push / back) or fade through (tabs); controls press in, rows
+   highlight. prefers-reduced-motion turns it all into instant or fades. */
+
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes sheetIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
-@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-@keyframes barIn { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes drawerIn { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@keyframes routeFwd { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
-@keyframes routeBack { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@keyframes sheetIn { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 16px) scale(0.96); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes barIn { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes drawerIn { from { transform: translateX(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes flash { from { box-shadow: 0 0 0 3px var(--warn); } to { box-shadow: 0 0 0 3px transparent; } }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes growX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes growY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 
-.route.fwd { animation: routeFwd var(--motion-200) var(--ease-out); }
-.route.back { animation: routeBack var(--motion-200) var(--ease-out); }
-.route.fade { animation: fadeIn var(--motion-200) var(--ease-out); }
-.stagger > * { animation: cardIn var(--motion-300) var(--ease-out) both; }
-.stagger > *:nth-child(2) { animation-delay: 30ms; }
-.stagger > *:nth-child(3) { animation-delay: 60ms; }
-.stagger > *:nth-child(4) { animation-delay: 90ms; }
-.stagger > *:nth-child(5) { animation-delay: 120ms; }
-.stagger > *:nth-child(n + 6) { animation-delay: 150ms; }
+/* ---- Screen transitions (View Transitions API; see RouteTransition.tsx) ----- */
+@keyframes vt-in-right { from { transform: translateX(100%); } }
+@keyframes vt-out-left { to { transform: translateX(-25%); filter: brightness(0.8); } }
+@keyframes vt-out-right { to { transform: translateX(100%); } }
+@keyframes vt-in-left { from { transform: translateX(-25%); filter: brightness(0.8); } }
+@keyframes vt-fade-out { to { opacity: 0; } }
+@keyframes vt-fade-scale-in { from { opacity: 0; transform: scale(0.96); } }
+@keyframes vt-fade-in { from { opacity: 0; } }
+@keyframes chrome-out { to { opacity: 0; transform: translateY(24px); } }
+@keyframes chrome-in { from { opacity: 0; transform: translateY(24px); } }
+
+::view-transition-old(root), ::view-transition-new(root) { mix-blend-mode: normal; animation: var(--dur-page) var(--ease-90) both; }
+:root[data-nav='push']::view-transition-old(root) { animation-name: vt-out-left; }
+:root[data-nav='push']::view-transition-new(root) { animation-name: vt-in-right; box-shadow: -8px 0 32px rgb(0 0 0 / 0.12); }
+:root[data-nav='back']::view-transition-old(root) { animation-name: vt-out-right; z-index: 1; box-shadow: -8px 0 32px rgb(0 0 0 / 0.12); }
+:root[data-nav='back']::view-transition-new(root) { animation-name: vt-in-left; }
+:root[data-nav='tab']::view-transition-old(root) { animation: vt-fade-out 120ms var(--ease-70) both; }
+:root[data-nav='tab']::view-transition-new(root) { animation: vt-fade-scale-in 300ms var(--ease-80) 80ms both; }
+:root[data-nav='fade']::view-transition-old(root) { animation: vt-fade-out 150ms var(--ease-70) both; }
+:root[data-nav='fade']::view-transition-new(root) { animation: vt-fade-in 250ms var(--ease-80) both; }
+/* the tab bar, Create button and toast stay put while the screen moves… */
+::view-transition-group(tab-pill), ::view-transition-group(tab-fab), ::view-transition-group(toast) { animation-duration: var(--dur-med); animation-timing-function: var(--ease-90); }
+::view-transition-old(tab-pill), ::view-transition-old(tab-fab), ::view-transition-old(toast) { animation: none; opacity: 0; }
+::view-transition-new(tab-pill), ::view-transition-new(tab-fab), ::view-transition-new(toast) { animation: none; }
+/* …and slide away or back when only one side of the move has them */
+::view-transition-old(tab-pill):only-child, ::view-transition-old(tab-fab):only-child { opacity: 1; animation: chrome-out var(--dur-out) var(--ease-exit) both; }
+::view-transition-new(tab-pill):only-child, ::view-transition-new(tab-fab):only-child { animation: chrome-in var(--dur-in) var(--ease-90) both; }
+
+/* Without View Transitions: a fade only (a transform would carry the fixed bars). */
+:root:not([data-vt]) .route:is([data-enter='push'], [data-enter='back'], [data-enter='tab'], [data-enter='fade']) {
+  animation: fadeIn var(--dur-med) var(--ease-80);
+}
+
+/* ---- Entry: cards stagger in (not when coming back) -------------------------- */
+.stagger > *, .stats > *, .hero-row > * { animation: cardIn var(--dur-in) var(--ease-90) both; }
+.stagger > *:nth-child(2), .stats > *:nth-child(2), .hero-row > *:nth-child(2) { animation-delay: 35ms; }
+.stagger > *:nth-child(3), .stats > *:nth-child(3), .hero-row > *:nth-child(3) { animation-delay: 70ms; }
+.stagger > *:nth-child(4) { animation-delay: 105ms; }
+.stagger > *:nth-child(5) { animation-delay: 140ms; }
+.stagger > *:nth-child(6) { animation-delay: 175ms; }
+.stagger > *:nth-child(n + 7) { animation-delay: 210ms; }
+.route[data-enter='back'] :is(.stagger, .stats, .hero-row) > * { animation: none; }
 .skeleton { background: linear-gradient(90deg, var(--card) 0%, var(--press) 50%, var(--card) 100%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; border-radius: var(--r-card); }
+
+/* ---- Bars and charts fill in ------------------------------------------------- */
+.bar-fill, .progress-bar > div { transform-origin: 0 50%; animation: growX var(--dur-chart) var(--ease-90) both; }
+.chart-svg .line { stroke-dasharray: 1; animation: draw 900ms var(--ease-80) both; }
+.chart-svg .area { animation: fadeIn var(--dur-chart) var(--ease-80) 300ms both; }
+.chart-svg .col { transform-box: fill-box; transform-origin: 50% 100%; animation: growY var(--dur-chart) var(--ease-90) both; animation-delay: calc(var(--i, 0) * 18ms); }
+.kpi-ring-fill { stroke-dashoffset: 0; animation: ring var(--dur-chart) var(--ease-90) both; }
+@keyframes ring { from { stroke-dasharray: 0 999; } }
+
+/* ---- Press: controls press in, rows highlight --------------------------------- */
+:where(.bcard, .stat, button.hero, .create-card, .btn, .actionbar-main, .actionbar-icon, .round-btn, .tab-fab, .fab, .segmented button, .chip, .pill, .tog, .result-btns button, .city-btn, .city-floor, .show-more, .dialog-btn, .avatar-btn, .nav-btn) {
+  transition-property: transform, background-color, color, box-shadow, opacity;
+  transition-duration: var(--dur-med);
+  transition-timing-function: var(--ease-80);
+}
+:where(.bcard, .stat, button.hero, .create-card, .btn, .actionbar-main, .actionbar-icon, .tab-fab, .fab, .segmented button, .chip, .pill, .tog, .result-btns button, .city-btn, .city-floor, .show-more):active:not(:disabled) {
+  transform: scale(0.97); transition-duration: var(--dur-press);
+}
+:where(.round-btn, .icon-btn, .irow-more, .nav-btn, .dialog-btn, .avatar-btn, .toast-close, .clear-btn, .city-x):active:not(:disabled) { background-color: var(--press); }
+:where(.irow.tappable, button.row, .as-item, .side-item, .assign-item, .section-head, .tab, .inspection-row):active { background-color: var(--press); }
+.tab:active .tab-icon { transform: scale(0.9); }
+.actionbar-main:active:not(:disabled), .btn.primary:active:not(:disabled) { background-color: var(--brand-press); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
   .lifting { transform: none; }
+  ::view-transition-group(*) { animation: none !important; }
+  ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 150ms !important; }
+  :root[data-nav]::view-transition-old(root) { animation: vt-fade-out 150ms linear both !important; }
+  :root[data-nav]::view-transition-new(root) { animation: vt-fade-in 150ms linear both !important; }
 }

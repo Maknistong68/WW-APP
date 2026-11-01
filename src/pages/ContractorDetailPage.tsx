@@ -37,6 +37,7 @@ function Ring({ value, status }: { value: number | null; status: string }) {
         cy="38"
         r={r}
         fill="none"
+        className="kpi-ring-fill"
         stroke={color}
         strokeWidth="8"
         strokeLinecap="round"

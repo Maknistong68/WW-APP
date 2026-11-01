@@ -81,7 +81,7 @@ export default function TrendLine({ data, unit }: { data: TrendDatum[]; unit: st
           </text>
         ))}
         <path className="area" d={area} />
-        <path className="line" d={path} />
+        <path className="line" d={path} pathLength={1} />
         <circle className="dot" cx={x(data.length - 1)} cy={y(last.value)} r={4} />
         <text className="end-label" x={x(data.length - 1) + 7} y={y(last.value) + 4}>
           {last.value}
