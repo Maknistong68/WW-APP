@@ -56,3 +56,11 @@
 .login-note { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
 .login .segmented { margin-top: 18px; }
 .login .btn.primary { margin-top: 4px; min-height: 56px; font-size: 17px; }
+
+/* 3D view loading (shown before the 3D code and its styles arrive) */
+.city-loading {
+  position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; background: var(--bg); color: var(--muted); font-weight: 700;
+}
+.city-spinner { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--brand); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

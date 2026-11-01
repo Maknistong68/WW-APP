@@ -101,7 +101,7 @@ function AppShell() {
         <Route
           path="/dashboard/3d"
           element={
-            <Suspense fallback={<div className="city-loading">Loading 3D…</div>}>
+            <Suspense fallback={<div className="city-loading"><span className="city-spinner" aria-hidden="true" />Loading 3D (first time only)…</div>}>
               <City3DPage />
             </Suspense>
           }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ageRing, buildCity, buildTimeline, coinCount, layout, timelineMonths, towerHeight } from './city'
+import { ageRing, buildCity, buildTimeline, coinCount, layout, tideMax, timelineMonths, towerHeight } from './city'
 import type { AllData } from './kpiData'
 import type { Camp, Contractor, Manpower, Ticket, WorkOrder } from '../types'
 
@@ -64,6 +64,9 @@ describe('Living Site city', () => {
     expect([sep.tide.open, oct.tide.open, sep.tide.max]).toEqual([0, 1, 1])
     expect(oct.tide.level).toBe(1)
     expect(sep.recovered).toBe(500)
+    // building one month on its own with the same scale gives the same city
+    const max = tideMax(data({ tickets }), ['2026-09', '2026-10'], '2026-10-31')
+    expect(buildCity(data({ tickets }), '2026-10', '2026-10-31', max)).toEqual(oct)
   })
 
   it('camp countdown at the month end', () => {

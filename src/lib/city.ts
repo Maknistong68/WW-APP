@@ -321,14 +321,19 @@ export function buildCity(d: AllData, month: string, today = localDate(), scaleM
   }
 }
 
-/** One city per month; the tide is scaled to the busiest month so it can rise and fall. */
-export function buildTimeline(d: AllData, months: string[], today = localDate(), aspect = 1): City[] {
+/** Most open tickets at any month end in the timeline (cheap: counts only) — the tide's scale. */
+export function tideMax(d: AllData, months: string[], today = localDate()): number {
   const opens = months.map((m) => {
     const { end } = monthRange(m)
     const asOf = end < today ? end : today
     return d.tickets.filter((t) => openOn(t, asOf)).length
   })
-  const max = Math.max(1, ...opens)
+  return Math.max(1, ...opens)
+}
+
+/** One city per month; the tide is scaled to the busiest month so it can rise and fall. */
+export function buildTimeline(d: AllData, months: string[], today = localDate(), aspect = 1): City[] {
+  const max = tideMax(d, months, today)
   return months.map((m) => buildCity(d, m, today, max, aspect))
 }
 

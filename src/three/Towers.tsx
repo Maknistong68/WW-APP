@@ -28,6 +28,7 @@ export default function Towers({
   motion,
   selected,
   onPick,
+  smokePer = 24,
 }: {
   towers: CityTower[]
   palette: Palette
@@ -35,6 +36,8 @@ export default function Towers({
   motion: boolean
   selected: string | null
   onPick: (t: CityTower) => void
+  /** Smoke particles per tower (fewer on phones). */
+  smokePer?: number
 }) {
   const N = towers.length
   const core = useRef<THREE.InstancedMesh>(null!)
@@ -48,12 +51,12 @@ export default function Towers({
   const ring = useRef<THREE.Mesh>(null!)
   const anim = useRef(new Map<string, Anim>())
 
-  const SMOKE_PER = 24
+  const SMOKE_PER = smokePer
   const smokeGeo = useMemo(() => {
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * SMOKE_PER * 3), 3))
     return g
-  }, [N])
+  }, [N, SMOKE_PER])
 
   // Instance colours must exist before the first draw so the shader compiles with them.
   useLayoutEffect(() => {
@@ -213,7 +216,7 @@ export default function Towers({
         <boxGeometry args={[1, 1, 1]} />
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
-      <points key={`smoke${N}`} ref={smoke} geometry={smokeGeo}>
+      <points key={`smoke${N}-${SMOKE_PER}`} ref={smoke} geometry={smokeGeo}>
         <pointsMaterial color={palette.bad} size={0.16} transparent opacity={0.75} depthWrite={false} sizeAttenuation />
       </points>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}>

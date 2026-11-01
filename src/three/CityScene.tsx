@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ContactShadows, PerformanceMonitor, Stars } from '@react-three/drei'
 import { Bloom, EffectComposer } from '@react-three/postprocessing'
@@ -12,6 +12,7 @@ import { Island, Tide } from './Island'
 import CameraRig, { type Focus } from './CameraRig'
 import type { Layers } from './layers'
 import type { Palette } from './theme3d'
+import { FirstFrame } from './SceneGuard'
 
 /** Sky colour follows the site's overall KPI: clear, haze or storm. */
 function Sky({ color }: { color: string }) {
@@ -42,6 +43,10 @@ export default function CityScene({
   selected,
   focus,
   picks,
+  lite,
+  onCreated,
+  onFirstFrame,
+  onLost,
 }: {
   city: City
   capacity: number
@@ -51,20 +56,35 @@ export default function CityScene({
   selected: string | null
   focus: Focus | null
   picks: ScenePicks
+  /** Phones: no shadows, no bloom, lower resolution. */
+  lite: boolean
+  onCreated: () => void
+  onFirstFrame: () => void
+  onLost: () => void
 }) {
   const [degraded, setDegraded] = useState(false)
   const r = city.radius
   const vault: [number, number, number] = [0, 0, -(city.inner + 2.6)]
   return (
     <Canvas
-      shadows
-      dpr={[1, degraded ? 1 : 1.75]}
+      shadows={!lite}
+      dpr={[1, degraded ? 1 : lite ? 1.5 : 1.75]}
       camera={{ fov: 42, near: 0.5, far: 600, position: [r, r, r * 1.2] }}
       gl={{ antialias: true, preserveDrawingBuffer: import.meta.env.DEV }}
       onPointerMissed={picks.onNothing}
+      onCreated={({ gl }) => {
+        gl.domElement.addEventListener('webglcontextlost', (e) => {
+          e.preventDefault()
+          onLost()
+        })
+        onCreated()
+      }}
       aria-label="3D view of the site"
     >
+      <FirstFrame onFrame={onFirstFrame} />
       <PerformanceMonitor onDecline={() => setDegraded(true)} flipflops={2} />
+      {/* Anything that loads (fonts…) must never hold up the whole scene. */}
+      <Suspense fallback={null}>
       <Sky color={palette.sky[city.sky.status]} />
       <fog attach="fog" args={[palette.sky[city.sky.status], r * 2.2, r * 5]} />
       <hemisphereLight args={[palette.dark ? '#7c96b8' : '#ffffff', palette.dark ? '#0b100e' : '#b9c7bf', palette.dark ? 0.45 : 1.0]} />
@@ -82,15 +102,16 @@ export default function CityScene({
       {palette.dark && <Stars radius={r * 4} depth={40} count={1800} factor={4} fade speed={motion ? 0.6 : 0} />}
 
       <Island radius={r} blocks={city.blocks} palette={palette} />
-      <Towers towers={city.towers} palette={palette} layers={degraded ? { ...layers, workers: false } : layers} motion={motion} selected={selected} onPick={picks.onTower} />
+      <Towers towers={city.towers} palette={palette} layers={degraded ? { ...layers, workers: false } : layers} motion={motion} selected={selected} onPick={picks.onTower} smokePer={lite ? 12 : 24} />
       <TicketOrbs tickets={city.tickets} blocks={city.blocks} capacity={capacity} palette={palette} visible={layers.tickets} motion={motion} onPick={picks.onTicket} />
       <Money blocks={city.blocks} recovered={city.recovered} month={city.month} vault={vault} palette={palette} visible={layers.money} motion={motion} />
       <Camps camps={city.camps} palette={palette} visible={layers.camps} motion={motion} onPick={picks.onCamp} />
       <Tide radius={r} level={city.tide.level} open={city.tide.open} palette={palette} visible={layers.tide} motion={motion} />
-      {!palette.dark && <ContactShadows position={[0, 0.02, 0]} scale={r * 2} blur={2.4} opacity={0.35} far={6} />}
+      {!palette.dark && !lite && <ContactShadows position={[0, 0.02, 0]} scale={r * 2} blur={2.4} opacity={0.35} far={6} />}
 
       <CameraRig radius={r} inner={city.inner} focus={focus} motion={motion} />
-      {palette.dark && !degraded && (
+      </Suspense>
+      {palette.dark && !degraded && !lite && (
         <EffectComposer>
           <Bloom mipmapBlur luminanceThreshold={0.55} intensity={0.9} />
         </EffectComposer>

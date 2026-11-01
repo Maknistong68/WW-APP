@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Billboard, Text } from '@react-three/drei'
+import { Billboard } from '@react-three/drei'
+import Text from './SafeText'
 import * as THREE from 'three'
 import type { CityCamp } from '../lib/city'
 import type { Palette } from './theme3d'

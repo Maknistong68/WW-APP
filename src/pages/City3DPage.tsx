@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from '../components/Icon'
 import IconTile from '../components/IconTile'
@@ -7,11 +7,12 @@ import Modal from '../components/Modal'
 import CardList from '../components/CardList'
 import ItemRow from '../components/ItemRow'
 import CityScene from '../three/CityScene'
+import { SceneErrorBoundary } from '../three/SceneGuard'
 import type { Focus } from '../three/CameraRig'
 import { ALL_LAYERS, LAYER_LABEL, type Layers } from '../three/layers'
 import { reducedMotion, usePalette } from '../three/theme3d'
 import { useAuthInfo } from '../lib/auth'
-import { FLOORS, buildTimeline, timelineMonths, type CityCamp, type CityTicket, type CityTower } from '../lib/city'
+import { FLOORS, buildCity, tideMax, timelineMonths, type City, type CityCamp, type CityTicket, type CityTower } from '../lib/city'
 import { CAMP_STATUS_LABEL } from '../lib/camps'
 import { monthLabel, shortDate } from '../lib/dates'
 import { STATUS_LABEL, kpiStatus, pct } from '../lib/kpi'
@@ -22,14 +23,25 @@ import '../styles/city.css'
 
 type Selection = { kind: 'tower'; key: string } | { kind: 'ticket'; uuid: string } | { kind: 'camp'; uuid: string }
 
+/** three.js (r163+) needs WebGL 2. */
 function hasWebGL() {
   try {
-    const c = document.createElement('canvas')
-    return !!(c.getContext('webgl2') || c.getContext('webgl'))
+    return !!document.createElement('canvas').getContext('webgl2')
   } catch {
     return false
   }
 }
+
+/** Phones and tablets: lighter rendering (no shadows, no glow, lower resolution). */
+const isTouch = () => typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches
+
+/** Run `fn` when the browser is idle (or soon), so building months never freezes the screen. */
+const hasIdle = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
+const idle = (fn: () => void): number => (hasIdle ? window.requestIdleCallback(fn, { timeout: 300 }) : window.setTimeout(fn, 16))
+const cancelIdle = (id: number) => (hasIdle ? window.cancelIdleCallback(id) : window.clearTimeout(id))
+
+type Stage = 'data' | 'graphics' | 'first frame'
+const WATCHDOG_MS = 10000
 
 /** "Living Site": the dashboard as an animated 3D city. Read-only. */
 export default function City3DPage() {
@@ -41,8 +53,41 @@ export default function City3DPage() {
   const webgl = useMemo(hasWebGL, [])
   const months = useMemo(() => timelineMonths(12), [])
   const aspect = useMemo(() => window.innerWidth / Math.max(1, window.innerHeight), [])
-  const timeline = useMemo(() => (d.loaded ? buildTimeline(d, months, undefined, aspect) : []), [d, months, aspect])
-  const capacity = useMemo(() => Math.max(16, ...timeline.map((c) => c.tickets.length)) + 24, [timeline])
+  const lite = useMemo(isTouch, [])
+  // The current month first (fast first frame), the other 11 in the background.
+  const [cities, setCities] = useState<(City | undefined)[]>([])
+  useEffect(() => {
+    if (!d.loaded) return
+    const max = tideMax(d, months)
+    const arr: (City | undefined)[] = new Array(months.length).fill(undefined)
+    const last = months.length - 1
+    arr[last] = buildCity(d, months[last], undefined, max, aspect)
+    setCities([...arr])
+    let i = last - 1
+    let id = 0
+    const step = () => {
+      if (i < 0) return
+      arr[i] = buildCity(d, months[i], undefined, max, aspect)
+      i--
+      setCities([...arr])
+      id = idle(step)
+    }
+    id = idle(step)
+    return () => cancelIdle(id)
+  }, [d, months, aspect])
+  const ready = cities.length === months.length && cities.every(Boolean)
+  // Fixed size so the orb buffer never has to be rebuilt between months.
+  const capacity = useMemo(() => Math.min(800, d.tickets.length) + 8, [d.tickets.length])
+  // Watchdog: explain instead of spinning forever.
+  const stage = useRef<Stage>('data')
+  const drawn = useRef(false)
+  const [problem, setProblem] = useState<string | null>(null)
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      if (!drawn.current) setProblem(`It stopped while preparing the ${stage.current}.`)
+    }, WATCHDOG_MS)
+    return () => window.clearTimeout(id)
+  }, [])
   const [idx, setIdx] = useState(months.length - 1)
   const [playing, setPlaying] = useState(false)
   const [layers, setLayers] = useState<Layers>(ALL_LAYERS)
@@ -50,7 +95,7 @@ export default function City3DPage() {
   const [focus, setFocus] = useState<Focus | null>(null)
   const [tour, setTour] = useState<number | null>(null)
   const [sheet, setSheet] = useState<'list' | 'legend' | null>(null)
-  const city = timeline[idx]
+  const city = cities[idx] ?? cities[months.length - 1]
   const fly = (x: number, z: number, dist = 9) => setFocus((f) => ({ x, z, dist, v: (f?.v ?? 0) + 1 }))
 
   // Play through the months.
@@ -115,6 +160,7 @@ export default function City3DPage() {
     setSel({ kind: 'camp', uuid: c.uuid })
     fly(c.x, c.z, 10)
   }
+  if (city && stage.current === 'data') stage.current = 'graphics'
   const summary = city
     ? `${monthLabel(city.month)}: ${city.towers.length} work orders across ${city.blocks.length} contractors, site KPI ${pct(city.sky.overall)}, ${city.tide.open} open tickets, ${city.camps.filter((c) => c.status === 'expired' || c.status === 'never').length} camps overdue.`
     : ''
@@ -122,22 +168,47 @@ export default function City3DPage() {
   return (
     <div className="city">
       {city ? (
-        <CityScene
-          city={city}
-          capacity={capacity}
-          palette={palette}
-          layers={layers}
-          motion={motion}
-          selected={sel?.kind === 'tower' ? sel.key : null}
-          focus={focus}
-          picks={{ onTower: pickTower, onTicket: pickTicket, onCamp: pickCamp, onNothing: () => setSel(null) }}
-        />
+        <SceneErrorBoundary onError={(m) => setProblem(`The 3D view hit an error: ${m}`)}>
+          <CityScene
+            city={city}
+            capacity={capacity}
+            palette={palette}
+            layers={layers}
+            motion={motion}
+            selected={sel?.kind === 'tower' ? sel.key : null}
+            focus={focus}
+            picks={{ onTower: pickTower, onTicket: pickTicket, onCamp: pickCamp, onNothing: () => setSel(null) }}
+            lite={lite}
+            onCreated={() => (stage.current = 'first frame')}
+            onFirstFrame={() => {
+              // Dev-only switch to test the watchdog: #/dashboard/3d?stall
+              if (import.meta.env.MODE === 'development' && window.location.hash.includes('stall')) return
+              drawn.current = true
+            }}
+            onLost={() => setProblem('The phone paused 3D graphics (usually low memory).')}
+          />
+        </SceneErrorBoundary>
       ) : (
         <div className="city-loading">Building the site…</div>
       )}
       <p className="sr-only" aria-live="polite">
         {summary}
       </p>
+      {problem && (
+        <div className="city-guard" role="alert">
+          <IconTile icon="cube" tone="warn" size={64} />
+          <h2>3D isn’t working on this phone right now</h2>
+          <p>{problem}</p>
+          <div className="btn-row">
+            <button className="btn" onClick={() => navigate('/dashboard')}>
+              Open 2D dashboard
+            </button>
+            <button className="btn primary" onClick={() => window.location.reload()}>
+              Try again
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Top: back to 2D, title, tools */}
       <div className="city-top">
@@ -308,7 +379,7 @@ export default function City3DPage() {
         )}
         {!tower && !ticket && !camp && (
           <div className="city-time">
-            <button className="city-play" aria-label={playing ? 'Pause' : 'Play the last 12 months'} onClick={() => (idx >= months.length - 1 && !playing ? (setIdx(0), setPlaying(true)) : setPlaying((p) => !p))}>
+            <button className="city-play" disabled={!ready} aria-label={playing ? 'Pause' : 'Play the last 12 months'} onClick={() => (idx >= months.length - 1 && !playing ? (setIdx(0), setPlaying(true)) : setPlaying((p) => !p))}>
               <Icon name={playing ? 'pause' : 'play'} size={22} fill />
             </button>
             <div className="city-scrub">
@@ -316,7 +387,7 @@ export default function City3DPage() {
                 <b>{monthLabel(months[idx])}</b>
                 {city && (
                   <span>
-                    {city.tide.open} open · {sarShort(city.blocks.reduce((s, b) => s + b.owed, 0))} SAR owed
+                    {ready ? `${city.tide.open} open · ${sarShort(city.blocks.reduce((s, b) => s + b.owed, 0))} SAR owed` : 'Preparing months…'}
                   </span>
                 )}
               </div>
@@ -325,6 +396,7 @@ export default function City3DPage() {
                 min={0}
                 max={months.length - 1}
                 value={idx}
+                disabled={!ready}
                 aria-label="Month"
                 onChange={(e) => {
                   setPlaying(false)
