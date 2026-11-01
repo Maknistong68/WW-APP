@@ -23,12 +23,26 @@ const base = (p: Partial<AllData> = {}): AllData => {
 const card = (cards: ReturnType<typeof buildTodo>, key: string) => cards.find((c) => c.key === key)!
 
 describe('To-do home', () => {
-  it('submission is "due 15th" before, overdue after, done when all three are in', () => {
-    expect(card(buildTodo(base(), '2026-10-10'), 'submission').alert).toEqual({ level: 'warn', text: 'Due 15th' })
-    expect(card(buildTodo(base(), '2026-10-16'), 'submission').alert).toEqual({ level: 'bad', text: '1 overdue' })
-    const kpis = [{ contractorUuid: 'c', workOrderUuid: '', month: '2026-10', wps: true, manpowerDecl: true, salaryDecl: true }] as KpiMonth[]
-    const done = card(buildTodo(base({ kpis }), '2026-10-16'), 'submission')
-    expect([done.todo, done.alert]).toEqual([0, undefined])
+  it('in November, submission checks October (due 15 Nov): to do, then amber, then overdue', () => {
+    const early = card(buildTodo(base(), '2026-11-01'), 'submission')
+    expect([early.todo, early.alert, early.to]).toEqual([1, undefined, '/missing/submission?m=2026-10'])
+    expect(early.detail).toContain('Oct 2026')
+    expect(card(buildTodo(base(), '2026-11-08'), 'submission').alert).toEqual({ level: 'warn', text: 'Due 15 Nov' })
+    expect(card(buildTodo(base(), '2026-11-16'), 'submission').alert).toEqual({ level: 'bad', text: '1 overdue' })
+  })
+  it('submission is done when October has all three, whatever November has', () => {
+    const all3 = { contractorUuid: 'c', workOrderUuid: '', wps: true, manpowerDecl: true, salaryDecl: true }
+    const oct = card(buildTodo(base({ kpis: [{ ...all3, month: '2026-10' }] as KpiMonth[] }), '2026-11-16'), 'submission')
+    expect([oct.todo, oct.alert]).toEqual([0, undefined])
+    const novOnly = card(buildTodo(base({ kpis: [{ ...all3, month: '2026-11' }] as KpiMonth[] }), '2026-11-16'), 'submission')
+    expect(novOnly.todo).toBe(1)
+  })
+  it('monthly KPIs check October and turn amber in the last week of November', () => {
+    const early = card(buildTodo(base(), '2026-11-10'), 'onboarding')
+    expect([early.todo, early.alert, early.to]).toEqual([1, undefined, '/missing/onboarding?m=2026-10'])
+    expect(card(buildTodo(base(), '2026-11-24'), 'onboarding').alert).toEqual({ level: 'warn', text: 'Due 30 Nov' })
+    const kpis = [{ contractorUuid: 'c', workOrderUuid: '', month: '2026-10', onboardingPct: 95 }] as KpiMonth[]
+    expect(card(buildTodo(base({ kpis }), '2026-11-24'), 'onboarding').todo).toBe(0)
   })
   it('open tickets flag the ones over 30 days', () => {
     const tickets = [

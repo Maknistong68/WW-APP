@@ -50,6 +50,12 @@ export const monthLabel = (month: string) => {
   return `${MONTHS[(m || 1) - 1]} ${y}`
 }
 
+/** "15 Nov" (never the year) */
+export function dayMonth(ymd: string): string {
+  const [, m, d] = ymd.split('-').map(Number)
+  return `${d} ${MONTHS[(m || 1) - 1]}`
+}
+
 /** "27 Oct" (adds the year when it differs from this year) */
 export function shortDate(ymd: string): string {
   if (!ymd) return ''

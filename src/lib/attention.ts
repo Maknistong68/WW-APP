@@ -1,11 +1,11 @@
 import { ageDays, isOpen } from './aging'
 import { closeoutTotals, closeouts } from './closeout'
 import { campsSummary, missingSubmissions, openAging, workforce } from './dashboard'
-import { localDate, monthOf } from './dates'
+import { dayMonth, localDate, monthLabel } from './dates'
+import { declarationsDue, dueMonthFor, dueTone } from './due'
 import { kpisForMonth, type AllData } from './kpiData'
 import { sar } from './money'
 import { kpiSubjects, subjectManpower } from './subjects'
-import { SUBMISSION_DUE_DAY } from './todo'
 
 /** One "needs attention" line, shared by the 2D Overview and the 3D tour. */
 export interface Attention {
@@ -34,7 +34,6 @@ function top<T>(items: T[], score: (x: T) => number, id: (x: T) => string): stri
 
 /** The worst problems for a month, red first, at most `limit`. */
 export function buildAttention(d: AllData, month: string, today = localDate(), limit = 6): Attention[] {
-  const isNow = month === monthOf(today)
   const subjects = kpiSubjects(d.contractors, d.workOrders)
   const aging = openAging(d.tickets, today)
   const late = aging.slice(2)
@@ -45,8 +44,12 @@ export function buildAttention(d: AllData, month: string, today = localDate(), l
   const critical = rated.filter(({ r }) => r!.status === 'bad')
   const camps = campsSummary(d.camps, d.inspections, today)
   const campsLate = camps.expired + camps.never
-  const missingDocs = missingSubmissions(subjects, d.kpis, month)
-  const docsLate = isNow ? Number(today.slice(8, 10)) > SUBMISSION_DUE_DAY : month < monthOf(today)
+  // Declarations: the current month isn't due yet, so chase the last one (due the 15th).
+  const docsMonth = dueMonthFor(month, today)
+  const docsDue = declarationsDue(docsMonth)
+  const missingDocs = missingSubmissions(subjects, d.kpis, docsMonth)
+  const docsTone = dueTone(docsDue, today)
+  const docsLate = docsTone === 'bad'
   const wf = workforce(subjects, d.manpower, month)
   const coList = closeouts(subjects, d.kpis, today)
   const co = closeoutTotals(coList)
@@ -88,12 +91,12 @@ export function buildAttention(d: AllData, month: string, today = localDate(), l
     const first = camps.toVisit.find((v) => v.state.status === 'expired' || v.state.status === 'never')
     out.push({ key: 'camps', tone: 'bad', text: `${campsLate} camp${s(campsLate)} overdue for inspection`, to: '/camps', focus: camp(first?.camp.uuid) })
   }
-  if (missingDocs.length)
+  if (missingDocs.length && docsTone)
     out.push({
       key: 'docs',
       tone: docsLate ? 'bad' : 'warn',
-      text: `${missingDocs.length} missing WPS / MP / salary${docsLate ? '' : ` · due ${SUBMISSION_DUE_DAY}th`}`,
-      to: `/missing/submission?m=${month}`,
+      text: `${missingDocs.length} missing WPS / MP / salary for ${monthLabel(docsMonth).slice(0, 3)}${docsLate ? '' : ` · due ${dayMonth(docsDue)}`}`,
+      to: `/missing/submission?m=${docsMonth}`,
       focus: contractor(missingDocs[0]?.contractor.uuid),
     })
   if (camps.due) {

@@ -1,6 +1,7 @@
 import { ageDays, isOpen } from './aging'
 import { campState } from './camps'
-import { addMonths, localDate, monthLabel, monthOf } from './dates'
+import { addMonths, dayMonth, localDate, monthLabel, monthOf } from './dates'
+import { declarationsDue, dueTone, kpisDue, lastEndedMonth } from './due'
 import { closurePct, submissionsComplete } from './kpi'
 import { auditPctFor, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectManpower, type KpiSubject } from './subjects'
@@ -9,9 +10,7 @@ import type { IconName } from '../components/Icon'
 
 // The Home screen: one card per item of the monthly routine. Data-driven so
 // more items can be added to TODO_ITEMS without touching the page.
-
-/** Declarations (WPS / manpower / salary) are due by this day of the month. */
-export const SUBMISSION_DUE_DAY = 15
+// Monthly items look at the last month that ended (they are due in the month after it).
 
 export interface TodoAlert {
   level: 'bad' | 'warn'
@@ -35,9 +34,11 @@ export interface TodoCard {
 
 interface Ctx {
   d: AllData
+  /** The last month that ended: its declarations and KPIs are coming due. */
   month: string
+  /** The month we're in (ticket closure, this quarter). */
+  thisMonth: string
   today: string
-  day: number
   subjects: KpiSubject[]
 }
 
@@ -150,7 +151,16 @@ export function subjectRows(d: AllData, key: SubjectItemKey, month: string) {
     .sort((a, b) => Number(a.done) - Number(b.done) || a.s.label.localeCompare(b.s.label))
 }
 
-const missing = (c: Ctx, key: SubjectItemKey) => c.subjects.filter((s) => !SUBJECT_ITEMS[key].done(c.d, s, c.month)).length
+const missing = (c: Ctx, key: SubjectItemKey, month = c.month) => c.subjects.filter((s) => !SUBJECT_ITEMS[key].done(c.d, s, month)).length
+
+/** Red "N overdue" after the due date, amber "Due 15 Nov" in the week before it. */
+function dueAlert(todo: number, due: string, today: string): TodoAlert | undefined {
+  if (!todo) return undefined
+  const tone = dueTone(due, today)
+  if (tone === 'bad') return { level: 'bad', text: `${todo} overdue` }
+  if (tone === 'warn') return { level: 'warn', text: `Due ${dayMonth(due)}` }
+  return undefined
+}
 
 /** "3 of 13 work orders" */
 const ofWo = (n: number, total: number) => `${n} of ${total} work order${total === 1 ? '' : 's'}`
@@ -168,6 +178,7 @@ const enterItem =
       todo,
       total: c.subjects.length,
       detail: todo ? `${ofWo(todo, c.subjects.length)} not entered for ${monthLabel(c.month)}` : `All entered for ${monthLabel(c.month)}`,
+      alert: dueAlert(todo, kpisDue(c.month), c.today),
       to: missingLink(key, c.month),
     }
   }
@@ -176,19 +187,15 @@ export const TODO_ITEMS: Item[] = [
   // 1. Monthly submission
   (c) => {
     const todo = missing(c, 'submission')
-    const late = c.day > SUBMISSION_DUE_DAY
+    const month = monthLabel(c.month)
     return {
       key: 'submission',
       title: SUBJECT_ITEMS.submission.title,
       icon: 'file-text',
       todo,
       total: c.subjects.length,
-      detail: todo ? `${ofWo(todo, c.subjects.length)} missing WPS / manpower / salary` : 'WPS, manpower and salary all in',
-      alert: todo
-        ? late
-          ? { level: 'bad', text: `${todo} overdue` }
-          : { level: 'warn', text: `Due ${SUBMISSION_DUE_DAY}th` }
-        : undefined,
+      detail: todo ? `${ofWo(todo, c.subjects.length)} missing WPS / manpower / salary for ${month}` : `WPS, manpower and salary all in for ${month}`,
+      alert: dueAlert(todo, declarationsDue(c.month), c.today),
       to: missingLink('submission', c.month),
     }
   },
@@ -209,7 +216,7 @@ export const TODO_ITEMS: Item[] = [
   },
   // 3. Ticket closure this month
   (c) => {
-    const pct = closurePct(c.d.tickets, c.month)
+    const pct = closurePct(c.d.tickets, c.thisMonth)
     const open = c.d.tickets.filter(isOpen).length
     return {
       key: 'closure',
@@ -217,7 +224,7 @@ export const TODO_ITEMS: Item[] = [
       icon: 'activity',
       todo: open,
       total: null,
-      detail: pct === null ? 'No tickets this month' : `${Math.round(pct)}% closed in ${monthLabel(c.month)}`,
+      detail: pct === null ? 'No tickets this month' : `${Math.round(pct)}% closed in ${monthLabel(c.thisMonth)}`,
       alert: pct !== null && pct < 70 ? { level: 'warn', text: `${Math.round(pct)}%` } : undefined,
       to: '/tickets',
     }
@@ -247,9 +254,9 @@ export const TODO_ITEMS: Item[] = [
   enterItem('meeting', 'clipboard'),
   // 10. Quarterly audit: any month of this quarter
   (c) => {
-    const months = quarterMonths(c.month)
-    const todo = missing(c, 'quarterly')
-    const lastMonth = c.month === months[2]
+    const months = quarterMonths(c.thisMonth)
+    const todo = missing(c, 'quarterly', c.thisMonth)
+    const lastMonth = c.thisMonth === months[2]
     return {
       key: 'quarterly',
       title: SUBJECT_ITEMS.quarterly.title,
@@ -258,7 +265,7 @@ export const TODO_ITEMS: Item[] = [
       total: c.subjects.length,
       detail: todo ? `${ofWo(todo, c.subjects.length)} not done this quarter` : 'Done for this quarter',
       alert: todo && lastMonth ? { level: 'warn', text: 'Quarter ends this month' } : undefined,
-      to: missingLink('quarterly', c.month),
+      to: missingLink('quarterly', c.thisMonth),
     }
   },
   // 11. Quarterly audit close-out: findings still open, against the due date
@@ -287,8 +294,8 @@ export function buildTodo(d: AllData, today = localDate()): TodoCard[] {
   const ctx: Ctx = {
     d,
     today,
-    month: monthOf(today),
-    day: Number(today.slice(8, 10)),
+    month: lastEndedMonth(today),
+    thisMonth: monthOf(today),
     subjects: kpiSubjects(d.contractors, d.workOrders),
   }
   const rank = (c: TodoCard) => (c.alert?.level === 'bad' ? 0 : c.alert?.level === 'warn' ? 1 : c.todo ? 2 : 3)

@@ -23,10 +23,10 @@ export default function KpiDetailPage() {
   const ranked = [...rows].sort((a, b) => (a.result[itemKey] ?? 101) - (b.result[itemKey] ?? 101))
   const trend = useMemo(
     () =>
-      Array.from({ length: 6 }, (_, i) => addMonths(month, i - 5)).map((m) => ({
-        date: `${m}-01`,
-        value: Math.round(itemStats(subjectKpis(d, m), itemKey).avg ?? 0),
-      })),
+      Array.from({ length: 6 }, (_, i) => addMonths(month, i - 5)).map((m) => {
+        const avg = itemStats(subjectKpis(d, m), itemKey).avg
+        return { date: `${m}-01`, value: avg === null ? null : Math.round(avg) }
+      }),
     [d, month, itemKey],
   )
 

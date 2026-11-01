@@ -31,6 +31,7 @@ import {
   workforce,
 } from '../lib/dashboard'
 import { addMonths, localDate, monthLabel, monthOf } from '../lib/dates'
+import { declarationsDue, dueMonthFor, dueTone } from '../lib/due'
 import { KPI_PARTS, STATUS_LABEL, closurePct, kpiStatus, pct } from '../lib/kpi'
 import { itemStats, kpisForMonth, subjectKpis, useAllData } from '../lib/kpiData'
 import { kpiSubjects } from '../lib/subjects'
@@ -143,10 +144,18 @@ export default function DashboardPage() {
       .sort((a, b) => (a.r.overall ?? 101) - (b.r.overall ?? 101))
   }, [d, kpiMonth])
   const kpiTrend = useMemo(
-    () => months6.map((m) => ({ month: m, values: [Math.round(itemStats(subjectKpis(d, m), 'overall').avg ?? 0)] })),
+    () =>
+      months6.map((m) => {
+        const avg = itemStats(subjectKpis(d, m), 'overall').avg
+        return { month: m, values: [avg === null ? null : Math.round(avg)] }
+      }),
     [d, months6],
   )
   const missingDocs = useMemo(() => missingSubmissions(subjectList, d.kpis, kpiMonth), [subjectList, d.kpis, kpiMonth])
+  // Declarations coming due: the current month isn't due yet, so the Overview chases last month.
+  const docsMonth = dueMonthFor(kpiMonth, today)
+  const docsDue = useMemo(() => missingSubmissions(subjectList, d.kpis, docsMonth), [subjectList, d.kpis, docsMonth])
+  const docsTone = (missing: number, month: string): Tone => (missing ? (dueTone(declarationsDue(month), today) ?? '') : 'good')
   const wf = useMemo(() => workforce(subjectList, d.manpower, kpiMonth), [subjectList, d.manpower, kpiMonth])
   const wfTrend = useMemo(() => workersPerMonth(subjectList, d.manpower, months6), [subjectList, d.manpower, months6])
   const camps = useMemo(() => campsSummary(d.camps, d.inspections, today), [d.camps, d.inspections, today])
@@ -251,10 +260,10 @@ export default function DashboardPage() {
               onClick={() => setView('camps')}
             />
             <Hero
-              value={missingDocs.length}
-              label="Missing submissions"
-              tone={missingDocs.length ? 'warn' : 'good'}
-              onClick={() => navigate(`/missing/submission?m=${kpiMonth}`)}
+              value={docsDue.length}
+              label={`Missing submissions · ${monthLabel(docsMonth).slice(0, 3)}`}
+              tone={docsTone(docsDue.length, docsMonth)}
+              onClick={() => navigate(`/missing/submission?m=${docsMonth}`)}
             />
           </div>
 
@@ -453,7 +462,7 @@ export default function DashboardPage() {
             <Hero
               value={`${subjectList.length - missingDocs.length}/${subjectList.length}`}
               label="Submissions in"
-              tone={missingDocs.length ? 'warn' : 'good'}
+              tone={docsTone(missingDocs.length, kpiMonth)}
               onClick={() => navigate(`/missing/submission?m=${kpiMonth}`)}
             />
           </div>

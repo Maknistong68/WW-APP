@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { niceMax } from '../../lib/chartScale'
 
 export interface MonthBarsPoint {
   /** YYYY-MM */
   month: string
-  values: number[]
+  /** null = no data that month (no bar, not a 0 bar). */
+  values: (number | null)[]
 }
 
 const H = 150
@@ -11,13 +13,6 @@ const PAD = { top: 10, right: 6, bottom: 22, left: 36 }
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const short = (m: string) => MONTHS[Number(m.slice(5, 7)) - 1]
 const long = (m: string) => `${short(m)} ${m.slice(0, 4)}`
-
-function niceMax(v: number) {
-  if (v <= 5) return 5
-  const step = Math.pow(10, Math.floor(Math.log10(v)))
-  const n = v / step
-  return (n <= 2 ? 2 : n <= 5 ? 5 : 10) * step
-}
 
 /** A bar with 4px rounded top corners, square at the baseline. */
 function barPath(x: number, y: number, w: number, h: number) {
@@ -54,7 +49,7 @@ export default function MonthBars({
     return () => ro.disconnect()
   }, [])
 
-  const all = data.flatMap((d) => d.values)
+  const all = data.flatMap((d) => d.values).filter((v): v is number => v !== null)
   if (data.length === 0 || all.every((v) => v === 0)) return <div className="note">Nothing in these months yet.</div>
   const max = niceMax(Math.max(...all))
   const iw = w - PAD.left - PAD.right
@@ -110,9 +105,11 @@ export default function MonthBars({
           const x0 = PAD.left + i * slot + (slot - groupW) / 2
           return (
             <g key={d.month}>
-              {d.values.slice(0, n).map((v, k) => (
-                <path key={k} className={`col s${k}`} style={{ '--i': i } as CSSProperties} d={barPath(x0 + k * (barW + 2), y(v), barW, y(0) - y(v))} />
-              ))}
+              {d.values.slice(0, n).map((v, k) =>
+                v === null ? null : (
+                  <path key={k} className={`col s${k}`} style={{ '--i': i } as CSSProperties} d={barPath(x0 + k * (barW + 2), y(v), barW, y(0) - y(v))} />
+                ),
+              )}
               {(i % every === 0 || i === data.length - 1) && (data.length - 1 - i >= every || i === data.length - 1) && (
                 <text className="axis-text" x={PAD.left + i * slot + slot / 2} y={H - 4} textAnchor="middle">
                   {short(d.month)}
@@ -127,7 +124,13 @@ export default function MonthBars({
           className="chart-tip"
           style={{ left: Math.min(Math.max(PAD.left + hover * slot + slot / 2, 70), w - 70), top: n > 1 ? 22 : 0 }}
         >
-          {long(data[hover].month)} · {series.map((s, k) => `${n > 1 ? `${s} ` : ''}${format(data[hover].values[k] ?? 0)}`).join(' · ')}
+          {long(data[hover].month)} ·{' '}
+          {series
+            .map((s, k) => {
+              const v = data[hover].values[k]
+              return `${n > 1 ? `${s} ` : ''}${v === null || v === undefined ? 'no data' : format(v)}`
+            })
+            .join(' · ')}
         </div>
       )}
     </div>

@@ -43,15 +43,15 @@ const ICON: Record<string, IconName> = {
 
 /** What each card means (shown on long-press). */
 const HELP: Record<string, string> = {
-  submission: 'WPS, manpower and salary declarations from every work order. Due by the 15th of the month.',
+  submission: 'WPS, manpower and salary declarations from every work order. A month’s are due by the 15th of the next month.',
   grievance: 'Tickets still open. Red when any is older than 30 days.',
   closure: 'Share of this month’s tickets that are closed. Flagged below 70%.',
   camps: 'Every camp is inspected once per cycle (90 days). Red when a camp is overdue.',
-  accommodation: 'Accommodation score per work order this month. Uses the month’s audit when nothing is typed.',
-  onboarding: 'Onboarding score per work order this month.',
-  offboarding: 'Workers offboarded on time out of all offboarded, per work order.',
-  formal: 'Worker counts per work order: total and illegal / freelance. Counts only, no names.',
-  meeting: 'Meeting attendance per work order this month.',
+  accommodation: 'Accommodation score per work order for last month. Uses the month’s audit when nothing is typed. Due by the end of the next month.',
+  onboarding: 'Onboarding score per work order for last month. Due by the end of the next month.',
+  offboarding: 'Workers offboarded on time out of all offboarded, per work order. Due by the end of the next month.',
+  formal: 'Worker counts per work order: total and illegal / freelance. Counts only, no names. Due by the end of the next month.',
+  meeting: 'Meeting attendance per work order for last month. Due by the end of the next month.',
   quarterly: 'One audit score per work order each quarter.',
   closeout: 'Findings from the quarterly audits, to be closed out within 30 days.',
 }

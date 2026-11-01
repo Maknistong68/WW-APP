@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { segments } from '../../lib/chartScale'
 
 export interface TrendDatum {
   date: string
-  value: number
+  /** null = no data: the line breaks there instead of dropping to 0. */
+  value: number | null
 }
 
 const H = 150
@@ -31,17 +33,27 @@ export default function TrendLine({ data, unit }: { data: TrendDatum[]; unit: st
     return () => ro.disconnect()
   }, [])
 
-  if (data.length < 2) return <div className="note">Not enough weeks yet.</div>
-  const max = niceMax(Math.max(...data.map((d) => d.value)))
+  const values = data.map((d) => d.value)
+  const runs = segments(values)
+  const known = values.filter((v): v is number => v !== null)
+  if (data.length < 2 || known.length < 2) return <div className="note">Not enough data yet.</div>
+  const max = niceMax(Math.max(...known))
   const iw = w - PAD.left - PAD.right
   const ih = H - PAD.top - PAD.bottom
   const x = (i: number) => PAD.left + (i / (data.length - 1)) * iw
   const y = (v: number) => PAD.top + ih - (v / max) * ih
-  const path = data.map((d, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(d.value).toFixed(1)}`).join('')
-  const area = `${path}L${x(data.length - 1)},${y(0)}L${x(0)},${y(0)}Z`
+  const runPath = (run: number[]) => run.map((i, k) => `${k ? 'L' : 'M'}${x(i).toFixed(1)},${y(values[i] as number).toFixed(1)}`).join('')
+  const path = runs.map(runPath).join('')
+  const area = runs
+    .filter((r) => r.length > 1)
+    .map((r) => `${runPath(r)}L${x(r[r.length - 1])},${y(0)}L${x(r[0])},${y(0)}Z`)
+    .join('')
   const ticks = [0, max / 2, max]
   const xTicks = [0, Math.floor((data.length - 1) / 2), data.length - 1]
-  const last = data[data.length - 1]
+  const lastRun = runs[runs.length - 1]
+  const lastI = lastRun[lastRun.length - 1]
+  const lastValue = values[lastI] as number
+  const hoverValue = hover === null ? null : values[hover]
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -56,7 +68,7 @@ export default function TrendLine({ data, unit }: { data: TrendDatum[]; unit: st
         width={w}
         height={H}
         role="img"
-        aria-label={`${unit} per week, latest ${last.value}`}
+        aria-label={`${unit}, latest ${lastValue}`}
         onPointerMove={onMove}
         onPointerDown={onMove}
         onPointerLeave={() => setHover(null)}
@@ -82,20 +94,25 @@ export default function TrendLine({ data, unit }: { data: TrendDatum[]; unit: st
         ))}
         <path className="area" d={area} />
         <path className="line" d={path} pathLength={1} />
-        <circle className="dot" cx={x(data.length - 1)} cy={y(last.value)} r={4} />
-        <text className="end-label" x={x(data.length - 1) + 7} y={y(last.value) + 4}>
-          {last.value}
+        {runs
+          .filter((r) => r.length === 1 && r[0] !== lastI)
+          .map(([i]) => (
+            <circle key={i} className="dot" cx={x(i)} cy={y(values[i] as number)} r={3} />
+          ))}
+        <circle className="dot" cx={x(lastI)} cy={y(lastValue)} r={4} />
+        <text className="end-label" x={x(lastI) + 7} y={y(lastValue) + 4}>
+          {lastValue}
         </text>
         {hover !== null && (
           <>
             <line className="cross" x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={y(0)} />
-            <circle className="dot" cx={x(hover)} cy={y(data[hover].value)} r={5} />
+            {hoverValue !== null && <circle className="dot" cx={x(hover)} cy={y(hoverValue)} r={5} />}
           </>
         )}
       </svg>
       {hover !== null && (
         <div className="chart-tip" style={{ left: Math.min(Math.max(x(hover), 60), w - 60), top: 0 }}>
-          {full(data[hover].date)} · {data[hover].value} {unit}
+          {full(data[hover].date)} · {hoverValue === null ? 'no data' : `${hoverValue} ${unit}`}
         </div>
       )}
     </div>
