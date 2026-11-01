@@ -6,7 +6,7 @@ import StatusChip from '../components/StatusChip'
 import Modal from '../components/Modal'
 import CardList from '../components/CardList'
 import ItemRow from '../components/ItemRow'
-import SiteScene from '../three/SiteScene'
+import SiteScene, { type EditTool } from '../three/SiteScene'
 import { SceneErrorBoundary } from '../three/SceneGuard'
 import type { Focus } from '../three/CameraRig'
 import type { BarOffice } from '../three/HealthBars'
@@ -17,6 +17,7 @@ import {
   SITES,
   SITE_BY_ID,
   buildTour,
+  canEditLayout,
   canRotate,
   fitCheck,
   fitHint,
@@ -34,7 +35,20 @@ import {
   type SiteDef,
   type SiteMonth,
 } from '../lib/site'
-import { commitLayout, useSitePlaces } from '../lib/sitePlaces'
+import { commitLayout, useMapItemRows, useSitePlaces } from '../lib/sitePlaces'
+import {
+  ITEM_LABEL,
+  diffItems,
+  itemsFrom,
+  moveItem,
+  removePoint,
+  rotateItem,
+  snapPoint,
+  treeRow,
+  type MapItem,
+  type XZ,
+} from '../lib/mapItems'
+import { newUuid } from '../db'
 import { monthLabel } from '../lib/dates'
 import { STATUS_LABEL, kpiStatus, pct } from '../lib/kpi'
 import { useAllData } from '../lib/kpiData'
@@ -63,10 +77,47 @@ const WATCHDOG_MS = 10000
 /** "SAMA", "Al Fahad 823" */
 const shortName = (l: OfficeLink) => (l.subjects.length === 1 && l.subjects[0].workOrder ? `${l.contractor.name} ${l.subjects[0].workOrder.number}` : l.contractor.name)
 
+interface Snap {
+  draft: Layout
+  items: MapItem[]
+}
+
 interface Edit {
   base: Layout
   draft: Layout
+  /** Selected site (Move tool). */
   selected: string | null
+  baseItems: MapItem[]
+  items: MapItem[]
+  tool: EditTool
+  /** Selected map item; point = a road corner or one palm (-1 = the whole item). */
+  item: { uuid: string; point: number } | null
+  roadKind: 'road' | 'highway'
+  /** The road being drawn. */
+  drawing: XZ[]
+  /** Trees: plant one, or a row from a start point to an end point. */
+  rowMode: boolean
+  rowStart: XZ | null
+  /** This session's palms go into one item (one row in the log, not hundreds). */
+  plantUuid: string | null
+  history: Snap[]
+}
+
+const TOOLS: { key: EditTool; label: string; icon: 'move' | 'road' | 'palm' | 'tent' | 'village' }[] = [
+  { key: 'move', label: 'Move', icon: 'move' },
+  { key: 'road', label: 'Road', icon: 'road' },
+  { key: 'trees', label: 'Trees', icon: 'palm' },
+  { key: 'camp', label: 'Camp', icon: 'tent' },
+  { key: 'village', label: 'Village', icon: 'village' },
+]
+
+const pushHistory = (e: Edit): Snap[] => [...e.history.slice(-40), { draft: e.draft, items: e.items }]
+
+/** Turn the road being drawn into a map item (needs 2+ points). */
+function finishRoad(e: Edit): Edit {
+  if (e.drawing.length < 2) return { ...e, drawing: [] }
+  const road: MapItem = { uuid: newUuid(), kind: e.roadKind, points: e.drawing }
+  return { ...e, history: pushHistory(e), items: [...e.items, road], drawing: [] }
 }
 
 /** "Live site": the project as an animated construction site; each office's health bar is its KPI. */
@@ -74,12 +125,15 @@ export default function City3DPage() {
   const navigate = useNavigate()
   const d = useAllData()
   const rows = useSitePlaces()
-  const { canEdit } = useAuthInfo()
+  const itemRows = useMapItemRows()
+  const { role } = useAuthInfo()
+  const canLayout = canEditLayout(role)
   const palette = usePalette()
   const motion = useMemo(() => !reducedMotion(), [])
   const webgl = useMemo(hasWebGL, [])
   const lite = useMemo(isTouch, [])
   const saved = useMemo(() => layoutFrom(rows ?? []), [rows])
+  const savedItems = useMemo(() => itemsFrom(itemRows ?? []), [itemRows])
   const links = useMemo(() => (d.loaded ? linkOffices(d) : null), [d])
   const months = useMemo(() => (d.loaded ? siteMonths(d) : []), [d])
   // Open on the latest month that has KPI entries (this month is often still empty).
@@ -133,6 +187,7 @@ export default function City3DPage() {
   const [toast, setToast] = useState<string | null>(null)
   const m = data[cur] ?? data[start]
   const layout = edit?.draft ?? saved
+  const items = edit?.items ?? savedItems
   const fly = (x: number, z: number, dist = 18) => setFocus((f) => ({ x, z, dist, v: (f?.v ?? 0) + 1 }))
 
   const offices: BarOffice[] = useMemo(() => {
@@ -201,7 +256,11 @@ export default function City3DPage() {
     return out
   }, [edit])
   const allFit = !!fits && Object.values(fits).every((f) => f.ok)
-  const changed = !!edit && SITES.filter((s) => !samePlace(edit.base[s.id], edit.draft[s.id])).length
+  const changed = useMemo(() => {
+    if (!edit) return 0
+    const d = diffItems(edit.baseItems, edit.drawing.length > 1 ? [...edit.items, { uuid: 'drawing', kind: edit.roadKind, points: edit.drawing }] : edit.items)
+    return SITES.filter((s) => !samePlace(edit.base[s.id], edit.draft[s.id])).length + d.added.length + d.changed.length + d.removed.length
+  }, [edit])
 
   useEffect(() => {
     if (!toast) return
@@ -245,14 +304,83 @@ export default function City3DPage() {
     setPlaying(false)
     setSel(null)
     setFocus(null)
-    setEdit({ base: saved, draft: saved, selected: null })
+    setEdit({
+      base: saved,
+      draft: saved,
+      selected: null,
+      baseItems: savedItems,
+      items: savedItems,
+      tool: 'move',
+      item: null,
+      roadKind: 'road',
+      drawing: [],
+      rowMode: false,
+      rowStart: null,
+      plantUuid: null,
+      history: [],
+    })
   }
+  const upd = (f: (e: Edit) => Edit) => setEdit((e) => (e ? f(e) : e))
+  const setTool = (tool: EditTool) => upd((e) => ({ ...finishRoad(e), tool, selected: null, item: null, rowStart: null }))
+  const addPalms = (e: Edit, pts: XZ[]): Edit => {
+    const history = pushHistory(e)
+    const mine = e.plantUuid ? e.items.find((i) => i.uuid === e.plantUuid) : undefined
+    if (mine) return { ...e, history, items: e.items.map((i) => (i.uuid === mine.uuid ? { ...i, points: [...(i.points ?? []), ...pts] } : i)) }
+    const uuid = newUuid()
+    return { ...e, history, plantUuid: uuid, items: [...e.items, { uuid, kind: 'trees', points: pts }] }
+  }
+  const groundTap = (x: number, z: number) =>
+    upd((e) => {
+      if (e.tool === 'move') return { ...e, selected: null, item: null }
+      if (e.tool === 'road') {
+        const p = snapPoint(x, z)
+        const last = e.drawing[e.drawing.length - 1]
+        if (last && last[0] === p[0] && last[1] === p[1]) return e
+        return { ...e, drawing: [...e.drawing, p] }
+      }
+      if (e.tool === 'trees') {
+        const p = snapPoint(x, z, 0.25)
+        if (!e.rowMode) return addPalms(e, [p])
+        if (!e.rowStart) return { ...e, rowStart: p }
+        return { ...addPalms(e, treeRow(e.rowStart, p)), rowStart: null }
+      }
+      const block = moveItem({ uuid: newUuid(), kind: e.tool, x, z, rot: 0 }, 0, 0)
+      return { ...e, history: pushHistory(e), items: [...e.items, block], item: { uuid: block.uuid, point: -1 } }
+    })
+  const selItem = edit?.item ? edit.items.find((i) => i.uuid === edit.item!.uuid) : undefined
+  const turnSelected = () =>
+    upd((e) => {
+      const def = e.selected ? SITE_BY_ID.get(e.selected) : undefined
+      if (def && canRotate(def)) return { ...e, history: pushHistory(e), draft: { ...e.draft, [def.id]: rotatePlace(def, e.draft[def.id]) } }
+      const it = e.item ? e.items.find((i) => i.uuid === e.item!.uuid) : undefined
+      if (it && (it.kind === 'camp' || it.kind === 'village')) return { ...e, history: pushHistory(e), items: e.items.map((i) => (i.uuid === it.uuid ? rotateItem(i) : i)) }
+      return e
+    })
+  const deleteSelected = () =>
+    upd((e) => {
+      const it = e.item ? e.items.find((i) => i.uuid === e.item!.uuid) : undefined
+      if (!it) return e
+      const point = e.item!.point
+      // one palm, or one corner of a road with 3+ corners; otherwise the whole thing
+      const next = point >= 0 && (it.kind === 'trees' || (it.points?.length ?? 0) > 2) ? removePoint(it, point) : null
+      const items = next ? e.items.map((i) => (i.uuid === it.uuid ? next : i)) : e.items.filter((i) => i.uuid !== it.uuid)
+      return { ...e, history: pushHistory(e), items, item: null }
+    })
+  const undo = () =>
+    upd((e) => {
+      if (e.tool === 'road' && e.drawing.length) return { ...e, drawing: e.drawing.slice(0, -1) }
+      if (e.rowStart) return { ...e, rowStart: null }
+      const last = e.history[e.history.length - 1]
+      if (!last) return e
+      return { ...e, draft: last.draft, items: last.items, history: e.history.slice(0, -1), selected: null, item: null }
+    })
   const save = async () => {
     if (!edit || !allFit) return
+    const e = finishRoad(edit)
     setSaving(true)
     try {
-      const n = await commitLayout(edit.base, edit.draft, labelOf)
-      setToast(n ? `Layout saved · ${n} site${n === 1 ? '' : 's'} moved` : 'No changes')
+      const n = await commitLayout(e.base, e.draft, labelOf, e.baseItems, e.items)
+      setToast(n ? `Map saved · ${n} change${n === 1 ? '' : 's'}` : 'No changes')
       setEdit(null)
     } catch (e) {
       setToast(`Couldn’t save the layout: ${e instanceof Error ? e.message : String(e)}`)
@@ -264,6 +392,25 @@ export default function City3DPage() {
   if (m && stage.current === 'data') stage.current = 'graphics'
   const editDef = edit?.selected ? SITE_BY_ID.get(edit.selected) : undefined
   const editFit = editDef && fits ? fits[editDef.id] : null
+  const hint = (() => {
+    if (!edit) return { text: '', tone: '' }
+    if (!allFit && !editDef) return { text: 'Some sites overlap or sit in the sea — fix the red ones.', tone: 'bad' }
+    switch (edit.tool) {
+      case 'move':
+        if (editDef && editFit) return { text: `${editDef.title} · ${fitHint(editFit, editDef)}${canRotate(editDef) ? '' : ' · slides along the coast'}`, tone: editFit.ok ? 'good' : 'bad' }
+        if (selItem) {
+          const what = selItem.kind === 'trees' && edit.item!.point >= 0 ? 'Palm tree' : ITEM_LABEL[selItem.kind][0].toUpperCase() + ITEM_LABEL[selItem.kind].slice(1)
+          return { text: `${what} · drag to move${selItem.kind === 'road' || selItem.kind === 'highway' ? ', drag the dots to bend it' : ''}`, tone: 'good' }
+        }
+        return { text: 'Drag sites, roads, palms, camps or villages. One finger on the ground pans.', tone: '' }
+      case 'road':
+        return { text: edit.drawing.length === 0 ? `Tap the ground to start a ${edit.roadKind}.` : `${edit.drawing.length} point${edit.drawing.length === 1 ? '' : 's'} · tap to add more, then Finish.`, tone: '' }
+      case 'trees':
+        return { text: edit.rowMode ? (edit.rowStart ? 'Tap where the row of palms ends.' : 'Tap where the row of palms starts.') : 'Tap the ground to plant a palm.', tone: '' }
+      default:
+        return { text: `Tap the ground to place a ${ITEM_LABEL[edit.tool]}.`, tone: '' }
+    }
+  })()
   const summary = m
     ? `${monthLabel(m.month)}: site KPI ${pct(m.overall)}. ${m.counts.bad} critical, ${m.counts.warn} at risk, ${m.counts.good} on track, ${m.counts.none} with no data.`
     : ''
@@ -284,10 +431,19 @@ export default function City3DPage() {
             editing={!!edit}
             editSelected={edit?.selected ?? null}
             editFit={editFit}
+            items={items}
+            tool={edit?.tool ?? 'move'}
+            drawing={edit && edit.tool === 'road' ? edit.drawing : edit?.rowStart ? [edit.rowStart] : null}
+            drawingKind={edit?.roadKind ?? 'road'}
+            itemSelected={edit?.item ?? null}
+            onGroundTap={groundTap}
+            onItemGrab={(uuid, point) => upd((e) => ({ ...e, history: pushHistory(e), item: { uuid, point }, selected: null }))}
+            onItemChange={(it) => upd((e) => ({ ...e, items: e.items.map((i) => (i.uuid === it.uuid ? it : i)) }))}
+            onItemDrop={() => {}}
             onTapSite={tapSite}
             onPickOffice={pick}
             onNothing={() => !edit && setSel(null)}
-            onEditGrab={(id) => setEdit((e) => (e ? { ...e, selected: id } : e))}
+            onEditGrab={(id) => upd((e) => ({ ...e, history: pushHistory(e), selected: id, item: null }))}
             onEditMove={(id, place) => setEdit((e) => (e ? { ...e, draft: { ...e.draft, [id]: place } } : e))}
             onEditDrop={() => {}}
             onCreated={() => (stage.current = 'first frame')}
@@ -325,9 +481,15 @@ export default function City3DPage() {
       {edit ? (
         <div className="city-top">
           <div className="city-title">
-            <b>Move sites</b>
-            <span>Drag a site. Turn it with ↻. Done saves it for the team.</span>
+            <b>Edit map</b>
+            <span>Only Admins can change the map. Done saves it for the team.</span>
           </div>
+          <button className="city-btn" onClick={() => setSheet('reset')} aria-label="Put every site back in its default place">
+            <Icon name="undo" size={18} /> Sites
+          </button>
+          <button className="city-btn" onClick={() => setEdit(null)}>
+            Cancel
+          </button>
         </div>
       ) : (
         <div className="city-top">
@@ -344,8 +506,8 @@ export default function City3DPage() {
           <button className="city-btn icon" aria-label="List all sites" onClick={() => setSheet('list')}>
             <Icon name="stack" size={20} />
           </button>
-          {canEdit && (
-            <button className="city-btn icon" aria-label="Move sites" onClick={startEdit}>
+          {canLayout && (
+            <button className="city-btn icon" aria-label="Edit the map" onClick={startEdit}>
               <Icon name="pencil" size={20} />
             </button>
           )}
@@ -371,27 +533,52 @@ export default function City3DPage() {
       <div className="city-bottom">
         {edit && (
           <div className="city-edit">
-            <div className={`city-edit-hint ${editFit ? (editFit.ok ? 'good' : 'bad') : ''}`}>
-              {editDef && editFit ? (
-                <>
-                  <b>{editDef.title}</b> · {fitHint(editFit, editDef)}
-                  {!canRotate(editDef) && ' · faces the sea'}
-                </>
-              ) : allFit ? (
-                'Tap and drag a site to move it.'
-              ) : (
-                'Some sites overlap — fix the red ones.'
-              )}
+            <div className="city-tools" role="tablist" aria-label="Map tools">
+              {TOOLS.map((t) => (
+                <button key={t.key} role="tab" aria-selected={edit.tool === t.key} className={edit.tool === t.key ? 'on' : ''} onClick={() => setTool(t.key)}>
+                  <Icon name={t.icon} size={22} fill={edit.tool === t.key} />
+                  <span>{t.label}</span>
+                </button>
+              ))}
             </div>
+            <div className={`city-edit-hint ${hint.tone}`}>{hint.text}</div>
             <div className="city-edit-row">
-              <button className="btn" disabled={!editDef || !canRotate(editDef)} onClick={() => editDef && setEdit((e) => (e ? { ...e, draft: { ...e.draft, [editDef.id]: rotatePlace(editDef, e.draft[editDef.id]) } } : e))}>
-                <Icon name="refresh" size={18} /> Turn
-              </button>
-              <button className="btn" onClick={() => setSheet('reset')}>
-                <Icon name="undo" size={18} /> Reset
-              </button>
-              <button className="btn" onClick={() => setEdit(null)}>
-                Cancel
+              {(edit.tool === 'move' || edit.tool === 'camp' || edit.tool === 'village') && (
+                <>
+                  <button
+                    className="btn"
+                    disabled={!((editDef && canRotate(editDef)) || (selItem && (selItem.kind === 'camp' || selItem.kind === 'village')))}
+                    onClick={turnSelected}
+                  >
+                    <Icon name="refresh" size={18} /> Turn
+                  </button>
+                  <button className="btn danger" disabled={!selItem} onClick={deleteSelected}>
+                    <Icon name="trash" size={18} /> Delete
+                  </button>
+                </>
+              )}
+              {edit.tool === 'road' && (
+                <>
+                  <button className="btn" aria-pressed={edit.roadKind === 'highway'} onClick={() => upd((e) => ({ ...e, roadKind: e.roadKind === 'road' ? 'highway' : 'road' }))}>
+                    <Icon name="road" size={18} /> {edit.roadKind === 'road' ? 'Small' : 'Highway'}
+                  </button>
+                  <button className="btn" disabled={edit.drawing.length < 2} onClick={() => upd(finishRoad)}>
+                    <Icon name="check" size={18} /> Finish
+                  </button>
+                </>
+              )}
+              {edit.tool === 'trees' && (
+                <>
+                  <button className="btn" aria-pressed={edit.rowMode} onClick={() => upd((e) => ({ ...e, rowMode: !e.rowMode, rowStart: null }))}>
+                    <Icon name="palm" size={18} /> {edit.rowMode ? 'Row' : 'Single'}
+                  </button>
+                  <button className="btn danger" disabled={!selItem} onClick={deleteSelected}>
+                    <Icon name="trash" size={18} /> Delete
+                  </button>
+                </>
+              )}
+              <button className="btn" disabled={!edit.history.length && !edit.drawing.length && !edit.rowStart} onClick={undo}>
+                <Icon name="undo" size={18} /> Undo
               </button>
               <button className="btn primary" disabled={!allFit || saving} onClick={save}>
                 {saving ? 'Saving…' : changed ? `Done · ${changed}` : 'Done'}
@@ -535,8 +722,9 @@ export default function City3DPage() {
         <Modal title="What am I looking at?" onClose={() => setSheet(null)}>
           <div className="sheet-body city-legend">
             <p>
-              The <b>octagon</b> is the project site. Each contractor or work order has its own site with its scope of works: earthworks, pipeline, culvert, bridge, roads,
-              buildings, plant, reservoir, port, seawall and the Coast Guard building.
+              The <b>octagon</b> is the project. Its land half is being built now: each contractor or work order has its own site with its scope of works (earthworks,
+              pipeline, culvert, bridge, roads, buildings, plant, reservoir, port, seawall and the Coast Guard building). The sea half is the <b>floating city</b>, not built
+              yet. Outside the octagon: the highway, the workers’ camp and the village.
             </p>
             <p>
               The <b>health bar</b> over each site office is that month’s overall KPI: a full bar is 100% (full compliance), an empty bar is 0%.{' '}
@@ -544,7 +732,13 @@ export default function City3DPage() {
             </p>
             <p>Tap a site or its bar to see the 8 KPI items. Zoom in to see the names.</p>
             <p>Press ▶ at the bottom to play the months, or ▶ at the top to tour the sites that need attention.</p>
-            {canEdit && <p>Use ✎ to move sites. Drag a site on the grid; it turns green when it fits and red when it overlaps. Done saves the layout for the whole team.</p>}
+            {canLayout && (
+              <p>
+                ✎ edits the map (Admins only). <b>Move</b>: drag sites, roads, palms, camps and villages; a site turns green when it fits and red when it overlaps or sits in
+                the sea. <b>Road</b>: tap points, then Finish. <b>Trees</b>: tap to plant, or Row for a line of palms. <b>Camp</b> / <b>Village</b>: tap to place. Done saves
+                it for the whole team.
+              </p>
+            )}
             <p>Day or night follows the app theme. Machines and workers are for show only; they don’t stand for real numbers.</p>
           </div>
         </Modal>

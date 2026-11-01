@@ -18,6 +18,7 @@ export const ENTITY_OF: Record<RecordTable, ActivityEntity> = {
   manpower: 'manpower',
   weeklyCounts: 'weekly',
   sitePlaces: 'site',
+  mapItems: 'map',
 }
 
 type AnyRecord = { uuid: string; updatedAt: string }

@@ -34,4 +34,7 @@ npm run build   # strict tsc + vite build
 - Home tiles and their missing-lists: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
 - Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
 - Dashboard numbers: `src/lib/dashboard.ts`; charts in `src/components/charts/`.
+- 3D "Live site" (Dashboard → 3D): model `src/lib/site.ts` (sites, octagon, layout rules) and
+  `src/lib/mapItems.ts` (roads, palms, camps, villages); scene `src/three/`; page
+  `src/pages/City3DPage.tsx`. Only Admins edit the map (`canEditLayout`).
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).

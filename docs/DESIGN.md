@@ -71,39 +71,48 @@ one green action per screen.
 - `prefers-reduced-motion` switches it all off.
 
 ## 3D "Live site" (Dashboard → 3D)
-A read-only, animated construction site in an octagon (three.js via @react-three/fiber), loaded
-only when opened. The model is `src/lib/site.ts` (pure, tested); the scene is `src/three/`.
+A read-only, animated view of the project, in three.js via @react-three/fiber, loaded only when
+opened. The model is in `src/lib/site.ts` and `src/lib/mapItems.ts` (pure, tested); the scene
+is in `src/three/`.
 
-- **Sites:** each contractor / work order has its own scope of works:
+- **The octagon** (80 tiles across) has two halves:
+  - the **land half**, being built now;
+  - the **floating city** on the sea half, not built yet: tinted, with a dashed border and a
+    label, and nothing on it.
+
+  Outside it is flat desert land: the highway, the workers' camp and the village.
+- **Sites:** each contractor or work order has its own scope of works:
   - earthworks (Al Fahad 823), pipeline (PPCO), reservoir (Shapoorji);
   - nine buildings (SIBS + Al Fahad 882), culvert (Abyatona 1112), process plant (Thyssenkrupp);
   - roads (SAMA, RPCO), bridge (Abyatona 1134);
   - Coast Guard building (Al Fahad 1272), port (ECH), seawall + dredging (Archirodon).
 
-  The catalog is `SITES` in `site.ts`. Active work orders without a site are listed under
-  "Not on the map".
-- **Health bar:** the only number on the map. Each site office shows that month's overall KPI
-  (full bar = 100%), coloured with the status tokens (green ≥ 90, amber 70–89, red < 70, grey
-  no data). Tap a site or a bar for the 8 items.
-- **Look:** chunky low-poly toy models in realistic colours (yellow machines, blue sea). Scenery
-  avoids the status hues, so colour on the map only ever means a health bar. Light theme = day;
-  dark theme = night with lit windows and floodlights.
-- **Motion:**
-  - sites pop in;
-  - bars fill with a springy overshoot;
-  - a dropped site squashes;
-  - machines dig, drive, lift and swing.
-
-  Bounce is allowed inside the 3D scene only; app UI motion is unchanged. Reduced motion freezes
-  everything.
-- **Layout editing:**
-  - Admins and Editors (✎) can drag sites on the tile grid: green = fits; red = overlaps, outside
-    the octagon, or off the land.
-  - Turn rotates 90°. Coast sites keep facing the sea and only slide along the shore.
-  - Done saves the layout for the whole team: table `sitePlaces` / `site_places`, one row per
-    site, every move logged.
-- **Phones:**
-  - no shadow maps (blob shadows instead), fewer workers, no puffs or sparks;
-  - 30 fps when idle; budget ≤ 100 draw calls (check with `#/dashboard/3d?stats`).
+  The catalog is `SITES`. Active work orders without a site are listed under "Not on the map".
+- **Health bar:** the only number on the map. Each site office shows the month's overall KPI
+  (full bar = 100%) in the status colours (green ≥ 90, amber 70–89, red < 70, grey no data).
+  Tap a site or a bar to see the 8 items.
+- **Look:**
+  - chunky low-poly toy models in realistic colours;
+  - scenery avoids the status hues, except the palms the Admin plants;
+  - light theme = day, dark theme = night (lit windows, floodlights, highway lamps).
+- **Motion:** sites pop in, bars fill with a spring, and machines work. Bounce is allowed inside
+  the 3D scene only. Reduced motion freezes everything.
+- **Edit map (Admins only):** ✎ opens the tools.
+  - **Move:**
+    - drag sites, roads, palms, camps and villages; things placed on a site are picked first;
+    - drag a road's white dots to bend it;
+    - Turn, Delete.
+  - **Road:** tap points, then Finish; Small or Highway.
+  - **Trees:** tap to plant, or Row for a line of palms.
+  - **Camp / Village:** tap to place.
+  - **Rules:**
+    - sites may sit anywhere on land, inside or outside the octagon; land sites never in the sea;
+    - coast sites slide along the coast;
+    - Undo is per step, and Done saves everything for the team.
+  - **Storage:** tables `sitePlaces` / `site_places` and `mapItems` / `map_items`.
+    - Every change is in the activity log.
+    - RLS: read = approved users, write = `private.is_admin()`.
+- **Phones:** no shadow maps, fewer workers, no puffs or sparks, 30 fps when idle; check the
+  budget with `#/dashboard/3d?stats`.
 - **Failures:** no WebGL 2 → a message and a link to the 2D dashboard. If the first frame doesn't
   come within 10 s, a card says where it stopped.

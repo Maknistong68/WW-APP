@@ -106,6 +106,15 @@
 .city-edit-hint b { color: var(--text); }
 .city-edit-hint.good { color: var(--good); }
 .city-edit-hint.bad { color: var(--bad); }
-.city-edit-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.city-edit-row .btn { min-height: 52px; padding: 0 6px; gap: 4px; font-size: 14px; }
+.city-edit-row { display: flex; gap: 8px; }
+.city-edit-row .btn { flex: 1 1 0; min-width: 0; min-height: 52px; padding: 0 6px; gap: 4px; font-size: 14px; white-space: nowrap; }
+.city-edit-row .btn.primary { flex: 1.2 1 0; }
+.city-edit-row .btn[aria-pressed='true'] { background: var(--brand-tint); color: var(--brand); border-color: var(--brand); }
+.city-tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; }
+.city-tools button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 4px 2px;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--card); color: var(--muted); font: 700 12px var(--font); cursor: pointer;
+}
+.city-tools button.on { background: var(--brand-tint); border-color: var(--brand); color: var(--brand); }
+.city-tools button:active { transform: scale(0.96); }
 .city-edit-row .btn:disabled { opacity: 0.45; }

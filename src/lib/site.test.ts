@@ -8,6 +8,8 @@ import {
   footprint,
   healthOf,
   homeLayout,
+  insideOctagon,
+  canEditLayout,
   layoutFrom,
   linkOffices,
   officeWorld,
@@ -214,27 +216,38 @@ describe('Live site: layout editing', () => {
     expect(snapPlace(port, port.home, 3.2, -15, { ox: 8, oz: 2 })).toEqual({ gx: -5, gz: port.home.gz, rot: 0 })
   })
 
-  it('fit check: corners cut by the octagon, overlaps, land must stay on land', () => {
+  it('fit check: outside the octagon is fine on land; too far out, overlaps and the sea are not', () => {
     const at = (id: string, gx: number, gz: number, rot: Rot = 0): Layout => ({ ...homeLayout(), [id]: { gx, gz, rot } })
-    expect(fitCheck(at('plant', 12, -24), 'plant')).toMatchObject({ ok: false, reason: 'outside' })
-    expect(fitCheck(at('plant', 0, -10), 'plant')).toMatchObject({ ok: false, reason: 'overlap', other: 'culvert' })
-    expect(fitCheck(at('reservoir', -18, 4), 'reservoir')).toMatchObject({ ok: false, reason: 'shore' })
-    expect(fitCheck(at('plant', 12, -9), 'plant')).toMatchObject({ ok: true })
-    expect(fitCheck(at('pipeline', -1, -14, 1), 'pipeline')).toMatchObject({ ok: false })
+    // outside the octagon (mainland) is allowed: the project extends beyond it
+    expect(insideOctagon(42, -30)).toBe(false)
+    expect(fitCheck(at('plant', 30, -30), 'plant')).toMatchObject({ ok: true })
+    expect(fitCheck(at('plant', 90, -20), 'plant')).toMatchObject({ ok: false, reason: 'outside' })
+    expect(fitCheck(at('plant', 0, -20), 'plant')).toMatchObject({ ok: false, reason: 'overlap', other: 'culvert' })
+    expect(fitCheck(at('reservoir', -30, -4), 'reservoir')).toMatchObject({ ok: false, reason: 'shore' })
+    expect(fitCheck(at('pipeline', -1, -28, 1), 'pipeline')).toMatchObject({ ok: false, reason: 'shore' })
+    // coast sites can slide along the coast outside the octagon too
+    expect(fitCheck(at('seawall', 50, port.home.gz), 'seawall')).toMatchObject({ ok: true })
+    expect(canEditLayout('admin')).toBe(true)
+    expect(canEditLayout('editor')).toBe(false)
+    expect(canEditLayout('viewer')).toBe(false)
   })
 
-  it('saved rows: unknown or broken rows are ignored; coast rows keep their shore line', () => {
+  it('saved rows: unknown or broken rows are ignored; coast rows keep their shore line; old rows carry over', () => {
     const l = layoutFrom([
-      { siteId: 'plant', gx: 12, gz: -9, rot: 1 },
-      { siteId: 'nope', gx: 0, gz: 0, rot: 0 },
-      { siteId: 'culvert', gx: 1.5, gz: 0, rot: 0 },
-      { siteId: 'reservoir', gx: 0, gz: 0, rot: 7 },
-      { siteId: 'port', gx: -6, gz: -3, rot: 2 },
+      { siteId: 'plant', gx: 12, gz: -9, rot: 1, v: 2 },
+      { siteId: 'nope', gx: 0, gz: 0, rot: 0, v: 2 },
+      { siteId: 'culvert', gx: 1.5, gz: 0, rot: 0, v: 2 },
+      { siteId: 'reservoir', gx: 0, gz: 0, rot: 7, v: 2 },
+      { siteId: 'port', gx: -6, gz: -3, rot: 2, v: 2 },
+      // saved with the first (smaller) octagon: 2 tiles right of its old default
+      { siteId: 'bridge', gx: -1, gz: 0, rot: 0 },
     ])
     expect(l.plant).toEqual({ gx: 12, gz: -9, rot: 1 })
     expect(l.culvert).toEqual(SITE_BY_ID.get('culvert')!.home)
     expect(l.reservoir).toEqual(SITE_BY_ID.get('reservoir')!.home)
     expect(l.port).toEqual({ gx: -6, gz: port.home.gz, rot: 0 })
+    const bridge = SITE_BY_ID.get('bridge')!.home
+    expect(l.bridge).toEqual({ gx: bridge.gx + 2, gz: bridge.gz, rot: 0 })
     expect(Object.keys(l)).toHaveLength(12)
   })
 })

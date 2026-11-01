@@ -12,12 +12,45 @@ import type { Contractor } from '../types'
 // and the layout editor are built on top of this.
 //
 // Grid: 1 tile = 1 world unit, x to the right, +z towards the camera / sea.
-// The octagon is |x| ≤ 24, |z| ≤ 24, |x| + |z| ≤ 34; the coast is z = 10
-// (land behind it, the harbour basin in front).
+// The octagon is |x| ≤ 40, |z| ≤ 40, |x| + |z| ≤ 57. The coast is z = 0: the
+// land half behind it is being built now; the sea half in front is the future
+// floating city (left empty). Sites can also go outside the octagon on land.
 
-export const GRID = 24
-export const OCT = 34
-export const SHORE = 10
+export const GRID = 40
+export const OCT = 57
+export const SHORE = 0
+/** How far the buildable land reaches outside the octagon. */
+export const WORLD = 96
+
+/** Octagon outline, clockwise from the back-left. */
+export const OCTAGON: [number, number][] = [
+  [-(OCT - GRID), -GRID],
+  [OCT - GRID, -GRID],
+  [GRID, -(OCT - GRID)],
+  [GRID, OCT - GRID],
+  [OCT - GRID, GRID],
+  [-(OCT - GRID), GRID],
+  [-GRID, OCT - GRID],
+  [-GRID, -(OCT - GRID)],
+]
+/** The octagon's land half (z ≤ SHORE). */
+export const OCTAGON_LAND: [number, number][] = [
+  [-(OCT - GRID), -GRID],
+  [OCT - GRID, -GRID],
+  [GRID, -(OCT - GRID)],
+  [GRID, SHORE],
+  [-GRID, SHORE],
+  [-GRID, -(OCT - GRID)],
+]
+/** The octagon's sea half: the future floating city (z ≥ SHORE). */
+export const FLOATING_CITY: [number, number][] = [
+  [GRID, SHORE],
+  [GRID, OCT - GRID],
+  [OCT - GRID, GRID],
+  [-(OCT - GRID), GRID],
+  [-GRID, OCT - GRID],
+  [-GRID, SHORE],
+]
 
 /** The 8 KPI items shown for a site (the quarterly audit is shown, never averaged). */
 export const FLOORS = KPI_PARTS.filter((p) => p.key !== 'quarterly')
@@ -62,26 +95,26 @@ export interface SiteDef {
 
 const site = (s: SiteDef) => s
 
-/** The project's sites and their default layout (no overlaps, all inside the octagon). */
+/** The project's sites and their default layout (no overlaps, all on the octagon's land half). */
 export const SITES: SiteDef[] = [
   site({
     id: 'earthworks', uuid: '3b119b50-5f5f-4110-814e-f6c8696ef837', scope: 'earthworks', title: 'Earthworks', w: 16, d: 9, terrain: 'land',
-    home: { gx: -8, gz: -24, rot: 0 },
+    home: { gx: -8, gz: -39, rot: 0 },
     offices: [{ key: 'earthworks', names: ['Al Fahad'], wo: '823', at: [6.4, 3.3] }],
   }),
   site({
     id: 'pipeline', uuid: 'ed4118ef-77b8-40aa-9163-77277a80bf18', scope: 'pipeline', title: 'Pipeline', w: 34, d: 3, terrain: 'land',
-    home: { gx: -17, gz: -14, rot: 0 },
+    home: { gx: -17, gz: -28, rot: 0 },
     offices: [{ key: 'pipeline', names: ['PPCO'], wo: '1322', at: [-16.1, 0] }],
   }),
   site({
     id: 'reservoir', uuid: '92b2420a-76df-454f-a1bd-29a2ee0c3f21', scope: 'reservoir', title: 'Water reservoir', w: 7, d: 8, terrain: 'land',
-    home: { gx: -23, gz: -9, rot: 0 },
+    home: { gx: -30, gz: -20, rot: 0 },
     offices: [{ key: 'reservoir', names: ['Shapoorji'], at: [2.3, 3.3] }],
   }),
   site({
     id: 'cluster', uuid: 'f27e7b17-5c2c-4ea3-baa7-5e879b3fe571', scope: 'buildings', title: 'Buildings', w: 10, d: 10, terrain: 'land',
-    home: { gx: -14, gz: -10, rot: 0 },
+    home: { gx: -19, gz: -20, rot: 0 },
     offices: [
       { key: 'cluster-sibs', names: ['SIBS'], at: [-3.4, 4.3] },
       { key: 'cluster-882', names: ['Al Fahad'], wo: '882', at: [3.4, 4.3] },
@@ -89,42 +122,42 @@ export const SITES: SiteDef[] = [
   }),
   site({
     id: 'culvert', uuid: '5da1ece9-5d14-4d44-9bac-90f78080ea08', scope: 'culvert', title: 'Excavation + culvert', w: 4, d: 10, terrain: 'land',
-    home: { gx: -2, gz: -10, rot: 0 },
+    home: { gx: -2, gz: -20, rot: 0 },
     offices: [{ key: 'culvert', names: ['Abyatona'], wo: '1112', at: [1.15, 4.2] }],
   }),
   site({
     id: 'plant', uuid: '63651e2e-db7b-4389-b0a5-39c3145acc7a', scope: 'plant', title: 'Process plant', w: 12, d: 10, terrain: 'land',
-    home: { gx: 4, gz: -10, rot: 0 },
+    home: { gx: 7, gz: -20, rot: 0 },
     offices: [{ key: 'plant', names: ['Thyssenkrupp'], at: [4.6, 4.2] }],
   }),
   site({
     id: 'roadWest', uuid: '21ea41f5-fc92-4fd2-bf65-58745552e36e', scope: 'road', variant: 'pave', title: 'Road works', w: 20, d: 3, terrain: 'land',
-    home: { gx: -23, gz: 1, rot: 0 },
+    home: { gx: -23, gz: -9, rot: 0 },
     offices: [{ key: 'roadWest', names: ['SAMA'], at: [-9.1, 0] }],
   }),
   site({
     id: 'bridge', uuid: '5115ec92-642e-437f-8c87-3d1f3c1f67fb', scope: 'bridge', title: 'Bridge', w: 6, d: 5, terrain: 'land',
-    home: { gx: -3, gz: 0, rot: 0 },
+    home: { gx: -3, gz: -10, rot: 0 },
     offices: [{ key: 'bridge', names: ['Abyatona'], wo: '1134', at: [2.25, 1.85] }],
   }),
   site({
     id: 'roadEast', uuid: '7cd38088-15ad-4430-b2d7-989368e62b79', scope: 'road', variant: 'base', title: 'Road works', w: 18, d: 3, terrain: 'land',
-    home: { gx: 3, gz: 1, rot: 0 },
+    home: { gx: 3, gz: -9, rot: 0 },
     offices: [{ key: 'roadEast', names: ['RPCO'], at: [8.1, 0] }],
   }),
   site({
     id: 'coastGuard', uuid: '1bd6bc09-12a6-4f4a-a14c-0bd1bfc7cc22', scope: 'coastGuard', title: 'Coast Guard building', w: 8, d: 8, terrain: 'coast',
-    home: { gx: -20, gz: 6, rot: 0 },
+    home: { gx: -24, gz: -4, rot: 0 },
     offices: [{ key: 'coastGuard', names: ['Al Fahad'], wo: '1272', at: [-3.0, -3.1] }],
   }),
   site({
     id: 'port', uuid: '269eb6df-fdec-47f8-a2a2-59a216276536', scope: 'port', title: 'Port', w: 16, d: 12, terrain: 'coast',
-    home: { gx: -8, gz: 6, rot: 0 },
+    home: { gx: -8, gz: -4, rot: 0 },
     offices: [{ key: 'port', names: ['ECH'], wo: '1131', at: [-6.8, -4.9] }],
   }),
   site({
     id: 'seawall', uuid: '473249b2-2bd3-4edc-b3c5-9cb62debf5cb', scope: 'seawall', title: 'Seawall + dredging', w: 9, d: 9, terrain: 'coast',
-    home: { gx: 10, gz: 6, rot: 0 },
+    home: { gx: 14, gz: -4, rot: 0 },
     offices: [{ key: 'seawall', names: ['Archirodon'], wo: '0876', at: [3.3, -3.4] }],
   }),
 ]
@@ -316,6 +349,8 @@ export function footprint(def: SiteDef, p: Place): Rect {
 }
 
 export const insideOctagon = (x: number, z: number) => Math.abs(x) <= GRID && Math.abs(z) <= GRID && Math.abs(x) + Math.abs(z) <= OCT
+/** Inside the buildable world (the octagon's land half and the mainland around it). */
+export const insideWorld = (x: number, z: number) => Math.abs(x) <= WORLD && z >= -WORLD && z <= GRID
 
 export const canRotate = (def: SiteDef) => def.terrain === 'land'
 
@@ -359,7 +394,7 @@ export function fitCheck(layout: Layout, id: string): Fit {
     [r.x0, r.z1],
     [r.x1, r.z1],
   ]
-  if (!corners.every(([x, z]) => insideOctagon(x, z))) return { ok: false, reason: 'outside' }
+  if (!corners.every(([x, z]) => insideWorld(x, z))) return { ok: false, reason: 'outside' }
   if (def.terrain === 'land' ? r.z1 > SHORE : !(r.z0 < SHORE && r.z1 > SHORE)) return { ok: false, reason: 'shore' }
   for (const other of SITES) {
     if (other.id === id || !layout[other.id]) continue
@@ -369,24 +404,55 @@ export function fitCheck(layout: Layout, id: string): Fit {
 }
 
 export function fitHint(f: Fit, def: SiteDef): string {
-  if (f.reason === 'outside') return 'Outside the site'
+  if (f.reason === 'outside') return 'Too far out'
   if (f.reason === 'shore') return def.terrain === 'land' ? 'Must stay on land' : 'Must stay on the shore'
   if (f.reason === 'overlap') return `Overlaps ${SITE_BY_ID.get(f.other ?? '')?.title ?? 'another site'}`
   return 'Fits'
 }
 
+/** Only Admins arrange the map (sites, roads, trees, camps). */
+export const canEditLayout = (role: string) => role === 'admin'
+
 export const homeLayout = (): Layout => Object.fromEntries(SITES.map((s) => [s.id, { ...s.home }]))
 
 const isRot = (n: unknown): n is Rot => n === 0 || n === 1 || n === 2 || n === 3
-const isTile = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && Math.abs(n) <= GRID
+const isTile = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && Math.abs(n) <= WORLD
+
+/** Layout format: 2 = the bigger octagon (shore at z = 0). Rows without `v` are from the first version. */
+export const LAYOUT_VERSION = 2
+
+/** Default places in the first (smaller) octagon, to carry over moves saved with it. */
+const V1_HOME: Record<string, [number, number]> = {
+  earthworks: [-8, -24],
+  pipeline: [-17, -14],
+  reservoir: [-23, -9],
+  cluster: [-14, -10],
+  culvert: [-2, -10],
+  plant: [4, -10],
+  roadWest: [-23, 1],
+  bridge: [-3, 0],
+  roadEast: [3, 1],
+  coastGuard: [-20, 6],
+  port: [-8, 6],
+  seawall: [10, 6],
+}
 
 /** The layout from saved rows: unknown sites and broken rows are ignored; missing sites stay at home. */
-export function layoutFrom(rows: { siteId: string; gx: number; gz: number; rot: number }[]): Layout {
+export function layoutFrom(rows: { siteId: string; gx: number; gz: number; rot: number; v?: number }[]): Layout {
   const out = homeLayout()
   for (const r of rows) {
     const def = SITE_BY_ID.get(r.siteId)
     if (!def || !isTile(r.gx) || !isTile(r.gz) || !isRot(r.rot)) continue
-    out[def.id] = def.terrain === 'coast' ? { gx: r.gx, gz: def.home.gz, rot: 0 } : { gx: r.gx, gz: r.gz, rot: r.rot }
+    let gx = r.gx
+    let gz = r.gz
+    if ((r.v ?? 1) < LAYOUT_VERSION) {
+      // keep the move relative to the old default place
+      const old = V1_HOME[def.id]
+      if (!old) continue
+      gx = def.home.gx + (r.gx - old[0])
+      gz = def.home.gz + (r.gz - old[1])
+    }
+    out[def.id] = def.terrain === 'coast' ? { gx, gz: def.home.gz, rot: 0 } : { gx, gz, rot: r.rot }
   }
   return out
 }

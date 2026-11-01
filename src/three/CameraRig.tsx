@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import { GRID } from '../lib/site'
+import { GRID, WORLD } from '../lib/site'
 
 export interface Focus {
   x: number
@@ -19,13 +19,16 @@ const EDIT_POLAR = 0.42
 /** Landscape: a classic three-quarter view; portrait phones look more from above so the site fills the screen. */
 const homePolar = (aspect: number) => (aspect < 0.8 ? 0.56 : 0.74)
 
-/** Distance that fits the octagon on screen (phones crop the sides a little; one finger pans). */
+/** Where the home view looks: the octagon's land half with the edge of the floating city in front. */
+const HOME_Z = -13
+
+/** Distance that fits the land half on screen (phones crop the sides; one finger pans). */
 function fitDistance(fov: number, aspect: number) {
   const tv = Math.tan((fov * Math.PI) / 360)
   const th = tv * aspect
-  const w = 25 / th
-  const h = (24 * Math.cos(homePolar(aspect)) + 3) / tv
-  return Math.max(aspect < 0.8 ? w * 0.74 : w, h) * 1.02
+  const w = (GRID + 2) / th
+  const h = (25 * Math.cos(homePolar(aspect)) + 4) / tv
+  return Math.max(aspect < 0.8 ? w * 0.62 : w, h) * 1.02
 }
 
 /**
@@ -36,7 +39,7 @@ function fitDistance(fov: number, aspect: number) {
  */
 export default function CameraRig({ focus, motion, editing }: { focus: Focus | null; motion: boolean; editing: boolean }) {
   const controls = useRef<OrbitControlsImpl>(null!)
-  const { camera, clock, size } = useThree()
+  const { camera, clock, size, scene } = useThree()
   const aspect = size.width / Math.max(1, size.height)
   const fov = aspect < 0.8 ? 40 : 30
   const dist = useMemo(() => fitDistance(fov, aspect), [fov, aspect])
@@ -46,7 +49,7 @@ export default function CameraRig({ focus, motion, editing }: { focus: Focus | n
   const tmp = useMemo(() => ({ dir: new THREE.Vector3(), sph: new THREE.Spherical(), d: new THREE.Vector3() }), [])
 
   const home = (polar = HOME_POLAR) => {
-    const target = new THREE.Vector3(0, 0, aspect < 0.8 ? 1.5 : 0.5)
+    const target = new THREE.Vector3(0, 0.5, aspect < 0.8 ? HOME_Z + 2 : HOME_Z)
     const pos = new THREE.Vector3().setFromSpherical(new THREE.Spherical(dist, polar, HOME_AZ)).add(target)
     return { target, pos }
   }
@@ -55,9 +58,10 @@ export default function CameraRig({ focus, motion, editing }: { focus: Focus | n
     if (camera instanceof THREE.PerspectiveCamera) {
       camera.fov = fov
       camera.near = 0.5
-      camera.far = dist * 6
+      camera.far = dist * 8
       camera.updateProjectionMatrix()
     }
+
     const h = home()
     camera.position.copy(h.pos)
     camera.lookAt(h.target)
@@ -99,14 +103,18 @@ export default function CameraRig({ focus, motion, editing }: { focus: Focus | n
       camera.position.lerp(g.pos, k)
       if (camera.position.distanceTo(g.pos) < 0.05 && c.target.distanceTo(g.target) < 0.05) goal.current = null
     }
+    // haze starts past the site and swallows the far desert (the fog is re-made on theme changes)
+    if (scene.fog instanceof THREE.Fog && scene.fog.near !== dist * 1.25) {
+      scene.fog.near = dist * 1.25
+      scene.fog.far = dist * 3.4
+    }
     const idle = state.clock.elapsedTime - lastTouch.current > 8
     c.autoRotate = motion && !g && !editing && idle
     c.autoRotateSpeed = 0.35 * Math.sin(state.clock.elapsedTime * 0.12)
     c.update()
-    // keep the view over the site
-    const lim = GRID - 1
-    const cx = Math.max(-lim, Math.min(lim, c.target.x))
-    const cz = Math.max(-lim, Math.min(lim + 2, c.target.z))
+    // keep the view over the buildable land (the octagon and the land around it)
+    const cx = Math.max(-WORLD, Math.min(WORLD, c.target.x))
+    const cz = Math.max(-WORLD, Math.min(GRID, c.target.z))
     if (cx !== c.target.x || cz !== c.target.z || c.target.y !== 0.5) {
       tmp.dir.set(cx - c.target.x, 0.5 - c.target.y, cz - c.target.z)
       c.target.add(tmp.dir)
@@ -122,7 +130,7 @@ export default function CameraRig({ focus, motion, editing }: { focus: Focus | n
       dampingFactor={0.1}
       screenSpacePanning={false}
       minDistance={8}
-      maxDistance={dist * 1.35}
+      maxDistance={dist * 1.9}
       minPolarAngle={0.3}
       maxPolarAngle={1.12}
       minAzimuthAngle={HOME_AZ - 1.25}

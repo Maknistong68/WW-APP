@@ -12,10 +12,10 @@ export interface SiteGeo {
 }
 
 export interface PlotEvents {
+  /** view: a tap opens the site card; grab: drag to move (edit, Move tool); pass: taps go to the ground (other tools). */
+  mode: 'view' | 'grab' | 'pass'
   /** Tap on a site (view mode). */
   onTap: (siteIndex: number) => void
-  /** Edit mode: grab / move / drop a site. */
-  editing: boolean
   onGrab: (siteIndex: number, e: ThreeEvent<PointerEvent>) => void
   onMove: (e: ThreeEvent<PointerEvent>) => void
   onDrop: (e: ThreeEvent<PointerEvent>) => void
@@ -49,18 +49,19 @@ export default function SitePlots({ rig, geos, solid, glow, night, shadows, ev }
               visible={false}
               material={hitMat}
               onClick={(e) => {
-                if (ev.editing || e.delta > 8) return
+                if (ev.mode === 'pass' || (ev.mode === 'grab' && e.intersections.some((h) => h.object.userData.mapItem))) return
                 e.stopPropagation()
-                ev.onTap(i)
+                if (ev.mode === 'view' && e.delta <= 8) ev.onTap(i)
               }}
               onPointerDown={(e) => {
-                if (!ev.editing) return
+                // a palm / road / block placed on a site is picked before the site itself
+                if (ev.mode !== 'grab' || e.intersections.some((h) => h.object.userData.mapItem)) return
                 e.stopPropagation()
                 ev.onGrab(i, e)
               }}
-              onPointerMove={(e) => ev.editing && ev.onMove(e)}
-              onPointerUp={(e) => ev.editing && ev.onDrop(e)}
-              onPointerCancel={(e) => ev.editing && ev.onDrop(e)}
+              onPointerMove={(e) => ev.mode === 'grab' && ev.onMove(e)}
+              onPointerUp={(e) => ev.mode === 'grab' && ev.onDrop(e)}
+              onPointerCancel={(e) => ev.mode === 'grab' && ev.onDrop(e)}
             >
               <boxGeometry args={[def.w, h, def.d]} />
             </mesh>

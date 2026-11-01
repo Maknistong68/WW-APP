@@ -3,7 +3,9 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { PerformanceMonitor } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import { SITES, samePlace, sizeOf, snapPlace, type Fit, type Layout, type OfficeHealth, type Place } from '../lib/site'
+import { GRID, SITES, WORLD, samePlace, sizeOf, snapPlace, type Fit, type Layout, type OfficeHealth, type Place } from '../lib/site'
+import { moveItem, movePoint, type MapItem, type XZ } from '../lib/mapItems'
+import MapItems from './MapItems'
 import { buildSite, type Built } from './scopes'
 import { SiteRig } from './rig'
 import Ground from './Ground'
@@ -36,10 +38,22 @@ export interface SceneProps {
   onEditGrab: (siteId: string) => void
   onEditMove: (siteId: string, place: Place) => void
   onEditDrop: (siteId: string) => void
+  /** Map items (roads, highways, palms, camps, villages) and the edit tool. */
+  items: MapItem[]
+  tool: EditTool
+  drawing: XZ[] | null
+  drawingKind: 'road' | 'highway'
+  itemSelected: { uuid: string; point: number } | null
+  onGroundTap: (x: number, z: number) => void
+  onItemGrab: (uuid: string, point: number) => void
+  onItemChange: (item: MapItem) => void
+  onItemDrop: () => void
   onCreated: () => void
   onFirstFrame: () => void
   onLost: () => void
 }
+
+export type EditTool = 'move' | 'road' | 'trees' | 'camp' | 'village'
 
 const hasIdle = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
 const idle = (fn: () => void): number => (hasIdle ? window.requestIdleCallback(fn, { timeout: 120 }) : window.setTimeout(fn, 16))
@@ -139,78 +153,144 @@ function World(props: SceneProps & { degraded: boolean; shadows: boolean }) {
     }
   }, [invalidate])
 
-  // Edit mode: drag a site over the ground plane, snapped to tiles.
-  const drag = useRef<{ i: number; grab: { ox: number; oz: number }; place: Place; pointer: number } | null>(null)
+  // Edit mode: drag a site (snapped to tiles) or a map item over the ground plane.
+  type Drag =
+    | { type: 'site'; i: number; grab: { ox: number; oz: number }; place: Place; pointer: number }
+    | { type: 'item'; start: MapItem; point: number; from: XZ; last: string; pointer: number }
+  const drag = useRef<Drag | null>(null)
   const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), [])
   const hit = useMemo(() => new THREE.Vector3(), [])
   const [drop, setDrop] = useState<{ x: number; z: number; v: number } | null>(null)
   const cb = useRef(props)
   cb.current = props
+  const capture = (e: ThreeEvent<PointerEvent>) => {
+    ;(e.target as unknown as Element).setPointerCapture?.(e.pointerId)
+    if (controls) controls.enabled = false
+  }
+  const release = (e: ThreeEvent<PointerEvent>) => {
+    ;(e.target as unknown as Element).releasePointerCapture?.(e.pointerId)
+    if (controls) controls.enabled = true
+  }
+  const moving = props.editing && props.tool === 'move'
   const ev = {
-    editing: props.editing,
+    mode: (!props.editing ? 'view' : moving ? 'grab' : 'pass') as 'view' | 'grab' | 'pass',
     onTap: (i: number) => cb.current.onTapSite(SITES[i].id),
     onGrab: (i: number, e: ThreeEvent<PointerEvent>) => {
       const def = SITES[i]
       const p = cb.current.layout[def.id]
       if (!e.ray.intersectPlane(plane, hit)) return
-      drag.current = { i, grab: { ox: hit.x - p.gx, oz: hit.z - p.gz }, place: p, pointer: e.pointerId }
-      ;(e.target as unknown as Element).setPointerCapture?.(e.pointerId)
-      if (controls) controls.enabled = false
+      drag.current = { type: 'site', i, grab: { ox: hit.x - p.gx, oz: hit.z - p.gz }, place: p, pointer: e.pointerId }
+      capture(e)
       cb.current.onEditGrab(def.id)
       invalidate()
     },
     onMove: (e: ThreeEvent<PointerEvent>) => {
       const d = drag.current
       if (!d || e.pointerId !== d.pointer || !e.ray.intersectPlane(plane, hit)) return
-      const def = SITES[d.i]
-      const np = snapPlace(def, d.place, hit.x, hit.z, d.grab)
-      if (!samePlace(np, d.place)) {
-        d.place = np
-        cb.current.onEditMove(def.id, np)
+      if (d.type === 'site') {
+        const def = SITES[d.i]
+        const np = snapPlace(def, d.place, hit.x, hit.z, d.grab)
+        if (!samePlace(np, d.place)) {
+          d.place = np
+          cb.current.onEditMove(def.id, np)
+        }
+      } else {
+        const dx = hit.x - d.from[0]
+        const dz = hit.z - d.from[1]
+        const pt = d.start.points?.[d.point]
+        const next = d.point >= 0 && pt ? movePoint(d.start, d.point, pt[0] + dx, pt[1] + dz) : moveItem(d.start, dx, dz)
+        const key = JSON.stringify(next)
+        if (key !== d.last) {
+          d.last = key
+          cb.current.onItemChange(next)
+        }
       }
       invalidate()
     },
     onDrop: (e: ThreeEvent<PointerEvent>) => {
       const d = drag.current
       if (!d) return
-      ;(e.target as unknown as Element).releasePointerCapture?.(e.pointerId)
-      if (controls) controls.enabled = true
-      rig.drop(d.i)
-      const def = SITES[d.i]
-      const s = sizeOf(def, d.place.rot)
-      setDrop((x) => ({ x: d.place.gx + s.w / 2, z: d.place.gz + s.d / 2, v: (x?.v ?? 0) + 1 }))
-      cb.current.onEditDrop(def.id)
+      release(e)
+      if (d.type === 'site') {
+        rig.drop(d.i)
+        const def = SITES[d.i]
+        const s = sizeOf(def, d.place.rot)
+        setDrop((x) => ({ x: d.place.gx + s.w / 2, z: d.place.gz + s.d / 2, v: (x?.v ?? 0) + 1 }))
+        cb.current.onEditDrop(def.id)
+      } else {
+        cb.current.onItemDrop()
+      }
       drag.current = null
       invalidate()
     },
+  }
+  const itemEv = {
+    canGrab: moving,
+    onGrab: (uuid: string, point: number, e: ThreeEvent<PointerEvent>) => {
+      const start = cb.current.items.find((i) => i.uuid === uuid)
+      if (!start || !e.ray.intersectPlane(plane, hit)) return
+      drag.current = { type: 'item', start, point, from: [hit.x, hit.z], last: JSON.stringify(start), pointer: e.pointerId }
+      capture(e)
+      cb.current.onItemGrab(uuid, point)
+      invalidate()
+    },
+    onMove: ev.onMove,
+    onDrop: ev.onDrop,
   }
   useEffect(() => {
     if (!props.editing && controls) controls.enabled = true
   }, [props.editing, controls])
 
   const night = palette.dark
-  const near = lite ? 130 : 95
+  const near = lite ? 210 : 170
   return (
     <>
       <color attach="background" args={[palette.sky]} />
-      <fog attach="fog" args={[palette.sky, near, near * 2.3]} />
+      <fog attach="fog" args={[palette.sky, near, near * 2.4]} />
       <hemisphereLight args={[palette.hemiSky, palette.hemiGround, palette.hemi]} />
       <directionalLight
-        position={[22, 42, 28]}
+        position={[34, 64, 14]}
         intensity={palette.sunI}
         color={palette.sun}
         castShadow={shadows}
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-36}
-        shadow-camera-right={36}
-        shadow-camera-top={36}
-        shadow-camera-bottom={-36}
+        shadow-camera-left={-62}
+        shadow-camera-right={62}
+        shadow-camera-top={62}
+        shadow-camera-bottom={-62}
         shadow-camera-near={1}
-        shadow-camera-far={140}
+        shadow-camera-far={220}
         shadow-bias={-0.0006}
         shadow-normalBias={0.03}
       />
-      <Ground palette={palette} editing={props.editing} shadows={shadows} />
+      <Ground palette={palette} editing={props.editing} shadows={shadows} motion={motion} />
+      <MapItems
+        items={props.items}
+        drawing={props.editing ? props.drawing : null}
+        drawingKind={props.drawingKind}
+        selected={props.editing ? props.itemSelected : null}
+        solid={mats.solid}
+        glow={mats.glow}
+        night={night}
+        shadows={shadows}
+        ev={itemEv}
+      />
+      {props.editing && (
+        // taps on the ground: add a road point, plant a palm, place a block, or clear the selection
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0, (GRID - WORLD) / 2]}
+          visible={false}
+          onClick={(e) => {
+            if (e.delta > 8) return
+            e.stopPropagation()
+            cb.current.onGroundTap(e.point.x, e.point.z)
+          }}
+        >
+          <planeGeometry args={[WORLD * 2 + 20, WORLD + GRID + 20]} />
+          <meshBasicMaterial />
+        </mesh>
+      )}
       <SitePlots rig={rig} geos={geos} solid={mats.solid} glow={mats.glow} night={night} shadows={shadows} ev={ev} />
       {builds && <Fleet rig={rig} builds={builds} motion={motion} material={mats.solid} blobs={!shadows} shadows={shadows} />}
       {builds && <Workers rig={rig} builds={builds} motion={motion} material={mats.solid} lite={lite || degraded} blobs={!shadows} shadows={shadows} />}

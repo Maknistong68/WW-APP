@@ -288,25 +288,35 @@ create policy "team photo remove" on storage.objects for delete to authenticated
   using (bucket_id = 'photos' and (storage.foldername(name))[1] = 'team' and (select private.can_edit()));
 
 -- ---------------------------------------------------------------------------
--- "Live site" layout (Dashboard → 3D): one row per site, shared by the team.
--- Same row shape as the other record tables. Everyone approved can read it;
--- only Admins and Editors can move sites. Safe to re-run.
+-- "Live site" map (Dashboard → 3D): where each site sits (site_places) and the
+-- roads, highways, palms, camps and villages drawn on it (map_items). Shared
+-- by the team; everyone approved can read it, only Admins can change it.
+-- Same row shape as the other record tables. Safe to re-run.
 -- ---------------------------------------------------------------------------
-create table if not exists public.site_places (
-  uuid uuid primary key,
-  user_id uuid not null references auth.users (id) on delete cascade,
-  data jsonb not null,
-  updated_at timestamptz not null,
-  deleted boolean not null default false
-);
-create index if not exists site_places_user_idx on public.site_places (user_id);
-alter table public.site_places enable row level security;
-drop policy if exists "team read" on public.site_places;
-drop policy if exists "team add" on public.site_places;
-drop policy if exists "team change" on public.site_places;
-drop policy if exists "team remove" on public.site_places;
-create policy "team read" on public.site_places for select to authenticated using ((select private.is_approved()));
-create policy "team add" on public.site_places for insert to authenticated with check ((select private.can_edit()));
-create policy "team change" on public.site_places for update to authenticated
-  using ((select private.can_edit())) with check ((select private.can_edit()));
-create policy "team remove" on public.site_places for delete to authenticated using ((select private.can_edit()));
+do $$
+declare t text;
+begin
+  foreach t in array array['site_places', 'map_items'] loop
+    execute format(
+      'create table if not exists public.%I (
+         uuid uuid primary key,
+         user_id uuid not null references auth.users (id) on delete cascade,
+         data jsonb not null,
+         updated_at timestamptz not null,
+         deleted boolean not null default false
+       )', t);
+    execute format('create index if not exists %I on public.%I (user_id)', t || '_user_idx', t);
+    execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists "team read" on public.%I', t);
+    execute format('drop policy if exists "team add" on public.%I', t);
+    execute format('drop policy if exists "team change" on public.%I', t);
+    execute format('drop policy if exists "team remove" on public.%I', t);
+    execute format('drop policy if exists "admin add" on public.%I', t);
+    execute format('drop policy if exists "admin change" on public.%I', t);
+    execute format('drop policy if exists "admin remove" on public.%I', t);
+    execute format('create policy "team read" on public.%I for select to authenticated using ((select private.is_approved()))', t);
+    execute format('create policy "admin add" on public.%I for insert to authenticated with check ((select private.is_admin()))', t);
+    execute format('create policy "admin change" on public.%I for update to authenticated using ((select private.is_admin())) with check ((select private.is_admin()))', t);
+    execute format('create policy "admin remove" on public.%I for delete to authenticated using ((select private.is_admin()))', t);
+  end loop;
+end $$;

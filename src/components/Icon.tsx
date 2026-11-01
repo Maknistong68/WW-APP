@@ -1,5 +1,9 @@
 import {
   ArrowCounterClockwise,
+  ArrowsOutCardinal,
+  HouseLine,
+  RoadHorizon,
+  TreePalm,
   ArrowRight,
   ArrowSquareOut,
   ArrowsClockwise,
@@ -139,6 +143,10 @@ const ICONS = {
   cube: Cube,
   pause: Pause,
   stack: Stack,
+  move: ArrowsOutCardinal,
+  road: RoadHorizon,
+  palm: TreePalm,
+  village: HouseLine,
 } satisfies Record<string, PhosphorIcon>
 
 export type IconName = keyof typeof ICONS

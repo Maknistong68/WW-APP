@@ -199,7 +199,7 @@ export const EVIDENCE_NOTES: string[] = [
 // ---------------------------------------------------------------------------
 
 /** Dexie table names of the uuid-keyed record tables (also the sync tables). */
-export type RecordTable = 'contractors' | 'workOrders' | 'camps' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts' | 'sitePlaces'
+export type RecordTable = 'contractors' | 'workOrders' | 'camps' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts' | 'sitePlaces' | 'mapItems'
 
 interface RecordBase {
   uuid: string
@@ -234,6 +234,20 @@ export interface SitePlace extends RecordBase {
   gz: number
   /** Quarter turns, 0–3. */
   rot: number
+  /** Layout format (2 = the bigger octagon); missing = the first version. */
+  v?: number
+}
+
+/** Something the Admin added to the "Live site" map: a road, highway, palms, camp or village. */
+export interface MapItemRecord extends RecordBase {
+  kind: string
+  /** Roads / highways: the line; palms: one point per tree. */
+  points?: [number, number][]
+  x?: number
+  z?: number
+  rot?: number
+  /** Hidden (lets default items be deleted too). */
+  removed?: boolean
 }
 
 /** A worker accommodation camp, inspected every `cycleDays`. */
@@ -331,7 +345,7 @@ export interface WeeklyCount extends RecordBase {
   openTickets: number
 }
 
-export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import' | 'site'
+export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import' | 'site' | 'map'
 export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'import'
 
 export interface ActivityChange {

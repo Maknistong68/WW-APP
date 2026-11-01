@@ -87,7 +87,7 @@ export interface SyncResult {
 
 /** Dexie table → Supabase table for the uuid-keyed co-pilot records. */
 /** Tables the app can live without until the server is updated. */
-const OPTIONAL_TABLES = new Set<RecordTable>(['sitePlaces'])
+const OPTIONAL_TABLES = new Set<RecordTable>(['sitePlaces', 'mapItems'])
 const missingTable = (err: unknown) => /PGRST205|42P01|could not find the table|does not exist/i.test(err instanceof Error ? err.message : String(err))
 
 export const REMOTE_TABLE: Record<RecordTable, string> = {
@@ -99,6 +99,7 @@ export const REMOTE_TABLE: Record<RecordTable, string> = {
   manpower: 'manpower',
   weeklyCounts: 'weekly_counts',
   sitePlaces: 'site_places',
+  mapItems: 'map_items',
 }
 
 interface RemoteInspectionRow {
