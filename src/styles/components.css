@@ -87,7 +87,11 @@
   background: transparent; color: var(--faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
 }
 .irow-chev { color: var(--faint); flex: none; margin-right: 8px; }
-.lifting { transform: scale(0.98); background: var(--press) !important; }
+/* Held for a long-press: sinks slowly over the 450 ms hold, like a charge. */
+.holding {
+  transform: scale(0.98); background-color: var(--press) !important;
+  transition: transform 450ms var(--ease-70), background-color var(--dur-fast) var(--ease-80) !important;
+}
 
 /* ---- Big cards (Home / Library) --------------------------------------------- */
 .bcard {

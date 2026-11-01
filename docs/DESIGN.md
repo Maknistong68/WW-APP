@@ -129,9 +129,29 @@ per screen.
     green = done, grey = untouched.
 
 ## Long-press
-- A 450ms hold gives a haptic tick, the row presses in, then a floating sheet opens with
-  verb-first actions.
-- Edit actions are hidden from viewers. Destructive actions are red and confirmed in a dialog.
+- **Hold 450 ms.** The item sinks a little while you hold (a "charge"), then a haptic press.
+- **Pop-up.**
+  - The rest of the screen dims around the held item (a spotlight), and a rounded pop-up grows
+    out of it with the gentle spring.
+  - Its actions ripple in 30 ms apart.
+  - It opens below the item, or above it. When neither fits, it opens as the bottom sheet.
+  - Scrolling closes it.
+- **Preview:** the pop-up's top can show up to 3 key numbers and a sparkline.
+- **Same pop-up from:** ⋯, right-click and the keyboard menu key.
+- **One menu per record type,** the same on every screen.
+  - Menus: `src/components/menus.tsx`; which actions: `src/lib/menuSpec.ts`.
+  - The sheets they open live in `SheetHost` (`openSheet`), so any screen can close a ticket or
+    fill in a month.
+- Edit actions are hidden from viewers. Destructive actions are red and confirmed in a dialog
+  that names the record.
+
+## Haptics
+- Use `haptic()` from `src/lib/haptics.ts`:
+  - **tick**: selections, swipe thresholds;
+  - **press**: long-press;
+  - **success**: saved, closed;
+  - **warn**: overdue.
+- Phones without vibration (iPhone) stay silent.
 
 ## Motion (One UI)
 - **Curves** are Samsung's SESL interpolators:
@@ -141,7 +161,9 @@ per screen.
   - `--ease-exit` for leaving.
 - **Durations:** press 100 · fast 150 · med 250 · in 350 · out 200 · page 400 · chart 600 (ms).
 - **Properties:** animate transform and opacity only (plus a dim on screen snapshots).
-- **Bounce:** none, except the tab highlight's gentle spring and the 3D scene.
+- **Bounce:** none, except the gentle spring (`--ease-spring`, about 2% overshoot) on the tab
+  highlight, the long-press pop-up and "done" moments, and the 3D scene. Screens and lists never
+  bounce.
 - **Screens** (`src/components/RouteTransition.tsx`, View Transitions API):
   - opening a screen slides it in from the right while the old one drifts 25% left and dims;
   - Back reverses that, and tabs fade through;

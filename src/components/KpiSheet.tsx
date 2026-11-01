@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
+import { haptic } from '../lib/haptics'
 import { saveRecord } from '../lib/records'
 import { monthLabel, shortDate } from '../lib/dates'
 import { CLOSEOUT_DAYS, closeoutState, closeoutText, defaultDue } from '../lib/closeout'
@@ -69,6 +70,7 @@ export default function KpiSheet({
       return showToast({ text: 'Closed out can’t be more than the findings' })
     }
     await saveRecord('kpiMonths', k, `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
+    haptic('success')
     showToast({ text: 'KPIs saved' })
     // slide the sheet away, then close
     if (sheet.current) sheet.current.close()
@@ -179,6 +181,7 @@ export function ManpowerSheet({
     const over = (['illegalOrFreelance', 'visaExpiring30d', 'paidRecruitmentFees'] as const).some((f) => m[f] > m.totalWorkers)
     if (over) return showToast({ text: 'Counts can’t be more than total workers' })
     await saveRecord('manpower', m, `${subjectLabel} · ${monthLabel(m.month)} manpower`)
+    haptic('success')
     showToast({ text: 'Manpower saved' })
     if (sheet.current) sheet.current.close()
     else onClose()

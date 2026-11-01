@@ -1,6 +1,7 @@
 import type { KeyboardEvent, ReactNode } from 'react'
 import Icon from './Icon'
 import { useLongPress } from '../lib/useLongPress'
+import { setAnchor } from '../lib/anchor'
 
 /**
  * A list row inside a CardList: big tile, bold title, muted meta, trailing
@@ -28,6 +29,8 @@ export default function ItemRow({
 }) {
   const press = useLongPress(onMore)
   const onKey = (e: KeyboardEvent) => {
+    // keys pressed on the ⋯ button belong to it, not to the row
+    if (e.target !== e.currentTarget) return
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       onOpen?.()
@@ -55,6 +58,8 @@ export default function ItemRow({
           aria-label="More actions"
           onClick={(e) => {
             e.stopPropagation()
+            const row = e.currentTarget.closest('.irow')
+            if (row) setAnchor(row.getBoundingClientRect())
             onMore()
           }}
         >

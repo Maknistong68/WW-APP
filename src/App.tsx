@@ -18,6 +18,7 @@ import Sidebar from './components/Sidebar'
 import AddButton from './components/AddButton'
 import TabBar from './components/TabBar'
 import ActionSheetHost from './components/ActionSheet'
+import SheetHost from './components/SheetHost'
 import NavProvider, { useShown } from './components/RouteTransition'
 import type { NavKind } from './lib/nav'
 import LibraryPage from './pages/LibraryPage'
@@ -94,6 +95,7 @@ function AppShell() {
         <AddButton />
         <TabBar />
         <ActionSheetHost canEdit={canEdit} />
+        <SheetHost />
         <ToastHost />
       </NavProvider>
     </HashRouter>

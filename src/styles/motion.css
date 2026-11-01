@@ -14,6 +14,9 @@
 @keyframes growX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes growY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+/* Long-press pop-up: grows out of the held item (gentle spring), actions ripple in. */
+@keyframes popIn { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: none; } }
+@keyframes popItem { from { opacity: 0; transform: translateY(var(--from, -6px)); } to { opacity: 1; transform: none; } }
 
 /* ---- Screen transitions (View Transitions API; see RouteTransition.tsx) ----- */
 @keyframes vt-in-right { from { transform: translateX(100%); } }
@@ -81,9 +84,12 @@
 .tab:active .tab-icon { transform: scale(0.9); }
 .actionbar-main:active:not(:disabled), .btn.primary:active:not(:disabled) { background-color: var(--brand-press); }
 
+/* Low-end phones: keep the pop-up, skip the ripple. */
+html[data-lite] .as-pop .as-item { animation: none; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
-  .lifting { transform: none; }
+  .holding { transform: none; }
   ::view-transition-group(*) { animation: none !important; }
   ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 150ms !important; }
   :root[data-nav]::view-transition-old(root) { animation: vt-fade-out 150ms linear both !important; }

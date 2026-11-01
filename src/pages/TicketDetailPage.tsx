@@ -16,17 +16,28 @@ import { sar, sarShort } from '../lib/money'
 import { groupOf, uncombine } from '../lib/groups'
 import Icon from '../components/Icon'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
-import { TicketRow, copyTicketNo } from './TicketsPage'
+import { TicketRow } from './TicketsPage'
 import Summary from '../components/Summary'
 import IconTile from '../components/IconTile'
 import StatusChip from '../components/StatusChip'
 import ActionBar from '../components/ActionBar'
 import { ticketTone } from '../lib/tone'
-import { showActions } from '../components/ActionSheet'
+import { ticketMenu } from '../components/menus'
 import { useAuthInfo } from '../lib/auth'
 
-function Field({ label, value }: { label: string; value: string | number }) {
+function Field({ label, value, onOpen }: { label: string; value: string | number; onOpen?: () => void }) {
   if (value === '' || value === null || value === undefined) return null
+  if (onOpen) {
+    return (
+      <button className="row" style={{ width: '100%', border: 0, background: 'none', font: 'inherit', color: 'inherit', textAlign: 'left' }} onClick={onOpen}>
+        <span className="row-label">{label}</span>
+        <span className="row-trail" style={{ marginLeft: 'auto', textAlign: 'right', whiteSpace: 'normal', color: 'var(--brand)', fontWeight: 600 }}>
+          {value}
+        </span>
+        <Icon name="chevron-right" size={18} className="irow-chev" />
+      </button>
+    )
+  }
   return (
     <div className="row">
       <span className="row-label">{label}</span>
@@ -68,20 +79,7 @@ export default function TicketDetailPage() {
       showToast({ text: 'Ticket reopened' }),
     )
   const more = () =>
-    showActions({
-      title: t.ticketNo || 'Ticket',
-      sub: t.issue,
-      cover: <IconTile icon="ticket" tone={tone} size={52} />,
-      actions: [
-        ...(open
-          ? [{ label: isMain ? `Close all ${group.all.length} together` : 'Close ticket', icon: 'check-circle' as const, onSelect: () => setSheet(isMain ? 'closeGroup' : 'close'), edit: true }]
-          : [{ label: 'Reopen ticket', icon: 'undo' as const, onSelect: reopen, edit: true }]),
-        { label: 'Edit', icon: 'pencil', onSelect: () => setSheet('edit'), edit: true },
-        { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
-        ...(isMember ? [{ label: `Open main ticket ${group.main.ticketNo}`, icon: 'arrow-right' as const, onSelect: () => navigate(`/tickets/${group.main.uuid}`) }] : []),
-        { label: 'Delete ticket', icon: 'trash', onSelect: () => setSheet('delete'), danger: true, edit: true },
-      ],
-    })
+    ticketMenu(t, { members: isMain ? group.members.length : 0, onDeleted: () => navigate('/tickets') })
 
   return (
     <Page title={t.ticketNo || 'Ticket'} back="/tickets" backLabel="Tickets" album>
@@ -107,8 +105,16 @@ export default function TicketDetailPage() {
       />
 
       <div className="info-card">
-        <Field label="Contractor" value={contractorName(byUuid, t.contractorUuid)} />
-        <Field label="Work order" value={woName(woByUuid.get(t.workOrderUuid))} />
+        <Field
+          label="Contractor"
+          value={contractorName(byUuid, t.contractorUuid)}
+          onOpen={t.contractorUuid && byUuid.has(t.contractorUuid) ? () => navigate(`/contractors/${t.contractorUuid}`) : undefined}
+        />
+        <Field
+          label="Work order"
+          value={woName(woByUuid.get(t.workOrderUuid))}
+          onOpen={t.contractorUuid && woByUuid.has(t.workOrderUuid) ? () => navigate(`/contractors/${t.contractorUuid}`) : undefined}
+        />
         <Field
           label={open ? 'Money still owed' : 'Money recovered'}
           value={t.amountOwed ? `${sar(t.amountOwed)}${isMain ? ` (${group.all.length} tickets)` : ''}` : ''}

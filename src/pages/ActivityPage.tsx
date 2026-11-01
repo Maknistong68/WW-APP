@@ -43,11 +43,38 @@ export default function ActivityPage() {
     [entries, filter, action, period, query],
   )
 
-  const open = (e: ActivityEntry) => {
+  /** Open what the entry is about (deleted things have nowhere to go). */
+  const open = async (e: ActivityEntry) => {
     if (e.action === 'delete') return
-    if (e.entity === 'ticket') navigate(`/tickets/${e.entityUuid}`)
-    else if (e.entity === 'contractor') navigate(`/contractors/${e.entityUuid}`)
-    else if (e.entity === 'site' || e.entity === 'map') navigate('/dashboard/3d')
+    const id = e.entityUuid
+    switch (e.entity) {
+      case 'ticket':
+        return navigate(`/tickets/${id}`)
+      case 'contractor':
+        return navigate(`/contractors/${id}`)
+      case 'camp':
+        return navigate(`/camps/${id}`)
+      case 'site':
+      case 'map':
+        return navigate('/dashboard/3d')
+      case 'workOrder': {
+        const wo = await db.workOrders.get(id)
+        if (wo) navigate(`/contractors/${wo.contractorUuid}`)
+        return
+      }
+      case 'kpi':
+      case 'manpower': {
+        const row = e.entity === 'kpi' ? await db.kpiMonths.get(id) : await db.manpower.get(id)
+        if (row) navigate(`/contractors/${row.contractorUuid}?m=${row.month}`)
+        return
+      }
+      case 'audit': {
+        // audits are logged by uuid (or by number for very old entries)
+        const ins = (await db.inspections.where('uuid').equals(id).first()) ?? (/^\d+$/.test(id) ? await db.inspections.get(Number(id)) : undefined)
+        if (ins?.id !== undefined) navigate(`/inspection/${ins.id}`)
+        return
+      }
+    }
   }
 
   return (
@@ -97,7 +124,7 @@ export default function ActivityPage() {
       ) : (
         <div className="list">
           {visible.slice(0, limit).map((e) => (
-            <button key={e.uuid} className="row" onClick={() => open(e)} style={{ alignItems: 'flex-start' }}>
+            <button key={e.uuid} className="row" onClick={() => void open(e)} style={{ alignItems: 'flex-start' }}>
               <span className="row-main">
                 <div className="row-title" style={{ fontSize: 15 }}>
                   {VERB[e.action]} · {e.label}

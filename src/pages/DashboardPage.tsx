@@ -14,6 +14,9 @@ import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
 import IconTile from '../components/IconTile'
 import { showActions } from '../components/ActionSheet'
+import { campMenu } from '../components/menus'
+import { useLongPress } from '../lib/useLongPress'
+import { campTone } from '../lib/tone'
 import { TicketRow, ticketSub } from './TicketsPage'
 import {
   auditAverage,
@@ -89,6 +92,16 @@ function Hero({ value, label, tone = '', onClick }: { value: ReactNode; label: s
     </button>
   ) : (
     <div className="hero">{body}</div>
+  )
+}
+
+/** A plain list row (button.row) that also opens a menu when held. */
+function HoldRow({ onOpen, onMore, children }: { onOpen: () => void; onMore: () => void; children: ReactNode }) {
+  const press = useLongPress(onMore)
+  return (
+    <button className="row" onClick={onOpen} {...press}>
+      {children}
+    </button>
   )
 }
 
@@ -469,7 +482,7 @@ export default function DashboardPage() {
 
           <div className="section-label">Each KPI · {monthLabel(kpiMonth)}</div>
           <div className="list">
-            <div className="row">
+            <button className="row" onClick={() => navigate(`/kpis/overall?m=${kpiMonth}`)}>
               <span className={`status-dot ${kpiStatus(overall.avg)}`} />
               <span className="row-main">
                 <div className="row-title" style={{ fontWeight: 600 }}>
@@ -478,7 +491,7 @@ export default function DashboardPage() {
                 <div className="row-sub">{countsText(overall)}</div>
               </span>
               <span className="row-trail">{pct(overall.avg)}</span>
-            </div>
+            </button>
             {KPI_PARTS.map((p) => {
               const st = itemStats(subjects, p.key)
               return (
@@ -583,7 +596,16 @@ export default function DashboardPage() {
           ) : (
             <div className="list">
               {camps.toVisit.map(({ camp, state }) => (
-                <button key={camp.uuid} className="row" onClick={() => navigate(`/camps/${camp.uuid}`)}>
+                <HoldRow
+                  key={camp.uuid}
+                  onOpen={() => navigate(`/camps/${camp.uuid}`)}
+                  onMore={() =>
+                    campMenu(camp, {
+                      sub: `${CAMP_STATUS_LABEL[state.status]}${state.daysSince !== null ? ` · last ${state.daysSince}d ago` : ''}`,
+                      tone: campTone(state.status),
+                    })
+                  }
+                >
                   <span className={`status-dot ${state.status === 'due' ? 'warn' : 'bad'}`} />
                   <span className="row-main">
                     <div className="row-title">{camp.name}</div>
@@ -595,7 +617,7 @@ export default function DashboardPage() {
                   <span className="row-chev">
                     <Icon name="chevron-right" size={18} />
                   </span>
-                </button>
+                </HoldRow>
               ))}
             </div>
           )}

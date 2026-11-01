@@ -22,6 +22,8 @@ import IconTile from '../components/IconTile'
 import StatusChip from '../components/StatusChip'
 import ActionBar from '../components/ActionBar'
 import { kpiTone } from '../lib/tone'
+import { workOrderMenu } from '../components/menus'
+import { useLongPress } from '../lib/useLongPress'
 
 function Ring({ value, status }: { value: number | null; status: string }) {
   const r = 30
@@ -49,6 +51,42 @@ function Ring({ value, status }: { value: number | null; status: string }) {
 }
 
 const ALL = '__all'
+
+/** A work order: tap edits it, the switch turns it on or off, hold for its menu. */
+function WoRow({
+  title,
+  sub,
+  active,
+  canEdit,
+  onOpen,
+  onToggle,
+  onMore,
+}: {
+  title: string
+  sub: string
+  active: boolean
+  canEdit: boolean
+  onOpen: () => void
+  onToggle: () => void
+  onMore: () => void
+}) {
+  const press = useLongPress(canEdit ? onMore : undefined)
+  return (
+    <div className="row">
+      <button
+        className="row-main"
+        style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', color: 'inherit', font: 'inherit' }}
+        disabled={!canEdit}
+        onClick={onOpen}
+        {...press}
+      >
+        <div className="row-title">{title}</div>
+        <div className="row-sub">{sub}</div>
+      </button>
+      <input type="checkbox" role="switch" aria-label={`${title} active`} checked={active} disabled={!canEdit} onChange={onToggle} />
+    </div>
+  )
+}
 
 export default function ContractorDetailPage() {
   const { canEdit } = useAuthInfo()
@@ -163,28 +201,16 @@ export default function ContractorDetailPage() {
         {data.wos.map((w) => {
           const r = data.results.get(w.uuid)
           return (
-            <div key={w.uuid} className="row">
-              <button
-                className="row-main"
-                style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', color: 'inherit', font: 'inherit' }}
-                disabled={!canEdit}
-                onClick={() => setWoSheet(w)}
-              >
-                <div className="row-title">
-                  WO {w.number}
-                  {w.label ? ` · ${w.label}` : ''}
-                </div>
-                <div className="row-sub">{w.active && c.active ? `KPI ${pct(r?.overall)} · ${STATUS_LABEL[r?.status ?? 'none']}` : 'Inactive'}</div>
-              </button>
-              <input
-                type="checkbox"
-                role="switch"
-                aria-label={`WO ${w.number} active`}
-                checked={w.active}
-                  disabled={!canEdit}
-                onChange={() => toggleWo(w)}
-              />
-            </div>
+            <WoRow
+              key={w.uuid}
+              title={`WO ${w.number}${w.label ? ` · ${w.label}` : ''}`}
+              sub={w.active && c.active ? `KPI ${pct(r?.overall)} · ${STATUS_LABEL[r?.status ?? 'none']}` : 'Inactive'}
+              active={w.active}
+              canEdit={canEdit}
+              onOpen={() => setWoSheet(w)}
+              onToggle={() => toggleWo(w)}
+              onMore={() => workOrderMenu({ key: w.uuid, contractor: c, workOrder: w, label: `${c.name} · WO ${w.number}` })}
+            />
           )
         })}
         {canEdit && (
@@ -247,7 +273,7 @@ export default function ContractorDetailPage() {
 
           <div className="list">
             {KPI_PARTS.map((p) => (
-              <button key={p.key} className="row" onClick={() => navigate(`/kpis/${p.key}`)}>
+              <button key={p.key} className="row" onClick={() => navigate(`/kpis/${p.key}?m=${month}`)}>
                 <span className="row-main">
                   {p.label}
                   {p.auto && <span className="row-sub" style={{ display: 'inline', marginLeft: 6 }}>auto</span>}

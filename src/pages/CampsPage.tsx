@@ -7,8 +7,7 @@ import StatusChip from '../components/StatusChip'
 import { campTone } from '../lib/tone'
 import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
-import CampSheet from '../components/CampSheet'
-import { showActions } from '../components/ActionSheet'
+import { campMenu } from '../components/menus'
 import { newUuid } from '../db'
 import { DEFAULT_CYCLE_DAYS, campState, campsFromAudits, type CampStatus } from '../lib/camps'
 import { shortDate } from '../lib/dates'
@@ -39,7 +38,6 @@ export default function CampsPage() {
   const navigate = useNavigate()
   const d = useAllData()
   const [query, setQuery] = useState('')
-  const [editing, setEditing] = useState<Camp | null>(null)
 
   // Old audits without a camp become camps once, so their history shows here.
   const seeded = useRef(false)
@@ -98,16 +96,7 @@ export default function CampsPage() {
                 }
                 onOpen={() => navigate(`/camps/${c.uuid}`)}
                 onMore={() =>
-                  showActions({
-                    title: c.name,
-                    sub: s.lastDate ? `Last inspected ${shortDate(s.lastDate)}` : 'Never inspected',
-                    cover: <IconTile icon="tent" tone={campTone(s.status)} size={52} />,
-                    actions: [
-                      { label: 'Start inspection', icon: 'play', onSelect: () => navigate(`/new/accommodation?camp=${c.uuid}`), edit: true },
-                      { label: 'Open inspection log', icon: 'clipboard', onSelect: () => navigate(`/camps/${c.uuid}`) },
-                      { label: 'Edit camp', icon: 'pencil', onSelect: () => setEditing(c), edit: true },
-                    ],
-                  })
+                  campMenu(c, { sub: s.lastDate ? `Last inspected ${shortDate(s.lastDate)}` : 'Never inspected', tone: campTone(s.status) })
                 }
               />
             ))}
@@ -117,7 +106,6 @@ export default function CampsPage() {
 
       <div className="list-foot">Inspect every camp at least every 90 days. Hold a camp to start an inspection.</div>
 
-      {editing && <CampSheet camp={editing} onClose={() => setEditing(null)} />}
     </Page>
   )
 }

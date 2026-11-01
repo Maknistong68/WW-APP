@@ -21,8 +21,27 @@
   position: absolute; top: 44px; transform: translateX(-50%); pointer-events: none; white-space: nowrap;
   background: var(--toast-bg); color: var(--toast-ink); font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 12px; font-variant-numeric: tabular-nums;
 }
+/* Sparkline: muted line, dashed target, end dot in its status colour. */
+.spark { display: block; overflow: visible; }
+.spark-line { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark-guide { stroke: var(--good); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }
+.spark-dot { fill: var(--none); stroke: var(--card); stroke-width: 1.5; }
+.spark-dot.good { fill: var(--good); }
+.spark-dot.warn { fill: var(--warn); }
+.spark-dot.bad { fill: var(--bad); }
+.spark-dot.info { fill: var(--info); }
+
 .bars { display: flex; flex-direction: column; gap: 12px; }
 .bar-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; font-size: 15px; }
+/* A bar that opens something: a real button that presses in like the rest. */
+button.bar-row {
+  width: 100%; margin: -6px -8px; padding: 6px 8px; box-sizing: content-box; border: 0; border-radius: 14px;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  -webkit-touch-callout: none; user-select: none;
+  transition: transform var(--dur-med) var(--ease-80), background-color var(--dur-fast) var(--ease-80);
+}
+button.bar-row:active { transform: scale(0.98); background-color: var(--press); transition-duration: var(--dur-press); }
+.bar-track, .bar-fill { display: block; }
 .bar-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .bar-value { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 .bar-track { grid-column: 1 / -1; height: 10px; border-radius: 999px; background: var(--bg); overflow: hidden; }

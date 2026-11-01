@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
+import { haptic } from '../lib/haptics'
 import Icon from './Icon'
 import { saveRecord } from '../lib/records'
 import { localDate } from '../lib/dates'
@@ -261,6 +262,7 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
       ticketLabel(ticket, byUuid),
       'close',
     )
+    haptic('success')
     showToast({ text: 'Ticket closed' })
     // slide the sheet away, then close
     if (sheet.current) sheet.current.close()

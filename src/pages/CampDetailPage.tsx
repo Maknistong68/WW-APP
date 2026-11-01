@@ -14,7 +14,31 @@ import Summary from '../components/Summary'
 import IconTile from '../components/IconTile'
 import StatusChip from '../components/StatusChip'
 import ActionBar from '../components/ActionBar'
-import { campTone } from '../lib/tone'
+import { campTone, type Tone } from '../lib/tone'
+import { inspectionMenu } from '../components/menus'
+import { useLongPress } from '../lib/useLongPress'
+import type { Inspection } from '../types'
+
+/** One inspection in the camp's log: tap opens it, hold for Repeat visit / Delete. */
+function LogRow({ ins, onOpen }: { ins: Inspection; onOpen: () => void }) {
+  const t = getTemplate(ins.templateId)
+  const score = t ? scoreInspection(t, ins) : null
+  const findings = Object.values(ins.responses ?? {}).filter(isFlagged).length
+  const tone: Tone = score?.pct == null ? 'none' : score.pct >= 90 ? 'good' : score.pct >= 70 ? 'warn' : 'bad'
+  const sub = `${score?.pct != null ? `${score.pct}% compliant` : 'Not scored'} · ${findings} finding${findings === 1 ? '' : 's'} · ${ins.status === 'completed' ? 'Completed' : 'Draft'}`
+  const press = useLongPress(() => inspectionMenu(ins, { title: `Inspection ${shortDate(ins.info.reviewDate)}`, sub, tone }))
+  return (
+    <button className="row" onClick={onOpen} {...press}>
+      <span className="row-main">
+        <div className="row-title">{shortDate(ins.info.reviewDate)}</div>
+        <div className="row-sub">{sub}</div>
+      </span>
+      <span className="row-chev">
+        <Icon name="chevron-right" size={18} />
+      </span>
+    </button>
+  )
+}
 
 /** One camp: status, inspection log, start a new inspection. */
 export default function CampDetailPage() {
@@ -66,31 +90,28 @@ export default function CampDetailPage() {
         <div className="list-foot">No inspections yet.</div>
       ) : (
         <div className="list">
-          {log.map((ins) => {
-            const t = getTemplate(ins.templateId)
-            const score = t ? scoreInspection(t, ins) : null
-            const findings = Object.values(ins.responses ?? {}).filter(isFlagged).length
-            return (
-              <button key={ins.id} className="row" onClick={() => navigate(`/inspection/${ins.id}`)}>
-                <span className="row-main">
-                  <div className="row-title">{shortDate(ins.info.reviewDate)}</div>
-                  <div className="row-sub">
-                    {score?.pct != null ? `${score.pct}% compliant` : 'Not scored'} · {findings} finding{findings === 1 ? '' : 's'} ·{' '}
-                    {ins.status === 'completed' ? 'Completed' : 'Draft'}
-                  </div>
-                </span>
-                <span className="row-chev">
-                  <Icon name="chevron-right" size={18} />
-                </span>
-              </button>
-            )
-          })}
+          {log.map((ins) => (
+            <LogRow key={ins.id} ins={ins} onOpen={() => navigate(`/inspection/${ins.id}`)} />
+          ))}
         </div>
       )}
 
       <div className="list" style={{ marginTop: 12 }}>
+        {contractor ? (
+          <button className="row" onClick={() => navigate(`/contractors/${contractor.uuid}`)}>
+            <span className="row-main">Contractor</span>
+            <span className="row-trail" style={{ color: 'var(--brand)', fontWeight: 600 }}>{contractor.name}</span>
+            <span className="row-chev">
+              <Icon name="chevron-right" size={18} />
+            </span>
+          </button>
+        ) : (
+          <div className="row">
+            <span className="row-main">Contractor</span>
+            <span className="row-trail">—</span>
+          </div>
+        )}
         {[
-          ['Contractor', contractor?.name ?? '—'],
           ['Work order', wo ? `WO ${wo.number}` : '—'],
           ['Location', camp.location || '—'],
           ['Active', camp.active ? 'Yes' : 'No'],

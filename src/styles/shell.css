@@ -229,6 +229,49 @@ body.has-actionbar .tabbar { display: none; }
 .as-item svg { color: var(--brand); }
 .as-item.danger, .as-item.danger svg { color: var(--bad); }
 
+/* Pop-up form: grows out of the held item, which stays lit (the spotlight's
+   shadow is the dim) while everything else fades back. */
+.as-backdrop.pop { background: transparent; display: block; padding: 0; animation: none; }
+.as-spot {
+  position: fixed; border-radius: 20px; pointer-events: none;
+  box-shadow: 0 0 0 200vmax var(--scrim);
+  animation: fadeIn var(--dur-med) var(--ease-80) both;
+}
+.as-pop {
+  position: fixed; max-height: calc(100dvh - 24px); overflow-y: auto;
+  background: var(--sheet); border-radius: var(--r-panel); box-shadow: var(--shadow-panel); padding: 10px;
+}
+.as-pop.in { animation: popIn var(--dur-in) var(--ease-spring) both; }
+.as-pop.out {
+  transform: scale(0.94); opacity: 0;
+  transition: transform var(--dur-out) var(--ease-exit), opacity var(--dur-out) var(--ease-exit);
+}
+/* Compact, so it fits next to the held item on a phone and leaves it in view. */
+.as-pop .as-head { gap: 12px; padding: 4px 6px 10px; }
+.as-pop .as-title { font-size: 18px; }
+.as-pop .as-sub { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as-pop .as-note { font-size: 14px; margin: 0 8px 10px; }
+.as-pop .as-peek { gap: 6px; margin-bottom: 10px; }
+.as-pop .as-fact { padding: 8px 10px; border-radius: 14px; }
+.as-pop .as-fact-value { font-size: 16px; }
+.as-pop .as-item {
+  min-height: 46px; gap: 14px; padding: 0 16px; font-size: 16px;
+  animation: popItem var(--dur-in) var(--ease-90) both; animation-delay: calc(70ms + var(--i, 0) * 30ms);
+}
+.as-pop .as-item svg { width: 22px; height: 22px; }
+.as-pop .as-item + .as-item::before { left: 52px; }
+.as-pop.above .as-item { --from: 6px; }
+
+/* Peek: a few key numbers (and a trend) above the actions. */
+.as-peek { display: flex; gap: 8px; margin: 0 0 12px; }
+.as-fact { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 16px; background: var(--card-on-sheet); }
+.as-fact.as-spark { flex: none; display: grid; place-items: center; padding: 6px 10px; }
+.as-fact-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as-fact-value.bad { color: var(--bad); }
+.as-fact-value.warn { color: var(--warn); }
+.as-fact-value.good { color: var(--good); }
+.as-fact-label { margin-top: 1px; font-size: 13px; font-weight: 600; color: var(--muted); }
+
 /* Create sheet */
 .create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .create-card {

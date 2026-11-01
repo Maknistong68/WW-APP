@@ -27,7 +27,7 @@ function Row({ c, onOpen }: { c: Closeout; onOpen?: () => void }) {
       title={c.subject.label}
       sub={sub}
       trail={<StatusChip tone={closeoutTone(c.status)}>{pct(c.pct)}</StatusChip>}
-      onOpen={onOpen}
+      onOpen={onOpen ?? (() => navigate(`/contractors/${c.subject.contractor.uuid}`))}
       onMore={() =>
         showActions({
           title: c.subject.label,

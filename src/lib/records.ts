@@ -63,7 +63,18 @@ export async function saveRecord<T extends AnyRecord>(
 ): Promise<T> {
   const t = tableOf(table)
   return db.transaction('rw', t, db.activity, async () => {
-    const before = (await t.get(record.uuid)) as T | undefined
+    let before = (await t.get(record.uuid)) as T | undefined
+    // One KPI / manpower row per work order and month (a unique index): if a
+    // teammate's row for the same month synced in while this sheet was open,
+    // update that row instead of failing on the duplicate.
+    if (!before && (table === 'kpiMonths' || table === 'manpower')) {
+      const r = record as unknown as { contractorUuid: string; workOrderUuid: string; month: string }
+      const same = (await t.where('[contractorUuid+workOrderUuid+month]').equals([r.contractorUuid, r.workOrderUuid, r.month]).first()) as T | undefined
+      if (same) {
+        record = { ...record, uuid: same.uuid }
+        before = same
+      }
+    }
     const changes = diffRecords(
       before as unknown as Record<string, unknown> | undefined,
       record as unknown as Record<string, unknown>,

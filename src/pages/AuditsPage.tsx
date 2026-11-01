@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useCachedLiveQuery } from '../lib/useCachedQuery'
 import { useNavigate } from 'react-router-dom'
-import { db, deleteInspection, duplicateInspection } from '../db'
+import { db } from '../db'
 import { TEMPLATES, countItems, getTemplate } from '../templates'
 import { isAnswered } from '../lib/score'
-import { ConfirmSheet } from '../components/Modal'
 import Icon from '../components/Icon'
 import Page from '../components/Page'
-import { showToast } from '../components/Toast'
 import type { Inspection } from '../types'
 import { useAuthInfo } from '../lib/auth'
+import { inspectionMenu } from '../components/menus'
+import { setAnchor } from '../lib/anchor'
+import { useLongPress } from '../lib/useLongPress'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -26,12 +27,55 @@ function friendlyDate(iso: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }
 
+/** One inspection: tap opens it; hold or ⋯ for Repeat visit / Delete. */
+function InspectionCard({ ins, onOpen }: { ins: Inspection; onOpen: () => void }) {
+  const t = getTemplate(ins.templateId)
+  const total = t ? countItems(t) : 0
+  const answered = Object.values(ins.responses ?? {}).filter(isAnswered).length
+  const title = ins.info?.contractorNames || ins.info?.facilityLocation || t?.shortName || ins.templateId
+  const sub = `${t?.shortName ?? ''} · ${friendlyDate(ins.info?.reviewDate ?? '')}${total > 0 ? ` · ${answered}/${total} questions` : ''}`
+  const more = () => inspectionMenu(ins, { title, sub, tone: ins.status === 'completed' ? 'good' : 'info' })
+  const press = useLongPress(more)
+  return (
+    <div
+      className="card inspection-row"
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+      {...press}
+    >
+      <div className="info">
+        <b>{title}</b>
+        <span>{sub}</span>
+      </div>
+      <span className={`badge ${ins.status}`}>{ins.status === 'completed' ? 'Completed' : 'Draft'}</span>
+      <button
+        className="icon-btn"
+        aria-label={`More actions for ${title}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          const row = e.currentTarget.closest('.inspection-row')
+          if (row) setAnchor(row.getBoundingClientRect())
+          more()
+        }}
+      >
+        <Icon name="dots" size={22} />
+      </button>
+    </div>
+  )
+}
+
 export default function AuditsPage() {
   const navigate = useNavigate()
   const { canEdit } = useAuthInfo()
   const inspections = useCachedLiveQuery('inspections:recent', () => db.inspections.orderBy('createdAt').reverse().toArray())
   const [listQuery, setListQuery] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState<Inspection | null>(null)
   const q = listQuery.trim().toLowerCase()
   const visible = (inspections ?? []).filter((ins) => {
     if (!q) return true
@@ -74,73 +118,10 @@ export default function AuditsPage() {
         ) : visible.length === 0 ? (
           <div className="empty">No inspection matches “{listQuery}”.</div>
         ) : (
-          visible.map((ins) => {
-            const t = getTemplate(ins.templateId)
-            const total = t ? countItems(t) : 0
-            const answered = Object.values(ins.responses ?? {}).filter(isAnswered).length
-            return (
-              <div key={ins.id} className="card inspection-row" onClick={() => navigate(`/inspection/${ins.id}`)}>
-                <div className="info">
-                  <b>{ins.info?.contractorNames || ins.info?.facilityLocation || t?.shortName || ins.templateId}</b>
-                  <span>
-                    {t?.shortName} · {friendlyDate(ins.info?.reviewDate ?? '')}
-                    {total > 0 && ` · ${answered}/${total} questions`}
-                  </span>
-                </div>
-                <span className={`badge ${ins.status}`}>{ins.status === 'completed' ? 'Completed' : 'Draft'}</span>
-                {canEdit && (
-                <>
-                <button
-                  className="icon-btn"
-                  title="Repeat visit (copy details into a new inspection)"
-                  aria-label="Start repeat visit"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void duplicateInspection(ins.id!).then((newId) => {
-                      if (newId) {
-                        showToast({ text: 'New inspection started with the same details' })
-                        navigate(`/inspection/${newId}`)
-                      }
-                    })
-                  }}
-                >
-                  <Icon name="copy" size={22} />
-                </button>
-                <button
-                  className="icon-btn"
-                  title="Delete"
-                  aria-label={`Delete inspection ${ins.info?.contractorNames ?? ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setConfirmDelete(ins)
-                  }}
-                >
-                  <Icon name="trash" size={22} />
-                </button>
-                </>
-                )}
-              </div>
-            )
-          })
+          visible.map((ins) => <InspectionCard key={ins.id} ins={ins} onOpen={() => navigate(`/inspection/${ins.id}`)} />)
         )}
 
 
-      {confirmDelete && (
-        <ConfirmSheet
-          title="Delete inspection?"
-          message={`This permanently deletes “${
-            confirmDelete.info?.contractorNames || confirmDelete.info?.facilityLocation || 'this inspection'
-          }” and all its photos. Save a backup first if you might need it again.`}
-          confirmLabel="Delete inspection"
-          destructive
-          onCancel={() => setConfirmDelete(null)}
-          onConfirm={() => {
-            if (confirmDelete.id) void deleteInspection(confirmDelete.id)
-            setConfirmDelete(null)
-            showToast({ text: 'Inspection deleted' })
-          }}
-        />
-      )}
     </Page>
   )
 }

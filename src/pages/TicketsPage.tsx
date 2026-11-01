@@ -10,10 +10,9 @@ import CardList from '../components/CardList'
 import StatusChip from '../components/StatusChip'
 import ActionBar from '../components/ActionBar'
 import { ticketTone } from '../lib/tone'
-import { showActions } from '../components/ActionSheet'
-import { showToast } from '../components/Toast'
 import SwipeRow from '../components/SwipeRow'
-import TicketSheet, { CloseTicketSheet } from '../components/TicketSheet'
+import { ticketMenu } from '../components/menus'
+import { openSheet } from '../components/SheetHost'
 import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { memberCounts } from '../lib/groups'
@@ -45,12 +44,7 @@ export function ticketSub(t: Ticket, contractors?: Map<string, Contractor>, wos?
 }
 
 /** Copy a ticket number to the clipboard. */
-export function copyTicketNo(t: Ticket) {
-  void navigator.clipboard?.writeText(t.ticketNo).then(
-    () => showToast({ text: `Copied ${t.ticketNo}` }),
-    () => showToast({ text: t.ticketNo }),
-  )
-}
+export { copyTicketNo } from '../components/menus'
 
 /** Ticket row: the ticket number is the title, the tile shows its age. In select mode a tap ticks it. */
 export function TicketRow({
@@ -67,25 +61,15 @@ export function TicketRow({
   group?: string
   selected?: boolean
   onSelect?: () => void
-  /** Long-press / ⋯ actions; defaults to Open + Copy number. */
+  /** Long-press / ⋯ actions; defaults to the shared ticket menu. */
   onMore?: () => void
 }) {
   const navigate = useNavigate()
   const days = ageDays(t)
   const tone = ticketTone(t)
   const open = () => navigate(`/tickets/${t.uuid}`)
-  const more =
-    onMore ??
-    (() =>
-      showActions({
-        title: t.ticketNo || 'Ticket',
-        sub: sub ?? ticketSub(t),
-        cover: <IconTile icon="ticket" tone={tone} size={52} />,
-        actions: [
-          { label: 'Open ticket', icon: 'arrow-right', onSelect: open },
-          { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
-        ],
-      }))
+  const members = group?.startsWith('+') ? Number(group.slice(1)) || 0 : 0
+  const more = onMore ?? (() => ticketMenu(t, { sub: sub ?? ticketSub(t), members }))
   return (
     <ItemRow
       selected={selected}
@@ -147,9 +131,6 @@ export default function TicketsPage() {
   const filter = (params.get('f') as Filter) || 'open'
   const [query, setQuery] = useState('')
   const { canEdit } = useAuthInfo()
-  const [closing, setClosing] = useState<Ticket | null>(null)
-  const [editing, setEditing] = useState<Ticket | null>(null)
-  const navigate = useNavigate()
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [together, setTogether] = useState<'close' | 'combine' | null>(null)
@@ -191,17 +172,12 @@ export default function TicketsPage() {
     setSelecting(false)
     setPicked(new Set())
   }
-  /** Long-press / ⋯ on a ticket. */
+  /** Long-press / ⋯ on a ticket: the shared ticket menu, plus "Select several" here. */
   const more = (t: Ticket) =>
-    showActions({
-      title: t.ticketNo || 'Ticket',
+    ticketMenu(t, {
       sub: ticketSub(t, byUuid, woByUuid),
-      cover: <IconTile icon="ticket" tone={ticketTone(t)} size={52} />,
-      actions: [
-        { label: 'Open ticket', icon: 'arrow-right', onSelect: () => navigate(`/tickets/${t.uuid}`) },
-        ...(isOpen(t) ? [{ label: 'Close ticket', icon: 'check-circle' as const, onSelect: () => setClosing(t), edit: true }] : []),
-        { label: 'Edit', icon: 'pencil', onSelect: () => setEditing(t), edit: true },
-        { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
+      members: t.parentUuid ? 0 : (members.get(t.uuid) ?? 0),
+      extra: [
         {
           label: 'Select several',
           icon: 'checklist',
@@ -279,7 +255,7 @@ export default function TicketsPage() {
                   onSelect={() => toggle(t.uuid)}
                 />
               ) : isOpen(t) && canEdit ? (
-                <SwipeRow key={t.uuid} actionLabel="Close" onAction={() => setClosing(t)}>
+                <SwipeRow key={t.uuid} actionLabel="Close" onAction={() => openSheet({ kind: 'ticketClose', uuid: t.uuid })}>
                   <TicketRow t={t} sub={ticketSub(t, byUuid, woByUuid)} group={groupLabel(t)} onMore={() => more(t)} />
                 </SwipeRow>
               ) : (
@@ -319,8 +295,6 @@ export default function TicketsPage() {
           }}
         />
       )}
-      {editing && <TicketSheet ticket={editing} onClose={() => setEditing(null)} />}
-      {closing && <CloseTicketSheet ticket={closing} onClose={() => setClosing(null)} />}
     </Page>
   )
 }

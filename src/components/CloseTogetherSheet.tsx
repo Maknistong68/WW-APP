@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import { showToast } from './Toast'
+import { haptic } from '../lib/haptics'
 import { combineTickets, groupOf, suggestMain } from '../lib/groups'
 import { localDate } from '../lib/dates'
 import { saveRecord } from '../lib/records'
@@ -58,6 +59,7 @@ export default function CloseTogetherSheet({
         const closing = close && before?.status !== 'Closed'
         await saveRecord('tickets', u, ticketLabel(u, byUuid), closing ? 'close' : undefined)
       }
+      haptic('success')
       showToast({
         text: close
           ? `${updates.length} tickets closed together under ${main.ticketNo}`

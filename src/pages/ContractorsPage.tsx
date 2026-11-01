@@ -7,9 +7,11 @@ import StatusChip from '../components/StatusChip'
 import { kpiTone } from '../lib/tone'
 import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
-import { showActions } from '../components/ActionSheet'
-import { SubjectEditor } from '../components/SubjectPicker'
-import { kpiSubjects, type KpiSubject } from '../lib/subjects'
+import { contractorMenu } from '../components/menus'
+import { kpiSubjects } from '../lib/subjects'
+import { contractorOverall } from '../lib/trends'
+import { lastMonths } from '../lib/dashboard'
+import { useAuthInfo } from '../lib/auth'
 import ContractorSheet from '../components/ContractorSheet'
 import { isOpen } from '../lib/aging'
 import { monthLabel, monthOf } from '../lib/dates'
@@ -24,7 +26,7 @@ export default function ContractorsPage() {
   const month = monthOf()
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState<Contractor | null>(null)
-  const [scoring, setScoring] = useState<KpiSubject | null>(null)
+  const { canEdit } = useAuthInfo()
   const kpis = useMemo(() => kpisForMonth(d, month), [d, month])
 
   const q = query.trim().toLowerCase()
@@ -35,24 +37,14 @@ export default function ContractorsPage() {
   const active = d.contractors.filter((c) => c.active && match(c))
   const inactive = d.contractors.filter((c) => !c.active && match(c))
 
-  const more = (c: Contractor) => {
-    const subjects = kpiSubjects([c], d.workOrders)
-    showActions({
-      title: c.name,
-      sub: `KPI ${pct(kpis.get(c.uuid)?.overall)} · ${monthLabel(month)}`,
-      cover: <IconTile text={c.name} tone={c.active ? kpiTone(kpis.get(c.uuid)?.status ?? 'none') : 'none'} size={52} />,
-      actions: [
-        { label: 'Open', icon: 'arrow-right', onSelect: () => navigate(`/contractors/${c.uuid}`) },
-        ...subjects.slice(0, 4).map((s) => ({
-          label: `Score ${s.workOrder ? `WO ${s.workOrder.number}` : 'this month'}`,
-          icon: 'gauge' as const,
-          onSelect: () => setScoring(s),
-          edit: true,
-        })),
-        { label: 'Edit details', icon: 'pencil', onSelect: () => setAdding(c), edit: true },
-      ],
+  const more = (c: Contractor) =>
+    contractorMenu(c, {
+      subjects: kpiSubjects([c], d.workOrders),
+      kpi: kpis.get(c.uuid),
+      kpiMonth: month,
+      openTickets: openCount(c.uuid),
+      spark: contractorOverall(d, c, lastMonths(month, 6)),
     })
-  }
 
   const row = (c: Contractor) => {
     const r = kpis.get(c.uuid)
@@ -85,9 +77,11 @@ export default function ContractorsPage() {
       backLabel="Library"
       actions={
         <>
-          <button className="nav-btn" aria-label="New contractor" onClick={() => setAdding(newContractor())}>
-            <Icon name="plus" size={26} />
-          </button>
+          {canEdit && (
+            <button className="nav-btn" aria-label="New contractor" onClick={() => setAdding(newContractor())}>
+              <Icon name="plus" size={26} />
+            </button>
+          )}
         </>
       }
     >
@@ -117,7 +111,6 @@ export default function ContractorsPage() {
         </>
       )}
       {adding && <ContractorSheet contractor={adding} onClose={() => setAdding(null)} />}
-      {scoring && <SubjectEditor d={d} subject={scoring} month={month} sheet="kpi" onClose={() => setScoring(null)} />}
     </Page>
   )
 }
