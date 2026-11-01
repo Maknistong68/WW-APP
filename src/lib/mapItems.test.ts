@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_ITEMS,
+  JUNCTIONS,
   ROAD_WIDTH,
   addCorner,
   blockSize,
@@ -8,7 +9,6 @@ import {
   diffItems,
   itemActivity,
   itemsFrom,
-  lineLength,
   moveItem,
   movePoint,
   removePoint,
@@ -26,7 +26,7 @@ const byId = (uuid: string) => DEFAULT_ITEMS.find((i) => i.uuid === uuid)!
 const zone = (kind: MapItem['kind']) => DEFAULT_ITEMS.find((i) => i.kind === kind)!
 
 describe('Live site map items', () => {
-  it('defaults: unique fixed v4 ids, all on the map; the coastal highway runs past the octagon', () => {
+  it('defaults: unique fixed v4 ids, all on the map', () => {
     expect(new Set(DEFAULT_ITEMS.map((i) => i.uuid)).size).toBe(DEFAULT_ITEMS.length)
     for (const i of DEFAULT_ITEMS) {
       expect(i.uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
@@ -35,33 +35,41 @@ describe('Live site map items', () => {
         expect(z).toBeLessThanOrEqual(GRID)
       }
     }
-    const coastal = DEFAULT_ITEMS.filter((i) => i.kind === 'highway')[0]
-    expect(coastal.points!.every(([x, z]) => !insideOctagon(x, z))).toBe(true)
-    expect(lineLength(coastal.points!)).toBeGreaterThan(300)
   })
 
-  it('the layout reads north to south: land → spine road → basin → floating city', () => {
-    const spine = DEFAULT_ITEMS.filter((i) => i.kind === 'highway')[1].points!
-    // edge to edge through the middle, with a gentle curve
-    expect(Math.min(...spine.map((p) => p[0]))).toBeLessThan(-GRID)
-    expect(Math.max(...spine.map((p) => p[0]))).toBeGreaterThan(GRID)
-    expect(Math.min(...spine.map((p) => p[1]))).toBeGreaterThan(-10)
+  it('roads: the highway crosses the land half and meets the spine road at two junctions outside the octagon', () => {
+    const [highway, spine] = DEFAULT_ITEMS.filter((i) => i.kind === 'highway').map((i) => i.points!)
+    expect(highway.some(([x, z]) => insideOctagon(x, z))).toBe(true)
+    expect(insideOctagon(...highway[0])).toBe(false)
+    expect(insideOctagon(...highway[highway.length - 1])).toBe(false)
+    for (const j of JUNCTIONS) {
+      expect(insideOctagon(...j)).toBe(false)
+      expect(highway).toContainEqual(j)
+      expect(spine).toContainEqual(j)
+    }
+    // outside, the highway bends down (south) to the junctions
+    const inside = highway.filter(([x, z]) => insideOctagon(x, z))
+    expect(Math.max(...inside.map((p) => p[1]))).toBeLessThan(JUNCTIONS[0][1])
+    // the spine road runs edge to edge through the middle of the land half, with a gentle curve
+    for (const [x, z] of spine) if (insideOctagon(x, z)) expect(z).toBeGreaterThanOrEqual(-52), expect(z).toBeLessThanOrEqual(-48)
     expect(spineZ(0)).toBeLessThan(spineZ(GRID))
-    const industry = zone('industry').points!
+  })
+
+  it('zones read north to south: land → basin → island → floating city; ships come in from the east only', () => {
     const basin = rectOf(zone('basin').points!)
-    const port = rectOf(zone('port').points!)
+    const island = zone('island').points!
     const city = zone('city').points!
-    expect(Math.max(...industry.map((p) => p[1]))).toBeLessThan(Math.min(...spine.map((p) => p[1])))
+    const spine = DEFAULT_ITEMS.filter((i) => i.kind === 'highway')[1].points!
     expect(basin.z0).toBeGreaterThan(Math.max(...spine.map((p) => p[1])))
-    expect(Math.min(...city.map((p) => p[1]))).toBeGreaterThan(port.z1)
-    // a long, narrow basin ≈ 60% of the octagon's width, open to the sea at its east end only
+    // a long, narrow basin ≈ 60% of the octagon's width
     expect((basin.x1 - basin.x0) / (2 * GRID)).toBeCloseTo(0.6, 1)
     expect(basin.z1 - basin.z0).toBeLessThan((basin.x1 - basin.x0) / 4)
-    expect(basin.x1).toBe(port.x1)
-    expect(basin.x0).toBeGreaterThan(port.x0)
-    // the pier is at the basin mouth; the zones sit inside the octagon
-    expect(zone('pier').points!.some(([x]) => x === basin.x1)).toBe(true)
-    for (const k of ['industry', 'basin', 'pier', 'city'] as const) for (const [x, z] of zone(k).points!) expect([k, insideOctagon(x, z)]).toEqual([k, true])
+    expect(Math.min(...island.map((p) => p[1]))).toBeGreaterThan(basin.z1)
+    expect(Math.min(...city.map((p) => p[1]))).toBeGreaterThan(Math.max(...island.map((p) => p[1])))
+    // the island is joined to the land on the west and ends in a tip short of the east side
+    expect(Math.min(...island.map((p) => p[0]))).toBeLessThan(-GRID)
+    expect(Math.max(...island.map((p) => p[0]))).toBeLessThan(basin.x1)
+    for (const k of ['industry', 'basin', 'city'] as const) for (const [x, z] of zone(k).points!) expect([k, insideOctagon(x, z)]).toEqual([k, true])
   })
 
   it('snaps to half tiles and never off the map', () => {
@@ -99,26 +107,28 @@ describe('Live site map items', () => {
     const basin = zone('basin')
     // drag the south-east corner: the basin gets longer and wider, corners stay square
     const big = movePoint(basin, 2, 80, 30)
-    expect(rectOf(big.points!)).toEqual({ x0: -50, z0: 8, x1: 80, z1: 30 })
+    expect(rectOf(big.points!)).toEqual({ x0: -55, z0: 8, x1: 80, z1: 30 })
     expect(big.points).toEqual([
-      [-50, 8],
+      [-55, 8],
       [80, 8],
       [80, 30],
-      [-50, 30],
+      [-55, 30],
     ])
     // it can't be flipped inside out or shrunk to nothing
-    expect(rectOf(movePoint(basin, 2, -100, 0).points!)).toEqual({ x0: -50, z0: 8, x1: -46, z1: 12 })
+    expect(rectOf(movePoint(basin, 2, -100, 0).points!)).toEqual({ x0: -55, z0: 8, x1: -51, z1: 12 })
     expect(canRemovePoint(basin)).toBe(false)
     expect(removePoint(basin, 0)).toBe(basin)
     // move the whole basin
-    expect(rectOf(moveItem(basin, 0, 4).points!)).toEqual({ x0: -50, z0: 12, x1: 70, z1: 30 })
-    const pier = zone('pier')
-    const more = addCorner(pier, 0)
-    expect(more.points).toHaveLength(4)
-    expect(more.points![1]).toEqual([84.5, 24.5])
-    expect(canRemovePoint(more)).toBe(true)
-    expect(canRemovePoint(pier)).toBe(false)
-    expect(removePoint(pier, 0)).toBeNull()
+    expect(rectOf(moveItem(basin, 0, 4).points!)).toEqual({ x0: -55, z0: 12, x1: 65, z1: 26 })
+    const island = zone('island')
+    const more = addCorner(island, 0)
+    expect(more.points).toHaveLength(island.points!.length + 1)
+    expect(more.points![1]).toEqual([-84, 25.5])
+    expect(canRemovePoint(island)).toBe(true)
+    expect(removePoint(island, 0)?.points).toHaveLength(island.points!.length - 1)
+    const tri: MapItem = { uuid: 't', kind: 'island', points: [[0, 30], [10, 30], [5, 40]] }
+    expect(canRemovePoint(tri)).toBe(false)
+    expect(removePoint(tri, 0)).toBeNull()
   })
 
   it('saved rows: replace defaults, hide removed ones, ignore broken rows, carry over old ones', () => {

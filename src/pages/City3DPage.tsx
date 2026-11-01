@@ -764,7 +764,7 @@ export default function City3DPage() {
       {sheet === 'reset' && (
         <Modal title="Reset the map?" onClose={() => setSheet(null)}>
           <div className="sheet-body">
-            <p className="city-note">Put the sites, or the zones (industrial zone, port, basin, pier, floating city), back where they started. Nothing is saved until you press Done.</p>
+            <p className="city-note">Put the sites, or the zones (industrial zone, port, basin, island, floating city), back where they started. Nothing is saved until you press Done.</p>
             <div className="btn-row">
               <button className="btn" onClick={() => setSheet(null)}>
                 Keep my map
@@ -795,9 +795,10 @@ export default function City3DPage() {
         <Modal title="What am I looking at?" onClose={() => setSheet(null)}>
           <div className="sheet-body city-legend">
             <p>
-              The <b>octagon</b> is the whole city, half on land and half in the sea. North to south: the <b>industrial zone</b> on land with its street grid, the{' '}
-              <b>spine road</b> through the middle, the <b>harbour basin</b> with cranes along its north quay (ships come in from the east, past the <b>entrance pier</b>),
-              then the <b>floating city</b> (not built yet, shown as a pale outline). The coastal highway runs past outside and joins the spine road.
+              The <b>octagon</b> is the whole city, half on land and half in the sea. North to south: the <b>industrial zone</b> with its street grid, crossed by the{' '}
+              <b>coastal highway</b> and by the <b>spine road</b> (they meet at two junctions outside the octagon); the port quay with cranes along the <b>harbour
+              basin</b>; the <b>island</b>, joined to the land on the west; then the <b>floating city</b> (not built yet, shown pale). Ships come in from the east only,
+              past the island’s tip.
             </p>
             <p>
               The coloured, barricaded sites are the real projects: each contractor or work order has its own site with its scope of works (earthworks, pipeline,

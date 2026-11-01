@@ -16,8 +16,8 @@ import type { Contractor, Manpower } from '../types'
 // 3D view and the layout editor are built on top of this.
 //
 // World and zones: see world.ts (the octagon, north = land, south = sea) and
-// zones.ts (industrial zone, port land, harbour basin, pier, floating city).
-// Land sites sit on land (the mainland, the port land or the pier); coast
+// zones.ts (industrial zone, port land, harbour basin, island, floating city).
+// Land sites sit on land (the mainland, the port land or the island); coast
 // sites sit on the basin's north quay, half on the quay and half over the
 // water, and follow the quay when the basin is moved.
 
