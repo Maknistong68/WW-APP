@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
 import IconTile from '../components/IconTile'
@@ -8,6 +8,8 @@ import { campTone } from '../lib/tone'
 import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
 import { campMenu } from '../components/menus'
+import { useAuthInfo } from '../lib/auth'
+import { haptic } from '../lib/haptics'
 import { newUuid } from '../db'
 import { DEFAULT_CYCLE_DAYS, campState, campsFromAudits, type CampStatus } from '../lib/camps'
 import { shortDate } from '../lib/dates'
@@ -37,38 +39,60 @@ export const newCamp = (): Camp => ({
 export default function CampsPage() {
   const navigate = useNavigate()
   const d = useAllData()
+  const { canEdit } = useAuthInfo()
   const [query, setQuery] = useState('')
+  // Opened from a Dashboard number: only camps in that state.
+  const [params, setParams] = useSearchParams()
+  const only = params.get('s') as 'expired' | 'due' | 'ok' | null
+  const ONLY_LABEL = { expired: 'Expired or never inspected', due: 'Due soon', ok: 'Up to date' } as const
 
-  // Old audits without a camp become camps once, so their history shows here.
+  // Old audits without a camp become camps once (editors only), so their history shows here.
   const seeded = useRef(false)
   useEffect(() => {
-    if (!d.loaded || seeded.current) return
+    if (!d.loaded || seeded.current || !canEdit) return
     seeded.current = true
     const fresh = campsFromAudits(d.inspections, d.camps, d.contractors, newUuid, nowIso())
     void (async () => {
       for (const c of fresh) await saveRecord('camps', c, c.name)
     })()
-  }, [d])
+  }, [d, canEdit])
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return d.camps
       .filter((c) => !q || [c.name, c.location, d.byUuid.get(c.contractorUuid)?.name ?? ''].some((s) => s.toLowerCase().includes(q)))
       .map((c) => ({ c, s: campState(c, d.inspections) }))
+      .filter(({ c, s }) => !only || (c.active && (only === 'expired' ? s.status === 'expired' || s.status === 'never' : s.status === only)))
       .sort((a, b) => Number(b.c.active) - Number(a.c.active) || RANK[a.s.status] - RANK[b.s.status] || a.c.name.localeCompare(b.c.name))
-  }, [d, query])
+  }, [d, query, only])
   const expired = rows.filter((r) => r.c.active && (r.s.status === 'expired' || r.s.status === 'never')).length
 
   return (
     <Page
       title="Camps"
-      back="/library"
-      backLabel="Library"
+      back={only ? '/dashboard?v=camps' : '/library'}
+      backLabel={only ? 'Dashboard' : 'Library'}
     >
       <label className="ios-search">
         <Icon name="search" size={18} />
         <input type="search" placeholder="Camp, contractor, area" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
+      {only && ONLY_LABEL[only] && (
+        <div className="chip-row drill-chips" aria-label="Filters">
+          <span className="filter-chip">
+            {ONLY_LABEL[only]}
+            <button
+              aria-label={`Remove filter ${ONLY_LABEL[only]}`}
+              onClick={() => {
+                haptic('tick')
+                setParams({}, { replace: true })
+              }}
+            >
+              <Icon name="x" size={16} strokeWidth={2.6} />
+            </button>
+          </span>
+        </div>
+      )}
 
       {d.loaded && d.camps.length === 0 ? (
         <div className="empty-state">

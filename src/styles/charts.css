@@ -5,13 +5,33 @@
 .chart-svg .grid { stroke: var(--grid); stroke-width: 1; }
 .chart-svg .axis-text { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .chart-svg .line { stroke: var(--chart); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
-.chart-svg .area { fill: var(--chart); opacity: 0.1; }
+.chart-svg .area { fill: var(--chart); fill-opacity: 0.1; }
 .chart-svg .dot { fill: var(--chart); stroke: var(--card); stroke-width: 2; }
 .chart-svg .cross { stroke: var(--muted); stroke-width: 1; }
 .chart-svg .end-label { fill: var(--text); font-size: 12px; font-weight: 700; }
 .chart-svg .col.s0 { fill: var(--chart); }
 .chart-svg .col.s1 { fill: var(--chart-2); }
 .chart-svg .hover-band { fill: var(--press); opacity: 0.8; }
+.chart-svg .hover-band.sel { fill: var(--brand-tint); opacity: 1; }
+/* Target lines (90% on track, 70% critical) and status-coloured points. */
+.chart-svg .guide { stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart-svg .guide.good { stroke: var(--good); }
+.chart-svg .guide.warn { stroke: var(--warn); }
+.chart-svg .guide.bad { stroke: var(--bad); }
+.chart-svg .guide-label { font-size: 11px; font-weight: 700; }
+.chart-svg .guide-label.good { fill: var(--good); }
+.chart-svg .guide-label.warn { fill: var(--warn); }
+.chart-svg .guide-label.bad { fill: var(--bad); }
+.chart-svg.toned .line { stroke: var(--muted); }
+.chart-svg.toned .area { fill: var(--muted); fill-opacity: 0.08; }
+.chart-svg .dot.good { fill: var(--good); }
+.chart-svg .dot.warn { fill: var(--warn); }
+.chart-svg .dot.bad { fill: var(--bad); }
+.chart-svg .dot.none { fill: var(--none); }
+.chart-svg .dot.ring { fill: none; stroke: var(--text); stroke-width: 2; }
+.chart-svg .dot.ring.good { stroke: var(--good); }
+.chart-svg .dot.ring.warn { stroke: var(--warn); }
+.chart-svg .dot.ring.bad { stroke: var(--bad); }
 .chart-legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); margin: -2px 0 6px; }
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .chart-legend .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
@@ -20,7 +40,18 @@
 .chart-tip {
   position: absolute; top: 44px; transform: translateX(-50%); pointer-events: none; white-space: nowrap;
   background: var(--toast-bg); color: var(--toast-ink); font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 12px; font-variant-numeric: tabular-nums;
+  display: flex; align-items: center; gap: 8px;
+  transform-origin: 50% 100%; animation: tipIn var(--dur-fast) var(--ease-spring) both;
 }
+/* A tapped month: the callout pops out of it and can open what's behind it. */
+.chart-tip.actionable { pointer-events: auto; padding: 4px 4px 4px 12px; }
+.chart-open {
+  min-height: 32px; padding: 0 12px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--brand); color: var(--brand-ink); font: 700 13px var(--font);
+  transition: transform var(--dur-press) var(--ease-80);
+}
+.chart-open:active { transform: scale(0.95); }
+@keyframes tipIn { from { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.85); } to { opacity: 1; transform: translateX(-50%); } }
 /* Sparkline: muted line, dashed target, end dot in its status colour. */
 .spark { display: block; overflow: visible; }
 .spark-line { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }

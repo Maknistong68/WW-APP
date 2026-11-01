@@ -13,6 +13,8 @@ import { ticketTone } from '../lib/tone'
 import SwipeRow from '../components/SwipeRow'
 import { ticketMenu } from '../components/menus'
 import { openSheet } from '../components/SheetHost'
+import { QUERY_KEYS, filterTickets, hasQuery, parseTicketQuery, queryChips } from '../lib/ticketFilter'
+import { haptic } from '../lib/haptics'
 import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { memberCounts } from '../lib/groups'
@@ -129,6 +131,9 @@ export function groupTickets(list: Ticket[]): { key: string; title: string; item
 export default function TicketsPage() {
   const [params, setParams] = useSearchParams()
   const filter = (params.get('f') as Filter) || 'open'
+  // Filters from the link (a Dashboard number, a chart bar, a contractor…)
+  const linkQuery = useMemo(() => parseTicketQuery(params), [params])
+  const drilled = hasQuery(linkQuery)
   const [query, setQuery] = useState('')
   const { canEdit } = useAuthInfo()
   const [selecting, setSelecting] = useState(false)
@@ -137,9 +142,11 @@ export default function TicketsPage() {
   const { byUuid, woByUuid } = useContractors()
   const tickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
 
+  /** The tickets the link points at, before the tab and the search. */
+  const scoped = useMemo(() => filterTickets(tickets ?? [], { ...linkQuery, f: undefined }), [tickets, linkQuery])
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return (tickets ?? [])
+    return scoped
       .filter((t) => {
         if (filter === 'open' && !isOpen(t)) return false
         if (filter === 'late' && !(isOpen(t) && ageDays(t) > 30)) return false
@@ -153,7 +160,26 @@ export default function TicketsPage() {
           ? ageDays(b) - ageDays(a)
           : (b.closedAt || b.openedAt).localeCompare(a.closedAt || a.openedAt),
       )
-  }, [tickets, filter, query, byUuid, woByUuid])
+  }, [scoped, filter, query, byUuid, woByUuid])
+
+  const chips = queryChips(linkQuery, {
+    contractor: (uuid) => byUuid.get(uuid)?.name ?? 'Contractor',
+    workOrder: (uuid) => `WO ${woByUuid.get(uuid)?.number ?? '?'}`,
+  })
+  /** Remove one filter (or all), keeping the rest of the link. */
+  const removeChip = (keys: readonly string[] | 'all') => {
+    haptic('tick')
+    const next = new URLSearchParams(params)
+    for (const k of keys === 'all' ? QUERY_KEYS : keys) next.delete(k)
+    if (keys === 'all') next.delete('from')
+    setParams(next, { replace: true })
+  }
+  const setTab = (f: Filter) => {
+    const next = new URLSearchParams(params)
+    if (f === 'open' && !drilled) next.delete('f')
+    else next.set('f', f)
+    setParams(next, { replace: true })
+  }
 
   const workers = visible.reduce((s, t) => s + (t.workers || 0), 0)
   const byTicketUuid = useMemo(() => new Map((tickets ?? []).map((t) => [t.uuid, t])), [tickets])
@@ -191,19 +217,21 @@ export default function TicketsPage() {
     })
 
   const counts = useMemo(() => {
-    const all = tickets ?? []
-    const open = all.filter(isOpen)
+    const open = scoped.filter(isOpen)
     return {
       open: open.length,
       late: open.filter((t) => ageDays(t) > 30).length,
-      closed: all.length - open.length,
-      all: all.length,
+      closed: scoped.length - open.length,
+      all: scoped.length,
     } as Record<Filter, number>
-  }, [tickets])
+  }, [scoped])
+  const from = params.get('from')
 
   return (
     <Page
       title="Tickets"
+      back={drilled ? (from ?? '/dashboard') : undefined}
+      backLabel={drilled ? (from?.startsWith('/contractors') ? 'Contractor' : from?.startsWith('/kpis') ? 'KPI' : 'Dashboard') : undefined}
       actions={
         selecting ? (
           <button className="nav-btn strong" onClick={endSelect}>
@@ -222,12 +250,27 @@ export default function TicketsPage() {
         <Icon name="search" size={18} />
         <input type="search" placeholder="Ticket no., contractor, WO, issue" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
+      {drilled && (
+        <div className="chip-row drill-chips" aria-label="Filters">
+          {chips.map((c) => (
+            <span key={c.label} className="filter-chip">
+              {c.label}
+              <button aria-label={`Remove filter ${c.label}`} onClick={() => removeChip(c.keys)}>
+                <Icon name="x" size={16} strokeWidth={2.6} />
+              </button>
+            </span>
+          ))}
+          <button className="clear-btn" onClick={() => removeChip('all')}>
+            Clear
+          </button>
+        </div>
+      )}
       <div className="segmented">
         {FILTERS.map((f) => (
           <button
             key={f.key}
             className={filter === f.key ? 'on' : ''}
-            onClick={() => setParams(f.key === 'open' ? {} : { f: f.key }, { replace: true })}
+            onClick={() => setTab(f.key)}
           >
             {f.label} {tickets ? <b style={{ fontVariantNumeric: 'tabular-nums' }}>{counts[f.key]}</b> : null}
           </button>

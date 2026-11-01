@@ -122,6 +122,17 @@ per screen.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
 - **Dashboard:** views as a One UI sub-tab track, a month stepper, hero numbers, then charts.
+  - The view and month live in the link (`?v=`, `?m=`), so Back keeps them.
+- **Drill-down: every number opens what's behind it.**
+  - A number that has a list shows a small green ›; a plain number has none.
+  - Ticket links carry their filters (`src/lib/ticketFilter.ts`: contractor, month, opened /
+    closed / open / over 30 days at month end, issue, category, source, age, money). The Tickets
+    list shows them as removable chips, with Back.
+  - Counts and lists use the same rules, so they always match.
+  - A tapped ticket number flies into the chips (view transition `drill`).
+  - Bars open their tickets. Holding a contractor bar or row opens its pop-up.
+  - Tapping or scrubbing a month in a chart selects it with a tick, and a callout pops out with
+    **Open** (that month's tickets) or **Show month** (that month on the Dashboard).
 - **Inspection:**
   - one card per walkthrough line or question;
   - answers as big icon + word buttons (OK / Partial / OBS / N/A; Yes / No / N/A);

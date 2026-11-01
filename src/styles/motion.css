@@ -40,6 +40,9 @@
 :root[data-nav='fade']::view-transition-new(root) { animation: vt-fade-in 250ms var(--ease-80) both; }
 /* the tab bar, Create button and toast stay put while the screen moves… */
 ::view-transition-group(tab-pill), ::view-transition-group(tab-fab), ::view-transition-group(toast) { animation-duration: var(--dur-med); animation-timing-function: var(--ease-90); }
+/* Drill-down: the tapped number flies into the filter chips of the list it opens. */
+::view-transition-group(drill) { animation-duration: var(--dur-page); animation-timing-function: var(--ease-90); z-index: 2; }
+::view-transition-old(drill), ::view-transition-new(drill) { animation-duration: var(--dur-med); height: 100%; object-fit: fill; }
 ::view-transition-old(tab-pill), ::view-transition-old(tab-fab), ::view-transition-old(toast) { animation: none; opacity: 0; }
 ::view-transition-new(tab-pill), ::view-transition-new(tab-fab), ::view-transition-new(toast) { animation: none; }
 /* …and slide away or back when only one side of the move has them */

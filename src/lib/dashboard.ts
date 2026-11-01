@@ -7,12 +7,10 @@ import { subjectKpi, subjectManpower, type KpiSubject } from './subjects'
 import { getTemplate } from '../templates'
 import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Ticket, WeeklyCount } from '../types'
 
-/** Open at the end of `date`. Closed tickets without a date count as closed. */
-export function openOn(t: Ticket, date: string): boolean {
-  if (!t.openedAt || t.openedAt > date) return false
-  if (t.status !== 'Closed') return true
-  return !!t.closedAt && t.closedAt > date
-}
+// Month rules shared with the Tickets list filters (src/lib/ticketFilter.ts),
+// so a number and the list it opens always agree.
+import { closedIn, lateOn, openOn, openedIn } from './ticketFilter'
+export { openOn }
 
 export interface TrendPoint {
   date: string
@@ -76,10 +74,11 @@ export function periodStats(
 ): PeriodStats {
   const range = month ? monthRange(month) : { start: '0000-01-01', end: today }
   const end = range.end < today ? range.end : today
-  const opened = tickets.filter((t) => t.openedAt >= range.start && t.openedAt <= range.end)
-  const closed = tickets.filter(
-    (t) => t.status === 'Closed' && t.closedAt && t.closedAt >= range.start && t.closedAt <= range.end,
-  )
+  const inRange = (d: string) => d >= range.start && d <= range.end
+  const opened = month ? tickets.filter((t) => openedIn(t, month)) : tickets.filter((t) => inRange(t.openedAt))
+  const closed = month
+    ? tickets.filter((t) => closedIn(t, month))
+    : tickets.filter((t) => t.status === 'Closed' && !!t.closedAt && inRange(t.closedAt))
   const openEnd = tickets.filter((t) => openOn(t, end))
   const avg = closed.length
     ? closed.reduce((s, t) => s + daysBetween(t.openedAt, t.closedAt), 0) / closed.length
@@ -88,7 +87,7 @@ export function periodStats(
     opened,
     closed,
     openAtEnd: openEnd.length,
-    over30AtEnd: openEnd.filter((t) => daysBetween(t.openedAt, end) > 30).length,
+    over30AtEnd: openEnd.filter((t) => lateOn(t, end)).length,
     workersOpened: opened.reduce((s, t) => s + (t.workers || 0), 0),
     avgDaysToClose: avg,
     byContractor: countBy(opened, (t) => t.contractorUuid, (k) => contractors.get(k)?.name ?? 'No contractor'),

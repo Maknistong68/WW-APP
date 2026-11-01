@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { niceMax } from '../../lib/chartScale'
+import { haptic } from '../../lib/haptics'
 
 export interface MonthBarsPoint {
   /** YYYY-MM */
@@ -23,23 +24,32 @@ function barPath(x: number, y: number, w: number, h: number) {
 
 /**
  * Monthly columns, one or two series side by side (2px gap). Legend for two
- * series; tap or hover a month for its numbers.
+ * series. Hover (mouse) previews a month; a tap or a scrub selects it with a
+ * tick, and the callout pops out of the bar, with an Open button when
+ * `onOpen` is given.
  */
 export default function MonthBars({
   data,
   series,
   format = (v) => v.toLocaleString('en-US'),
   axisFormat = format,
+  onOpen,
+  openLabel = 'Open',
 }: {
   data: MonthBarsPoint[]
   /** Series names, in the order of `values`. Max 2. */
   series: string[]
   format?: (v: number) => string
   axisFormat?: (v: number) => string
+  /** Open the month that was tapped (its tickets, or that month on the Dashboard). */
+  onOpen?: (month: string) => void
+  openLabel?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(320)
   const [hover, setHover] = useState<number | null>(null)
+  const [sel, setSel] = useState<number | null>(null)
+  const scrubbing = useRef(false)
 
   useEffect(() => {
     const el = ref.current
@@ -48,6 +58,16 @@ export default function MonthBars({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  // A tap anywhere else lets go of the selected month.
+  useEffect(() => {
+    if (sel === null) return
+    const away = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setSel(null)
+    }
+    document.addEventListener('pointerdown', away)
+    return () => document.removeEventListener('pointerdown', away)
+  }, [sel])
 
   const all = data.flatMap((d) => d.values).filter((v): v is number => v !== null)
   if (data.length === 0 || all.every((v) => v === 0)) return <div className="note">Nothing in these months yet.</div>
@@ -62,11 +82,20 @@ export default function MonthBars({
   const every = data.length > 8 ? Math.ceil(data.length / 6) : 1
   const ticks = [0, max / 2, max]
 
-  const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
+  const indexAt = (e: ReactPointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     const i = Math.floor((e.clientX - r.left - PAD.left) / slot)
-    setHover(i >= 0 && i < data.length ? i : null)
+    return i >= 0 && i < data.length ? i : null
   }
+  const select = (i: number | null) => {
+    if (i === null || i === sel) return
+    haptic('tick')
+    setSel(i)
+  }
+  const shown = hover ?? sel
+  const actionable = !!onOpen && sel !== null && shown === sel
+  /** Half the callout's width, so it stays inside the card. */
+  const half = Math.min(w / 2, (actionable ? 70 : 0) + (n > 1 ? 105 : 70))
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -86,9 +115,21 @@ export default function MonthBars({
         height={H}
         role="img"
         aria-label={`${series.join(' and ')} per month`}
-        onPointerMove={onMove}
-        onPointerDown={onMove}
-        onPointerLeave={() => setHover(null)}
+        style={{ touchAction: 'pan-y' }}
+        onPointerMove={(e) => {
+          if (scrubbing.current) select(indexAt(e))
+          else if (e.pointerType === 'mouse') setHover(indexAt(e))
+        }}
+        onPointerDown={(e) => {
+          scrubbing.current = true
+          select(indexAt(e))
+        }}
+        onPointerUp={() => (scrubbing.current = false)}
+        onPointerCancel={() => (scrubbing.current = false)}
+        onPointerLeave={() => {
+          scrubbing.current = false
+          setHover(null)
+        }}
       >
         {ticks.map((t) => (
           <g key={t}>
@@ -98,8 +139,8 @@ export default function MonthBars({
             </text>
           </g>
         ))}
-        {hover !== null && (
-          <rect className="hover-band" x={PAD.left + hover * slot} y={PAD.top} width={slot} height={ih} rx={4} />
+        {shown !== null && (
+          <rect className={`hover-band${shown === sel ? ' sel' : ''}`} x={PAD.left + shown * slot} y={PAD.top} width={slot} height={ih} rx={4} />
         )}
         {data.map((d, i) => {
           const x0 = PAD.left + i * slot + (slot - groupW) / 2
@@ -119,18 +160,24 @@ export default function MonthBars({
           )
         })}
       </svg>
-      {hover !== null && (
+      {shown !== null && (
         <div
-          className="chart-tip"
-          style={{ left: Math.min(Math.max(PAD.left + hover * slot + slot / 2, 70), w - 70), top: n > 1 ? 22 : 0 }}
+          key={shown}
+          className={`chart-tip${actionable ? ' actionable' : ''}`}
+          style={{ left: Math.min(Math.max(PAD.left + shown * slot + slot / 2, half), w - half), top: n > 1 ? 22 : 0 }}
         >
-          {long(data[hover].month)} ·{' '}
+          {long(data[shown].month)} ·{' '}
           {series
             .map((s, k) => {
-              const v = data[hover].values[k]
+              const v = data[shown].values[k]
               return `${n > 1 ? `${s} ` : ''}${v === null || v === undefined ? 'no data' : format(v)}`
             })
             .join(' · ')}
+          {actionable && (
+            <button className="chart-open" onClick={() => onOpen!(data[sel!].month)}>
+              {openLabel} ›
+            </button>
+          )}
         </div>
       )}
     </div>

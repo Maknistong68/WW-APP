@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
 import History from '../components/History'
@@ -93,7 +93,10 @@ export default function ContractorDetailPage() {
   const { uuid = '' } = useParams()
   const navigate = useNavigate()
   const d = useAllData()
-  const [month, setMonth] = useState(monthOf())
+  const [params] = useSearchParams()
+  const linked = params.get('m')
+  // Opened from a month (Dashboard, KPI list, activity log): show that month.
+  const [month, setMonth] = useState(linked && /^\d{4}-\d{2}$/.test(linked) && linked <= monthOf() ? linked : monthOf())
   const [pick, setPick] = useState<string>(ALL)
   const [sheet, setSheet] = useState<'edit' | 'kpi' | 'manpower' | null>(null)
   const [woSheet, setWoSheet] = useState<WorkOrder | null>(null)

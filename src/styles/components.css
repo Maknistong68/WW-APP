@@ -143,6 +143,10 @@ button.hero { cursor: pointer; width: 100%; }
 .hero-num.warn { color: var(--warn); }
 .hero-num.good { color: var(--good); }
 .hero-label { font-size: 13.5px; font-weight: 500; color: var(--muted); margin-top: 4px; line-height: 1.25; }
+/* A number that opens its list says so: a small › in the accent. Plain numbers have none. */
+.hero-chev { display: inline-block; vertical-align: -2px; margin-left: 2px; color: var(--brand); }
+/* A number used as a filter, switched on. */
+button.hero.on { background: var(--brand-tint); box-shadow: inset 0 0 0 1.5px var(--brand); }
 
 /* ---- Action bar: floating panel on detail & form screens ---------------------- */
 .actionbar {
@@ -309,3 +313,17 @@ button.row { cursor: pointer; }
 .irow-meta-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* dark: cards inside sheets are lighter than --line, so their dividers need their own tone */
 :root[data-theme='dark'] .modal :is(.list, .clist-body) > * + *::before { background: rgb(255 255 255 / 0.09); }
+
+/* ---- Drill-down filters: what a list was opened with, each removable ------- */
+.drill-chips { flex-wrap: wrap; overflow: visible; max-height: none; margin: 4px 0 12px; align-items: center; view-transition-name: drill; }
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 4px 0 14px;
+  border-radius: var(--r-btn); background: var(--brand-tint); color: var(--brand);
+  font-size: 15px; font-weight: 700; animation: popIn var(--dur-in) var(--ease-spring) both;
+}
+.filter-chip button {
+  display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%;
+  background: transparent; color: inherit; cursor: pointer;
+}
+.filter-chip button:active { background-color: var(--press); }
+.drill-chips .clear-btn { color: var(--brand); font: 600 15px var(--font); min-height: 40px; padding: 0 10px; border-radius: var(--r-btn); }
