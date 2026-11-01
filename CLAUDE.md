@@ -18,9 +18,11 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
   controls via `useAuthInfo().canEdit`. An admin cannot change their own role.
 - No Import and no bulk KPI entry: the history is already in Supabase. New data comes from the
   one + button (`src/components/AddButton.tsx`); Home tiles open `/missing/:item` lists.
-- Short, simple UI wording. "Field tool" design: light by default (dark follows the phone),
-  colour = status only, big rounded cards and icon tiles. Follow `docs/DESIGN.md`; styles live in
-  `src/styles/` (tokens.css first), tone rules in `src/lib/tone.ts`.
+- Short, simple UI wording. "Field tool" design in Samsung One UI 9 style: light by default
+  (true-black dark follows the phone), colour = status only, expandable app bars, rounded
+  grouped cards, a floating tab bar and floating panels, SESL motion with screen transitions.
+  Follow `docs/DESIGN.md`; styles live in `src/styles/` (tokens.css first), tone rules in
+  `src/lib/tone.ts`, motion helpers in `src/lib/nav.ts`, `scroll.ts`, `motion.ts`.
 
 ## Checks before pushing
 ```bash

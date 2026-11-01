@@ -1,14 +1,31 @@
-# WW Co-pilot design rules — "field tool"
+# WW Co-pilot design rules: "field tool" in Samsung One UI 9 style
 
-The app is used on site, often outdoors in strong sun, by people checking compliance. The design
-is light by default, calm and status-first: big rounded cards, big icons on soft tinted tiles,
-one green action per screen.
+The app is used on site, often outdoors in strong sun, by people checking compliance. It looks
+and moves like a stock Galaxy app (One UI 9). It is light by default and status-first: a tall
+title area within thumb reach, rounded grouped cards, a floating tab bar, and one green action
+per screen.
 
 ## Theme
-- **Light by default**, dark when the phone is dark. Settings → Appearance: Auto / Light / Dark
-  (`src/lib/theme.ts`, stored in `ww.theme`, applied before the first paint).
-- Tokens live in `src/styles/tokens.css` (one light block, one dark block). Never hard-code
-  colours in components.
+- **Light by default, true-black dark** when the phone is dark. Settings → Appearance:
+  Auto / Light / Dark.
+  - Code: `src/lib/theme.ts`, stored in `ww.theme`.
+  - `<html data-theme>` always holds the resolved theme. `public/theme-boot.js` sets it before
+    the first paint (the CSP allows no inline scripts).
+- **Tokens** live in `src/styles/tokens.css`: one light block, one `[data-theme='dark']` block.
+  Never hard-code colours in components.
+- **Surfaces:**
+
+  | Surface | Light | Dark |
+  |---|---|---|
+  | Page `--bg` | `#f3f4f6` | `#000` |
+  | Cards `--card` | `#fff` | `#1c1c1e` |
+  | Sheets `--sheet` | – | `#232325` |
+  | Cards in sheets `--card-on-sheet` | – | `#2c2c2e` |
+- **Font:** the phone's own font (`system-ui`, Samsung's font on Galaxy phones). The 3D labels
+  keep the bundled Figtree.
+- **Accent:** one block (`--accent*`, aliased as `--brand*`). It is brand green. Switching to
+  One UI blue is a token swap (`#0a6bd6` with white ink in light, `#3e91ff` with dark ink in
+  dark), but blue is also the "to do" status colour.
 
 ## Colour means status (and nothing else)
 
@@ -23,36 +40,71 @@ one green action per screen.
 - `src/lib/tone.ts` decides the tone for tickets, KPIs, camps, close-outs and Home items. Use
   it; don't invent new rules in a screen.
 - Status is always **icon + word** (`StatusChip`), never colour alone.
-- **Brand green is the one interactive accent:** the primary button, the active tab, the Create
-  button, links and focus.
-- All text pairs are ≥ 4.5:1 in both themes. Chart colours are validated with the dataviz
-  checker on `#ffffff` and `#1a211e`.
+- **The accent (green) is the one interactive colour:** primary buttons, the selected tab, the
+  Create button, links, switches and focus.
+- **Contrast:**
+  - all text pairs are ≥ 4.5:1 in both themes, including on sheets;
+  - chart colours pass the dataviz validator on `#ffffff` and `#1c1c1e`: `--chart` / `--chart-2`
+    are `#137a3a` / `#1d5fd1` in light and `#2fa84f` / `#3987e5` in dark.
 
 ## Shape and size
-- **Cards:** 22px radius, 1px subtle border, soft shadow (alpha < 0.08) in light; border plus a
-  top edge highlight in dark. No frosted glass, no gradients.
-- **Icon tiles** (`IconTile`): 52px in lists, 64px on Home, Library and summaries; filled
+- **Cards:** 26px radius, 1px hairline border, no shadow. A list's title sits *outside* its card,
+  like One UI group titles (`CardList`: `.clist-head` + `.clist-body`).
+- **Floating panels** (sheets, dialogs, drawer, action sheet): 28px radius, 10–12px from the
+  screen edges, soft shadow.
+- **Pill shapes:** buttons, search fields, filter chips and the tab bar. Fields are filled
+  (white on grey), with a green outline on focus.
+- **Icon tiles** (`IconTile`): squircle-ish, 52px in lists and 64px on Home / Library; a filled
   Phosphor icon in the tone colour on its tint.
-- **Touch targets:** rows ≥ 76px, buttons ≥ 52px, inspection answers 56px, chips 44px.
-- **Type:** Figtree (bundled). Page title 30/800, card title 18/800, numbers 30–34/800 tabular,
-  body 16–17, meta 14 (never below 13). Sentence case, no ALL-CAPS labels.
+- **Rows:** dividers are inset and start after the tile. The "more" icon is ⋮ (vertical).
+- **On/off:** a One UI switch, i.e. `input[type=checkbox][role=switch]`.
+- **Touch targets:** rows ≥ 76px, buttons ≥ 52px, inspection answers 56px, chips 40–44px.
+- **Type:**
 
-## Building blocks (`src/components/`)
-- **`CardList` + `ItemRow`:** every list. A rounded card with hairlines, tile + title + meta
-  (+ status chip) + ⋯. Long-press or ⋯ opens the quick actions (`showActions`).
-- **`BigCard`:** Home "Today" items and the Library grid.
-- **`StatCard`:** headline numbers; can act as a filter.
-- **`Summary`:** top of every detail screen: tile, title, chips and a 2×2 fact grid.
-- **`ActionBar`:** pinned bottom bar on detail and form screens with one full-width green action
-  (Close ticket, Score month, Start inspection, Save). It hides the tab bar.
-- **`TabBar`:** Home · Tickets · **Create** (raised green circle) · Dashboard · Library. Hidden
-  while inspecting.
+  | Text | Size / weight |
+  |---|---|
+  | Large title | 34/700 (28/700 on detail screens) |
+  | Toolbar title | 19/700 |
+  | Card title | 17–18/700 |
+  | Row | 17/500–600 |
+  | Meta | 14–15/500 |
+  | Numbers | 28–32/700, tabular |
+
+  Never below 13. Sentence case, no ALL-CAPS labels.
+
+## Chrome
+- **Expandable app bar** (`Page`):
+  - main screens open with a tall title area, about a quarter of the screen
+    (`clamp(112px, 18svh, 190px)`; detail screens `clamp(88px, 12svh, 140px)`);
+  - the big title sits low, with an optional `subtitle` (Today shows the date);
+  - the toolbar row underneath holds Back or the avatar, the actions, and the small title;
+  - scrolling collapses the area into that toolbar, which pins with a blurred background;
+  - stopping halfway snaps it open or shut;
+  - there is no title area in landscape or below 640px height;
+  - `album` screens (their own summary card) have no title area, and the small title fades in
+    on scroll.
+- **Tab bar:**
+  - a floating, blurred pill holds Home · Tickets · Dashboard · Library, with a green highlight
+    that slides (a gentle spring) to the selected tab;
+  - the round green **+ Create** button sits beside it, for editors only;
+  - both slide away while you scroll down and return when you scroll up or reach the top or end;
+  - tapping the selected tab scrolls to the top;
+  - hidden while inspecting, in 3D, and when a screen shows an `ActionBar`.
+- **`ActionBar`:** a floating, blurred panel on detail and form screens with one green pill
+  action (Close ticket, Score month, Start inspection, Save) and up to two round icon buttons.
+- **Glass:** blur (`--blur: 20px` on an almost solid fill) is allowed **only** on floating chrome:
+  the pinned toolbar, the tab pill, the Create button, the action bar, inspection headers and
+  small FABs. Never on cards, sheets, dialogs or content. Low-end phones (`html[data-lite]`),
+  "reduce transparency" and browsers without `backdrop-filter` get the same bars, solid.
+- **Back:** use `useGoBack()` from `src/lib/nav.ts`. It goes back in history when the previous
+  screen is the target (so its scroll returns), otherwise it opens the target as a "back" move.
 
 ## Screens
 - **Today (Home):** three stat cards (Overdue / Due soon / Done), then sections of big cards in
   that order; Done is collapsed.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
+- **Dashboard:** views as a One UI sub-tab track, a month stepper, hero numbers, then charts.
 - **Inspection:**
   - one card per walkthrough line or question;
   - answers as big icon + word buttons (OK / Partial / OBS / N/A; Yes / No / N/A);
@@ -60,15 +112,43 @@ one green action per screen.
     green = done, grey = untouched.
 
 ## Long-press
-- 450ms hold → haptic tick, the row presses in, then a sheet with verb-first actions.
-- Edit actions are hidden from viewers. Destructive actions are red and confirmed by name.
+- A 450ms hold gives a haptic tick, the row presses in, then a floating sheet opens with
+  verb-first actions.
+- Edit actions are hidden from viewers. Destructive actions are red and confirmed in a dialog.
 
-## Motion
-- 100 / 150 / 200 / 300ms only; ease-out in, ease-in out; transform and opacity only; no
-  bounce.
-- Screens slide 8px (forward / back) or fade (tabs). Sheets and the action bar rise; Home cards
-  stagger in.
-- `prefers-reduced-motion` switches it all off.
+## Motion (One UI)
+- **Curves** are Samsung's SESL interpolators:
+  - `--ease-90` = `cubic-bezier(.33,0,.1,1)`: moves and entrances;
+  - `--ease-80` = `cubic-bezier(.33,0,.2,1)`: settles and colour;
+  - `--ease-70` = `cubic-bezier(.33,0,.3,1)`;
+  - `--ease-exit` for leaving.
+- **Durations:** press 100 · fast 150 · med 250 · in 350 · out 200 · page 400 · chart 600 (ms).
+- **Properties:** animate transform and opacity only (plus a dim on screen snapshots).
+- **Bounce:** none, except the tab highlight's gentle spring and the 3D scene.
+- **Screens** (`src/components/RouteTransition.tsx`, View Transitions API):
+  - opening a screen slides it in from the right while the old one drifts 25% left and dims;
+  - Back reverses that, and tabs fade through;
+  - redirects fade, and a search-only change (Dashboard views) doesn't move;
+  - the tab bar, Create button and toast stay put, and slide in or out when only one side of
+    the move has them;
+  - new screens open at the top; Back and tab switches return to where you were;
+  - never animated into or out of 3D, or after the browser's own back-swipe animation;
+  - without View Transitions, screens fade in.
+- **Overlays** animate in *and* out:
+  - sheets close with a slide on backdrop tap, ×, Escape, a drag down, and after Save;
+  - from code, call `ref.close(then)` on `Modal`;
+  - the drawer closes before navigating;
+  - toasts rise in and sink out.
+- **Press:** controls (cards, buttons, chips, answers) press in to 0.97; rows and menu items only
+  highlight.
+- **Entry:**
+  - cards stagger in (not on Back);
+  - numbers count up (`CountUp`: from 0 the first time, from the old value on change, not on
+    Back);
+  - the trend line draws in, month bars grow, bar fills and progress bars sweep, and the KPI
+    ring fills.
+- **Reduced motion** (`prefers-reduced-motion`) turns it all off: screen changes are instant and
+  numbers appear at once.
 
 ## 3D "Live site" (Dashboard → 3D)
 A read-only, animated view of the project, in three.js via @react-three/fiber, loaded only when
@@ -114,5 +194,7 @@ is in `src/three/`.
     - RLS: read = approved users, write = `private.is_admin()`.
 - **Phones:** no shadow maps, fewer workers, no puffs or sparks, 30 fps when idle; check the
   budget with `#/dashboard/3d?stats`.
+- **Screen motion:** no screen transition into or out of 3D, and no blur on its controls (they
+  float over a moving canvas).
 - **Failures:** no WebGL 2 → a message and a link to the 2D dashboard. If the first frame doesn't
   come within 10 s, a card says where it stopped.
