@@ -8,6 +8,8 @@ import RoutineSheet from '../components/RoutineSheet'
 import AreaCard from '../components/AreaCard'
 import StartHere from '../components/StartHere'
 import HomeEditor from '../components/HomeEditor'
+import GetStarted from '../components/GetStarted'
+import UseAppNote from '../components/UseAppNote'
 import { useFinished } from '../components/TaskRow'
 import { areaMenu } from '../components/menus'
 import { useAuthInfo } from '../lib/auth'
@@ -138,6 +140,8 @@ export default function TodoPage() {
         <HomeEditor order={order} onMove={move} onReset={reset} onDone={() => setEditing(false)} />
       ) : (
         <div className="home stagger">
+          <UseAppNote />
+          <GetStarted />
           {order.map((key) => {
             const body = section(key)
             return body ? (

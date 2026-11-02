@@ -20,6 +20,7 @@ import PasswordInput from '../components/PasswordInput'
 import { RECOVERY_KEY, authErrorText, sendPasswordReset, signInWithPassword, signUpWithPassword, useAuthInfo } from '../lib/auth'
 import { showToast } from '../components/Toast'
 import ProfileCard from '../components/ProfileCard'
+import { hideGetStarted } from '../lib/onboarding'
 import { logText, mergeLogs } from '../lib/logCopy'
 import { readLocalLog } from '../lib/localLog'
 import { canInstall, isIos, isStandalone, onInstallChange, promptInstall } from '../lib/installPrompt'
@@ -254,6 +255,21 @@ export default function SettingsPage() {
         </div>
         <div className="list-foot" style={{ marginTop: -8 }}>Auto follows your phone. Light is easiest to read in the sun.</div>
         <div className="section-label">Your data</div>
+        <div className="list">
+          <button
+            className="row"
+            onClick={() => {
+              hideGetStarted(false)
+              navigate('/')
+            }}
+          >
+            <span className="row-main">
+              <div className="row-title">Get started</div>
+              <div className="row-sub">Show the first steps on Home again</div>
+            </span>
+            <Icon name="chevron-right" size={20} />
+          </button>
+        </div>
         <div className="list">
           <button className="row" onClick={() => navigate('/settings/log')}>
             <span className={`row-icon h-${MENU_HUE.activity}`}>

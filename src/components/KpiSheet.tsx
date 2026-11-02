@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useSave } from '../lib/useSave'
+import { markSeen } from '../lib/onboarding'
 import SaveButton from './SaveButton'
 import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
@@ -102,6 +103,7 @@ export default function KpiSheet({
       }
       await saveRecord('kpiMonths', audit ? k : withoutAudit(k), `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
       haptic('success')
+      markSeen('kpi')
       showToast({ text: 'KPIs saved' })
       // slide the sheet away, then close
       if (sheet.current) sheet.current.close()

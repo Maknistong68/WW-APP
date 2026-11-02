@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
 import PasswordInput from '../components/PasswordInput'
 import { sendPasswordReset, setNewPassword, signInWithLogin, signUpWithPassword } from '../lib/auth'
 import { authProblemText, emailProblem, nameProblem, normUsername, parseLogin, passwordProblem, signUpProblem, usernameProblem } from '../lib/authForm'
@@ -15,7 +15,7 @@ import { APP_NAME } from '../lib/appInfo'
 type Screen = 'signIn' | 'signUp' | 'forgot' | 'sent'
 
 /** The shared frame: app icon, name and one line, then the card. */
-function Frame({ title, sub, children }: { title: string; sub?: string; children: ReactNode }) {
+export function Frame({ title, sub, children }: { title: string; sub?: string; children: ReactNode }) {
   return (
     <main className="login">
       <div className="login-brand">
@@ -335,23 +335,73 @@ export function SetPasswordPage({ name, invited, onDone, onSignOut }: { name: st
   )
 }
 
-/** Signed in, but not approved (yet). */
+/** Signed in, but not approved (yet): add your name while you wait; it checks again by itself. */
 export function WaitingPage({
   email,
   rejected,
+  hasName,
   onRefresh,
   onSignOut,
 }: {
   email: string
   rejected: boolean
+  hasName: boolean
   onRefresh: () => void
   onSignOut: () => void
 }) {
+  const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState('')
+  const ids = { name: useId(), username: useId() }
+  // Approval can come any minute: look again every 30 seconds.
+  useEffect(() => {
+    if (rejected) return
+    const t = window.setInterval(onRefresh, 30000)
+    return () => window.clearInterval(t)
+  }, [rejected, onRefresh])
+
+  const saveName = async (e: FormEvent) => {
+    e.preventDefault()
+    const p = nameProblem(name) ?? usernameProblem(username)
+    if (p) return setProblem(p)
+    setBusy(true)
+    setProblem('')
+    try {
+      const c = await getClient()
+      if (!c) throw new Error('Cloud sync is not set up')
+      const { error } = await c.rpc('set_my_profile', { p_username: normUsername(username), p_full_name: name.trim() })
+      if (error) throw new Error(error.message)
+      onRefresh()
+    } catch (er) {
+      setProblem(authProblemText(er))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <Frame
       title={rejected ? 'No access' : 'Waiting for approval'}
       sub={rejected ? `${email} does not have access. Ask the admin.` : `${email} is signed in. The admin approves new accounts; then the team’s data opens here.`}
     >
+      {!rejected && !hasName && (
+        <form onSubmit={(e) => void saveName(e)} noValidate style={{ marginBottom: 8 }}>
+          <p className="login-note" style={{ margin: '0 0 12px' }}>
+            While you wait: add your name, so the admin knows who you are.
+          </p>
+          <Alert text={problem} />
+          <Field label="Your name" id={ids.name}>
+            <input id={ids.name} value={name} autoComplete="name" onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Username" id={ids.username} hint="You can sign in with it.">
+            <input id={ids.username} value={username} autoComplete="username" autoCapitalize="none" spellCheck={false} onChange={(e) => setUsername(e.target.value)} />
+          </Field>
+          <button className="btn block" disabled={busy}>
+            Save name
+          </button>
+        </form>
+      )}
       <div className="btn-row">
         <button className="btn" onClick={onSignOut}>
           Sign out

@@ -33,16 +33,28 @@ import MissingPage from './pages/MissingPage'
 import CloseoutPage from './pages/CloseoutPage'
 import LoginPage, { SetPasswordPage, WaitingPage } from './pages/LoginPage'
 import { gateScreen } from './lib/gate'
+import InstallPage from './pages/InstallPage'
+import { useInstallState } from './lib/installPrompt'
 import UsersPage from './pages/UsersPage'
 import { AuthContext, actorName, canEditRole, useAuth, useAuthInfo } from './lib/auth'
 import { setActor, setRole } from './lib/actor'
+import { setOnboardingUser } from './lib/onboarding'
 import ToastHost, { showToast } from './components/Toast'
 import { backgroundSync, type SyncResult } from './lib/sync'
 
 export default function App() {
   const auth = useAuth()
-  const screen = gateScreen({ phase: auth.phase, setPassword: auth.setPassword })
+  const install = useInstallState()
+  const screen = gateScreen({ phase: auth.phase, setPassword: auth.setPassword, install: install.offerFirst })
   if (screen === 'loading') return null
+  if (screen === 'install') {
+    return (
+      <>
+        <InstallPage signInAs={auth.session ? (auth.username ? `@${auth.username}` : auth.email) : undefined} />
+        <ToastHost />
+      </>
+    )
+  }
   if (screen === 'setPassword') {
     return (
       <>
@@ -70,6 +82,7 @@ export default function App() {
         <WaitingPage
           email={auth.email}
           rejected={auth.phase === 'rejected'}
+          hasName={!!(auth.fullName || auth.username)}
           onRefresh={auth.refresh}
           onSignOut={() => void auth.signOut()}
         />
@@ -78,6 +91,7 @@ export default function App() {
     )
   }
   setRole(auth.role)
+  setOnboardingUser(auth.session?.user.id ?? '')
   // Every change made on this phone is stamped with who is signed in.
   setActor(
     auth.session

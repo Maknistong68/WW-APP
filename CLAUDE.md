@@ -91,4 +91,10 @@ npm run build   # strict tsc + vite build
   (checks the caller is an approved admin; `inviteUserByEmail`, else a copy-able link via `generateLink`; the profile
   is approved with the chosen role). Rows show "Invited · not joined yet" until `joined_at` (set on first sign-in);
   "Send a new link" for them. Rules: `src/lib/invite.ts`; calls: `src/lib/functions.ts` (`callFunction`).
+- Install first + Get started: `src/lib/platform.ts` (which phone/browser, `installPlan` steps per browser,
+  `shouldOfferInstall`), `src/lib/installPrompt.ts` (`useInstallState`, skip = "Continue in browser"). On a phone
+  or tablet in a browser tab, `src/pages/InstallPage.tsx` comes first (after Set password, `gate.ts`); never on a
+  computer. Home shows `GetStarted` (steps from `src/lib/onboarding.ts`, done by doing: installed, name, synced,
+  holding a ticket, saving KPIs, opening the Dashboard, inviting) and `UseAppNote` after a skip; Settings › Get
+  started brings the card back. Waiting asks for the name and checks again every 30 s.
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).

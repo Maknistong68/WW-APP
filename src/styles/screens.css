@@ -64,6 +64,10 @@
 .field.has-error input { border-color: var(--bad); }
 .login-link { display: block; margin: 14px auto 0; padding: 10px 12px; min-height: 44px; border: none; background: none; color: var(--brand); font: 600 16px var(--font); cursor: pointer; border-radius: var(--r-btn); }
 .login-link.inline { display: inline; margin: 0; padding: 10px 4px; }
+.install-steps { list-style: none; margin: 4px 0 16px; padding: 0; display: grid; gap: 10px; }
+.install-steps li { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 14px; border-radius: 16px; background: var(--bg); font-size: 16px; line-height: 1.35; }
+.install-num { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; font-weight: 700; font-size: 15px; }
+.install-done { display: grid; place-items: center; padding: 8px 0 4px; color: var(--good); }
 .login-switch { margin-top: 6px; text-align: center; color: var(--muted); font-size: 16px; }
 .login .btn.primary { margin-top: 4px; min-height: 56px; font-size: 17px; }
 
@@ -224,3 +228,24 @@
 .pill-row.scroll .pill { flex: none; }
 .compare-link { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; margin-top: 12px; min-height: 44px; border: 0; border-radius: var(--r-btn); background: var(--brand-tint); color: var(--brand); font: 700 15px var(--font); cursor: pointer; }
 .compare-link:active { transform: scale(0.97); }
+
+/* ---- Home: Get started card and the "use the installed app" note -------------- */
+.getstarted { margin: 8px 0 22px; padding: 18px; border-radius: var(--r-panel); background: var(--card); border: 1px solid var(--border); }
+.gs-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.gs-head b { font-size: 19px; }
+.gs-count { color: var(--muted); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.gs-hide { margin-left: auto; min-height: 40px; padding: 0 10px; border: none; background: none; color: var(--muted); font: 600 15px var(--font); border-radius: var(--r-btn); cursor: pointer; }
+.gs-steps { list-style: none; margin: 14px 0 16px; padding: 0; display: grid; gap: 4px; }
+.gs-steps li { display: flex; align-items: flex-start; gap: 12px; padding: 8px 2px; }
+.gs-mark { flex: none; display: grid; place-items: center; width: 24px; height: 24px; margin-top: 1px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line); color: #fff; }
+.gs-steps li.done .gs-mark { background: var(--good); box-shadow: none; }
+.gs-steps li.next .gs-mark { box-shadow: inset 0 0 0 2px var(--brand); }
+.gs-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gs-title { font-size: 16px; font-weight: 600; }
+.gs-steps li.done .gs-title { color: var(--muted); font-weight: 500; text-decoration: line-through; text-decoration-color: var(--line); }
+.gs-sub { font-size: 14px; color: var(--muted); line-height: 1.35; }
+.use-app-note { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; padding: 8px 6px 8px 16px; border-radius: 20px; background: var(--brand-tint); color: var(--brand); }
+.use-app-text { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-height: 44px; justify-content: center; border: none; background: none; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.use-app-text b { font-size: 15px; }
+.use-app-text span { font-size: 13px; color: var(--muted); }
+.login-like .install-steps li { background: var(--card-on-sheet); }

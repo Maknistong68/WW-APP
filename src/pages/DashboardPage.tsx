@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChipScroll } from '../lib/chipScroll'
+import { markSeen } from '../lib/onboarding'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { saveAs } from 'file-saver'
 import Page from '../components/Page'
@@ -47,6 +48,7 @@ export default function DashboardPage() {
   // Old links (?v=overview, money, workers, camps) open the view that now holds them.
   const view = dashView(params.get('v'))
   const viewRow = useRef<HTMLDivElement>(null)
+  useEffect(() => markSeen('dashboard'), [])
   useChipScroll(viewRow, view, 8)
   const d = useAllData()
   const today = localDate()
