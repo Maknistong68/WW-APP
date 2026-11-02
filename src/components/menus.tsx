@@ -8,14 +8,14 @@ import { localDate, monthLabel, shortDate } from '../lib/dates'
 import { lastEndedMonth } from '../lib/due'
 import { haptic } from '../lib/haptics'
 import { kpiStatus, pct, type KpiResult } from '../lib/kpi'
-import { campActions, inspectionActions, ticketActions, workOrderActions, type MenuAction } from '../lib/menuSpec'
+import { campActions, contractorActions, inspectionActions, ticketActions, workOrderActions, type MenuAction } from '../lib/menuSpec'
 import { sarShort } from '../lib/money'
 import { ticketLink } from '../lib/ticketFilter'
 import { saveRecord } from '../lib/records'
-import type { KpiSubject } from '../lib/subjects'
+import { isFollowed, kpiSubjects, type KpiSubject } from '../lib/subjects'
 import { kpiTone, ticketTone, type Tone } from '../lib/tone'
 import { ticketLabel } from '../lib/useData'
-import type { Camp, Contractor, Inspection, Ticket } from '../types'
+import type { Camp, Contractor, Inspection, Ticket, WorkOrder } from '../types'
 
 // One long-press menu per kind of record, the same on every screen. Which
 // actions show comes from src/lib/menuSpec.ts (tested); edit actions are
@@ -88,35 +88,72 @@ export function ticketMenu(
   })
 }
 
-/** Long-press on a contractor: its trends and tickets, fill in a work order's month, edit. */
+/**
+ * Long-press on a contractor: its trends and tickets, fill in a work order's
+ * month, edit, and turn it off or on. A contractor that is on but has every
+ * work order off is not scored: the menu offers to turn a work order back on.
+ */
 export function contractorMenu(
   c: Contractor,
-  o: { subjects: KpiSubject[]; kpi?: KpiResult; kpiMonth: string; openTickets?: number; spark?: (number | null)[] },
+  o: { workOrders: WorkOrder[]; kpi?: KpiResult; kpiMonth: string; openTickets?: number; spark?: (number | null)[] },
 ) {
   const month = fillMonth()
-  const tone: Tone = c.active ? kpiTone(o.kpi?.status ?? 'none') : 'none'
+  const followed = isFollowed(c, o.workOrders)
+  const subjects = kpiSubjects([c], o.workOrders)
+  const wos = o.workOrders.filter((w) => w.contractorUuid === c.uuid)
+  const tone: Tone = followed ? kpiTone(o.kpi?.status ?? 'none') : 'none'
   const known = (o.spark ?? []).filter((v): v is number => v !== null)
   const last = known.length ? known[known.length - 1] : null
+  const setActive = (active: boolean) =>
+    void saveRecord('contractors', { ...c, active }, c.name).then(() => {
+      haptic('success')
+      const stillOff = active && !isFollowed({ ...c, active }, o.workOrders)
+      showToast({ text: stillOff ? `${c.name} turned on · turn on a work order to score it` : `${c.name} turned ${active ? 'on' : 'off'}` })
+    })
+  const woOn = (w: WorkOrder) =>
+    void saveRecord('workOrders', { ...w, active: true }, `${c.name} · WO ${w.number}`).then(() => {
+      haptic('success')
+      showToast({ text: `WO ${w.number} turned on` })
+    })
+  const expand: Record<MenuAction, SheetAction[]> = {
+    trends: [{ label: 'See trends', icon: 'activity', onSelect: () => go(`/contractors/${c.uuid}?tab=trends`) }],
+    tickets: [{ label: 'Open tickets', icon: 'ticket', onSelect: () => go(ticketLink({ c: c.uuid, f: 'open' }, `/contractors/${c.uuid}`)) }],
+    fill: subjects.slice(0, 4).map((s) => ({
+      label: `Fill in ${short(month)}${s.workOrder ? ` · WO ${s.workOrder.number}` : ''}`,
+      icon: 'gauge' as const,
+      edit: true,
+      onSelect: () => openSheet({ kind: 'kpi', contractorUuid: c.uuid, workOrderUuid: s.workOrder?.uuid ?? '', month }),
+    })),
+    edit: [{ label: 'Edit details', icon: 'pencil', edit: true, onSelect: () => openSheet({ kind: 'contractorEdit', uuid: c.uuid }) }],
+    turnOff: [
+      {
+        label: 'Turn off',
+        icon: 'minus-circle',
+        edit: true,
+        onSelect: () =>
+          openSheet({
+            kind: 'confirm',
+            title: `Turn off ${c.name}?`,
+            message: 'It stops counting in KPIs and on Home. Its history stays, and you can turn it back on.',
+            confirmLabel: 'Turn off',
+            destructive: true,
+            onConfirm: () => setActive(false),
+          }),
+      },
+    ],
+    turnOn: [{ label: 'Turn on', icon: 'check-circle', edit: true, onSelect: () => setActive(true) }],
+    turnOnWo: wos.slice(0, 3).map((w) => ({ label: `Turn on WO ${w.number}`, icon: 'check-circle' as const, edit: true, onSelect: () => woOn(w) })),
+  } as Record<MenuAction, SheetAction[]>
   showActions({
     title: c.name,
-    sub: c.active ? `${o.subjects.length} work order${o.subjects.length === 1 ? '' : 's'}` : 'Inactive',
+    sub: !c.active ? 'Inactive' : !followed ? 'All work orders off' : `${subjects.length} work order${subjects.length === 1 ? '' : 's'}`,
     cover: <IconTile text={c.name} tone={tone} size={52} />,
     spark: o.spark ? { values: o.spark, label: 'Overall KPI, last 6 months', tone: kpiTone(kpiStatus(last)), guide: 90 } : undefined,
     facts: [
-      { label: `KPI ${short(o.kpiMonth)}`, value: pct(o.kpi?.overall ?? null), tone: tone === 'none' || tone === 'info' ? undefined : tone },
+      { label: `KPI ${short(o.kpiMonth)}`, value: pct(followed ? (o.kpi?.overall ?? null) : null), tone: tone === 'none' || tone === 'info' ? undefined : tone },
       ...(o.openTickets !== undefined ? [{ label: 'Open tickets', value: o.openTickets }] : []),
     ],
-    actions: [
-      { label: 'See trends', icon: 'activity', onSelect: () => go(`/contractors/${c.uuid}?tab=trends`) },
-      { label: 'Open tickets', icon: 'ticket', onSelect: () => go(ticketLink({ c: c.uuid, f: 'open' }, `/contractors/${c.uuid}`)) },
-      ...o.subjects.slice(0, 4).map((s) => ({
-        label: `Fill in ${short(month)}${s.workOrder ? ` · WO ${s.workOrder.number}` : ''}`,
-        icon: 'gauge' as const,
-        edit: true,
-        onSelect: () => openSheet({ kind: 'kpi', contractorUuid: c.uuid, workOrderUuid: s.workOrder?.uuid ?? '', month }),
-      })),
-      { label: 'Edit details', icon: 'pencil', edit: true, onSelect: () => openSheet({ kind: 'contractorEdit', uuid: c.uuid }) },
-    ],
+    actions: contractorActions(c, followed).flatMap((a) => expand[a] ?? []),
   })
 }
 

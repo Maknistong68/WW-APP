@@ -11,7 +11,7 @@ import { useAuthInfo } from '../lib/auth'
 import { campState } from '../lib/camps'
 import { closeoutTotals, closeouts } from '../lib/closeout'
 import { useAllData } from '../lib/kpiData'
-import { kpiSubjects } from '../lib/subjects'
+import { isFollowed, kpiSubjects } from '../lib/subjects'
 import { MENU_HUE, type Hue } from '../lib/hues'
 import { pendingCount } from './UsersPage'
 
@@ -36,11 +36,12 @@ export default function LibraryPage() {
   }, [me.role])
 
   const shelves = useMemo<Shelf[]>(() => {
-    const active = d.contractors.filter((c) => c.active)
-    const wos = d.workOrders.filter((w) => w.active)
+    const subjects = kpiSubjects(d.contractors, d.workOrders)
+    const active = d.contractors.filter((c) => isFollowed(c, d.workOrders))
+    const wos = subjects.filter((s) => s.workOrder)
     const camps = d.camps.filter((c) => c.active)
     const late = camps.filter((c) => ['expired', 'never'].includes(campState(c, d.inspections).status)).length
-    const co = closeoutTotals(closeouts(kpiSubjects(d.contractors, d.workOrders), d.kpis))
+    const co = closeoutTotals(closeouts(subjects, d.kpis))
     const list: Shelf[] = [
       { path: '/contractors', title: 'Contractors', sub: `${active.length} active · ${wos.length} work orders`, hue: MENU_HUE.contractors, icon: 'buildings' },
       {

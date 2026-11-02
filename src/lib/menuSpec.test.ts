@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EDIT_ACTIONS, campActions, inspectionActions, ticketActions, viewerOnly, workOrderActions } from './menuSpec'
+import { EDIT_ACTIONS, campActions, contractorActions, inspectionActions, ticketActions, viewerOnly, workOrderActions } from './menuSpec'
 
 const open = { status: 'Open' as const, contractorUuid: 'c', parentUuid: '' }
 const closed = { status: 'Closed' as const, contractorUuid: 'c', parentUuid: '' }
@@ -31,6 +31,13 @@ describe('Other menus', () => {
     expect(workOrderActions({ active: true })).toEqual(['fill', 'manpower', 'tickets', 'trends', 'contractor', 'turnOff'])
     expect(workOrderActions({ active: false })).toEqual(['fill', 'manpower', 'tickets', 'trends', 'contractor', 'turnOn'])
     expect(viewerOnly(workOrderActions({ active: true }))).toEqual(['tickets', 'trends', 'contractor'])
+  })
+  it('contractor: trends, tickets, fill in when scored, edit, and the on/off switch', () => {
+    expect(contractorActions({ active: true }, true)).toEqual(['trends', 'tickets', 'fill', 'edit', 'turnOff'])
+    // on, but every work order off: turn a work order on
+    expect(contractorActions({ active: true }, false)).toEqual(['trends', 'tickets', 'edit', 'turnOnWo'])
+    expect(contractorActions({ active: false }, false)).toEqual(['trends', 'tickets', 'edit', 'turnOn'])
+    expect(viewerOnly(contractorActions({ active: true }, true))).toEqual(['trends', 'tickets'])
   })
   it('camp: inspect, contractor when linked, edit', () => {
     expect(campActions({ contractorUuid: 'c' })).toEqual(['inspect', 'contractor', 'edit'])

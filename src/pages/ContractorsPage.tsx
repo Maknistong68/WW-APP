@@ -8,7 +8,7 @@ import { kpiTone } from '../lib/tone'
 import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
 import { contractorMenu } from '../components/menus'
-import { kpiSubjects } from '../lib/subjects'
+import { isFollowed } from '../lib/subjects'
 import { contractorOverall } from '../lib/trends'
 import { lastMonths } from '../lib/dashboard'
 import { useAuthInfo } from '../lib/auth'
@@ -34,12 +34,14 @@ export default function ContractorsPage() {
   const match = (c: Contractor) =>
     !q || [c.name, ...c.aliases, ...wosOf(c.uuid).map((w) => w.number)].some((s) => s.toLowerCase().includes(q))
   const openCount = (uuid: string) => d.tickets.filter((t) => t.contractorUuid === uuid && isOpen(t)).length
-  const active = d.contractors.filter((c) => c.active && match(c))
-  const inactive = d.contractors.filter((c) => !c.active && match(c))
+  // Active = followed: switched on with an active work order (or none at all).
+  const followed = (c: Contractor) => isFollowed(c, d.workOrders)
+  const active = d.contractors.filter((c) => followed(c) && match(c))
+  const inactive = d.contractors.filter((c) => !followed(c) && match(c))
 
   const more = (c: Contractor) =>
     contractorMenu(c, {
-      subjects: kpiSubjects([c], d.workOrders),
+      workOrders: d.workOrders,
       kpi: kpis.get(c.uuid),
       kpiMonth: month,
       openTickets: openCount(c.uuid),
@@ -51,17 +53,19 @@ export default function ContractorsPage() {
     const open = openCount(c.uuid)
     const wos = wosOf(c.uuid)
     const on = wos.filter((w) => w.active).length
+    const f = followed(c)
+    const state = !c.active ? 'Turned off · ' : !f ? 'All WOs off · ' : wos.length ? `${on}/${wos.length} WO active · ` : ''
     return (
       <ItemRow
         key={c.uuid}
-        tile={<IconTile text={c.name} tone={c.active ? kpiTone(r?.status ?? 'none') : 'none'} size={52} />}
+        tile={<IconTile text={c.name} tone={f ? kpiTone(r?.status ?? 'none') : 'none'} size={52} />}
         title={c.name}
-        sub={`${wos.length ? `${on}/${wos.length} WO active · ` : ''}${open} open ticket${open === 1 ? '' : 's'}`}
+        sub={`${state}${open} open ticket${open === 1 ? '' : 's'}`}
         trail={
-          c.active && r?.overall != null ? (
+          f && r?.overall != null ? (
             <StatusChip tone={kpiTone(r.status)}>{pct(r.overall)}</StatusChip>
           ) : (
-            <span className="row-trail">{c.active ? '—' : 'Inactive'}</span>
+            <span className="row-trail">{f ? '—' : 'Inactive'}</span>
           )
         }
         onOpen={() => navigate(`/contractors/${c.uuid}`)}

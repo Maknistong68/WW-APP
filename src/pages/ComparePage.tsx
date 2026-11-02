@@ -48,7 +48,7 @@ export default function ComparePage() {
       if (s?.workOrder) return workOrderMenu({ ...s, workOrder: s.workOrder }, { month: end })
     }
     contractorMenu(c, {
-      subjects: kpiSubjects([c], d.workOrders),
+      workOrders: d.workOrders,
       kpi: kpisForMonth(d, end).get(c.uuid),
       kpiMonth: end,
       openTickets: d.tickets.filter((t) => t.contractorUuid === c.uuid && t.status !== 'Closed').length,

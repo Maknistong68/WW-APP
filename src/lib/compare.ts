@@ -1,5 +1,5 @@
 import { kpiForSubject, type AllData, type KpiItemKey } from './kpiData'
-import { kpiSubjects } from './subjects'
+import { isFollowed, kpiSubjects } from './subjects'
 import { contractorKpiSeries } from './trends'
 
 // Compare contractors (or work orders) month by month on one KPI item: the
@@ -29,7 +29,7 @@ function row(key: string, label: string, contractorUuid: string, workOrderUuid: 
 /** Active contractors (or their active work orders), one value per month. */
 export function compareRows(d: AllData, months: string[], key: KpiItemKey, by: CompareBy = 'contractor'): CompareRow[] {
   if (by === 'contractor') {
-    return d.contractors.filter((c) => c.active).map((c) => row(c.uuid, c.name, c.uuid, undefined, contractorKpiSeries(d, c, months)[key]))
+    return d.contractors.filter((c) => isFollowed(c, d.workOrders)).map((c) => row(c.uuid, c.name, c.uuid, undefined, contractorKpiSeries(d, c, months)[key]))
   }
   return kpiSubjects(d.contractors, d.workOrders).map((s) =>
     row(

@@ -193,7 +193,7 @@ export default function DashboardPage() {
     const c = d.byUuid.get(uuid)
     if (!c) return
     contractorMenu(c, {
-      subjects: kpiSubjects([c], d.workOrders),
+      workOrders: d.workOrders,
       kpi: kpiMap.get(uuid),
       kpiMonth,
       openTickets: d.tickets.filter((t) => t.contractorUuid === uuid && isOpen(t)).length,

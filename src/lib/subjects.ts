@@ -16,6 +16,17 @@ export interface KpiSubject {
 
 export const woOf = (s: KpiSubject) => s.workOrder?.uuid ?? ''
 
+/**
+ * Followed = scored, on Home and listed as Active: a switched-on contractor
+ * with at least one active work order, or with no work orders at all. A
+ * contractor whose work orders are all switched off counts as inactive.
+ */
+export function isFollowed(c: Contractor, workOrders: WorkOrder[]): boolean {
+  if (!c.active) return false
+  const wos = workOrders.filter((w) => w.contractorUuid === c.uuid)
+  return wos.length === 0 || wos.some((w) => w.active)
+}
+
 export function kpiSubjects(contractors: Contractor[], workOrders: WorkOrder[]): KpiSubject[] {
   const out: KpiSubject[] = []
   for (const c of contractors) {

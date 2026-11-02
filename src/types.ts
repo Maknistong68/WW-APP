@@ -208,7 +208,10 @@ interface RecordBase {
 
 export interface Contractor extends RecordBase {
   name: string
-  /** Off = not followed (no KPIs, not in "missing documents"); its work orders are off too. */
+  /**
+   * Off = not followed (no KPIs, not on Home, listed as Inactive). A contractor that is on but has
+   * every work order off is not followed either (see isFollowed in src/lib/subjects.ts).
+   */
   active: boolean
   /** Every other spelling of this contractor met in files or audits. */
   aliases: string[]

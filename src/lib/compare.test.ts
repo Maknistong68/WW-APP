@@ -4,8 +4,12 @@ import type { AllData } from './kpiData'
 import type { Contractor, KpiMonth, WorkOrder } from '../types'
 
 const C = (uuid: string, name: string, active = true) => ({ uuid, name, active, aliases: [] }) as unknown as Contractor
-const contractors = [C('a', 'RPCO'), C('b', 'SIBS'), C('c', 'Old Co', false), C('d', 'Nofill')]
-const workOrders = [{ uuid: 'w1', contractorUuid: 'a', number: '882', label: '', active: true }] as WorkOrder[]
+const contractors = [C('a', 'RPCO'), C('b', 'SIBS'), C('c', 'Old Co', false), C('d', 'Nofill'), C('e', 'TPD')]
+const workOrders = [
+  { uuid: 'w1', contractorUuid: 'a', number: '882', label: '', active: true },
+  // TPD's only work order is switched off: TPD is not followed any more
+  { uuid: 'w9', contractorUuid: 'e', number: '892', label: '', active: false },
+] as WorkOrder[]
 const all3 = { wps: true, manpowerDecl: true, salaryDecl: true }
 const d: AllData = {
   loaded: true,
@@ -28,7 +32,7 @@ const d: AllData = {
 const months = ['2026-09', '2026-10']
 
 describe('Compare contractors', () => {
-  it('one row per active contractor: its values, the latest and the change', () => {
+  it('one row per followed contractor (all work orders off = left out): its values, the latest and the change', () => {
     const rows = compareRows(d, months, 'submission')
     expect(rows.map((r) => r.label)).toEqual(['RPCO', 'SIBS', 'Nofill'])
     expect(rows[0]).toMatchObject({ contractorUuid: 'a', values: [100, 50], latest: 50, change: -50 })

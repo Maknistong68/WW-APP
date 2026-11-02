@@ -15,6 +15,7 @@ export type MenuAction =
   | 'manpower'
   | 'turnOff'
   | 'turnOn'
+  | 'turnOnWo'
   | 'inspect'
   | 'repeat'
   | 'tickets'
@@ -31,6 +32,7 @@ export const EDIT_ACTIONS: ReadonlySet<MenuAction> = new Set<MenuAction>([
   'manpower',
   'turnOff',
   'turnOn',
+  'turnOnWo',
   'inspect',
   'repeat',
 ])
@@ -51,6 +53,14 @@ export function ticketActions(
   if (isMember) ids.push('main')
   ids.push('copy', 'delete')
   return ids
+}
+
+/**
+ * A contractor: its trends and tickets, fill in (when it is scored), edit, and
+ * the on/off switch. Turned on but every work order off → turn a work order on.
+ */
+export function contractorActions(c: { active: boolean }, followed: boolean): MenuAction[] {
+  return ['trends', 'tickets', ...(followed ? (['fill'] as const) : []), 'edit', c.active ? (followed ? 'turnOff' : 'turnOnWo') : 'turnOn']
 }
 
 export function workOrderActions(wo: { active: boolean }): MenuAction[] {

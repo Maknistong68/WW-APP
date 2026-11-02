@@ -13,7 +13,7 @@ import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
 import { auditPctFor, kpiForSubject, rollup, useAllData } from '../lib/kpiData'
 import { mentions } from '../lib/names'
 import { saveRecord } from '../lib/records'
-import { subjectKpi, subjectManpower, type KpiSubject } from '../lib/subjects'
+import { isFollowed, subjectKpi, subjectManpower, type KpiSubject } from '../lib/subjects'
 import { newWorkOrder } from '../lib/useData'
 import type { WorkOrder } from '../types'
 import { useAuthInfo } from '../lib/auth'
@@ -156,19 +156,23 @@ export default function ContractorDetailPage() {
   const auditList = contractorAudits(d, c, []).list
   const recentAudits = auditList.slice(0, 3)
   const auditCount = auditList.length
-  const toggleWo = (w: WorkOrder) =>
+  // Followed = scored and listed as Active (on, with an active work order or none).
+  const followed = isFollowed(c, d.workOrders)
+  const toggleWo = (w: WorkOrder) => {
+    const lastOn = w.active && c.active && data.wos.filter((x) => x.active).length === 1
     void saveRecord('workOrders', { ...w, active: !w.active }, `${c.name} · WO ${w.number}`).then(() =>
-      showToast({ text: `WO ${w.number} ${w.active ? 'deactivated' : 'activated'}` }),
+      showToast({ text: lastOn ? `WO ${w.number} turned off · ${c.name} moves to Inactive` : `WO ${w.number} turned ${w.active ? 'off' : 'on'}` }),
     )
+  }
 
   return (
     <Page title={c.name} back="/contractors" backLabel="Contractors" album>
       <Summary
-        tile={<IconTile text={c.name} tone={c.active ? kpiTone(topResult.status) : 'none'} size={64} />}
+        tile={<IconTile text={c.name} tone={followed ? kpiTone(topResult.status) : 'none'} size={64} />}
         title={c.name}
-        sub={c.active ? `KPI · ${monthLabel(month)}` : 'Inactive — not scored'}
+        sub={followed ? `KPI · ${monthLabel(month)}` : c.active ? 'All work orders off — not scored' : 'Inactive — not scored'}
         chips={
-          c.active ? (
+          followed ? (
             <StatusChip tone={kpiTone(topResult.status)}>{STATUS_LABEL[topResult.status]}</StatusChip>
           ) : (
             <StatusChip tone="none">Inactive</StatusChip>
@@ -227,9 +231,11 @@ export default function ContractorDetailPage() {
         />
       ) : (
       <>
-      {!c.active && (
+      {!followed && (
         <div className="list-foot" style={{ marginTop: -4 }}>
-          Inactive — not scored and not in missing documents. Edit to activate.
+          {c.active
+            ? 'All work orders off — not scored. Turn one on below.'
+            : 'Inactive — not scored and not in missing documents. Edit to activate.'}
         </div>
       )}
 
