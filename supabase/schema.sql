@@ -346,3 +346,84 @@ create policy "team change" on public.routines for update to authenticated
   using ((select private.can_edit())) with check ((select private.can_edit()));
 create policy "team remove" on public.routines for delete to authenticated using ((select private.can_edit()));
 grant select, insert, update, delete on public.routines to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Who did it: each person has a name and a username; everyone approved can
+-- read the team's names (not emails); every activity entry is stamped by the
+-- server with who sent it. Records are kept if a user is deleted. Safe to re-run.
+-- ---------------------------------------------------------------------------
+alter table public.profiles add column if not exists username text;
+alter table public.profiles add column if not exists full_name text;
+alter table public.profiles drop constraint if exists profiles_username_format;
+alter table public.profiles add constraint profiles_username_format
+  check (username is null or username ~ '^[a-z0-9][a-z0-9._-]{2,23}$');
+alter table public.profiles drop constraint if exists profiles_full_name_len;
+alter table public.profiles add constraint profiles_full_name_len
+  check (full_name is null or char_length(full_name) between 1 and 60);
+create unique index if not exists profiles_username_key on public.profiles (lower(username));
+
+-- The team as approved users see it: names only.
+create or replace function public.team_members()
+returns table (id uuid, username text, full_name text)
+language sql stable security definer set search_path = '' as $$
+  select p.id, p.username, p.full_name from public.profiles p where (select private.is_approved())
+$$;
+revoke all on function public.team_members() from public, anon;
+grant execute on function public.team_members() to authenticated;
+
+-- Anyone signed in (pending too) sets their own name and username.
+create or replace function public.set_my_profile(p_username text, p_full_name text)
+returns void language plpgsql security definer set search_path = '' as $$
+declare
+  u text := lower(trim(coalesce(p_username, '')));
+  n text := trim(coalesce(p_full_name, ''));
+begin
+  if (select auth.uid()) is null then raise exception 'Sign in first'; end if;
+  if u !~ '^[a-z0-9][a-z0-9._-]{2,23}$' then
+    raise exception 'Username: 3 to 24 letters or numbers (. _ - allowed)' using errcode = '22023';
+  end if;
+  if char_length(n) not between 1 and 60 then
+    raise exception 'Type your name' using errcode = '22023';
+  end if;
+  if exists (select 1 from public.profiles p where lower(p.username) = u and p.id <> (select auth.uid())) then
+    raise exception 'That username is taken' using errcode = '23505';
+  end if;
+  update public.profiles set username = u, full_name = n where id = (select auth.uid());
+end $$;
+revoke all on function public.set_my_profile(text, text) from public, anon;
+grant execute on function public.set_my_profile(text, text) to authenticated;
+
+-- The server writes who sent each activity entry (it can't be faked by a device).
+create or replace function private.who_name(uid uuid) returns text
+language sql stable security definer set search_path = '' as $$
+  select coalesce(nullif(p.full_name, ''), p.username, split_part(p.email, '@', 1))
+  from public.profiles p where p.id = uid
+$$;
+revoke all on function private.who_name(uuid) from public, anon, authenticated;
+
+create or replace function private.stamp_activity() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  new.data := new.data || jsonb_build_object('by', new.user_id, 'byName', private.who_name(new.user_id));
+  return new;
+end $$;
+revoke all on function private.stamp_activity() from public, anon, authenticated;
+create or replace trigger stamp_activity before insert on public.activity_log
+  for each row execute function private.stamp_activity();
+
+-- Entries from before this change: stamp them from user_id.
+update public.activity_log a
+set data = a.data || jsonb_build_object('by', a.user_id, 'byName', private.who_name(a.user_id))
+where not (a.data ? 'by');
+
+-- Deleting a user must never delete the tickets, KPIs or log rows they saved.
+do $$
+declare t text;
+begin
+  foreach t in array array['inspections', 'photos', 'contractors', 'work_orders', 'camps', 'tickets', 'kpi_months',
+                           'manpower', 'weekly_counts', 'activity_log', 'site_places', 'map_items', 'routines'] loop
+    execute format('alter table public.%I drop constraint if exists %I', t, t || '_user_id_fkey');
+    execute format('alter table public.%I add constraint %I foreign key (user_id) references auth.users (id) on delete restrict',
+                   t, t || '_user_id_fkey');
+  end loop;
+end $$;

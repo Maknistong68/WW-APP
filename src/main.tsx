@@ -7,6 +7,7 @@ import { showToast } from './components/Toast'
 import { startAppUpdates } from './lib/appUpdate'
 import { describeSaveError, isNoise } from './lib/saveError'
 import { reloadApp } from './lib/useSave'
+import { setActor } from './lib/actor'
 import './lib/installPrompt'
 import './styles/tokens.css'
 import './styles/base.css'
@@ -49,7 +50,7 @@ window.addEventListener('ww-notice', (e) => {
   showToast({ text, tone: 'bad', duration: 10000, ...(reload ? { actionLabel: 'Reload', onAction: reloadApp } : {}) })
 })
 // Dev only: lets browser checks reach the database (e.g. to force a failure).
-if (import.meta.env.DEV) Object.assign(window, { __ww: { db } })
+if (import.meta.env.DEV) Object.assign(window, { __ww: { db, setActor } })
 db.open().catch((err) => logEvent(null, 'Database open failed', describeSaveError(err).detail))
 
 // Back from an email link (password reset / confirmation): open Settings so

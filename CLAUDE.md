@@ -71,4 +71,10 @@ npm run build   # strict tsc + vite build
   Nothing fails silently: `main.tsx` catches unhandled errors; problems also go to a localStorage copy
   (`localLog.ts`) shown in Settings › Sync log (Copy log). `db.ts` closes on `versionchange`. App updates wait
   while a panel is open (`appUpdate.ts`, `editing.ts`, `registerType: 'prompt'`).
+- Who did it: every activity entry carries `by` / `byName` (`src/lib/activityEntry.ts`, the one builder;
+  the signed-in person is set in `App.tsx` via `setActor`, `src/lib/actor.ts`). The server stamps them again
+  from the sender (trigger `private.stamp_activity`). Names come from `team_members()` (names only, cached by
+  `useTeam`, `src/lib/team.ts`); `whoName` reads "You" / name. History, the Activity log (Who filter) and a
+  closed ticket's status line show it. Each person sets name + username in Settings (`ProfileCard`,
+  RPC `set_my_profile`; rules in `src/lib/authForm.ts`). Deleting a user never deletes their records (FKs restrict).
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).

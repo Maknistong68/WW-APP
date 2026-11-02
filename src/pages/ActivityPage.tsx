@@ -9,6 +9,9 @@ import { changeText, fmtWhen } from '../components/History'
 import { useContractors } from '../lib/useData'
 import type { ActivityEntity, ActivityEntry } from '../types'
 import { ACTIONS, PERIODS, filterActivity, type ActionFilter, type Period } from '../lib/activityFilter'
+import { displayName, whoName } from '../lib/actor'
+import { useTeam } from '../lib/team'
+import { useAuthInfo } from '../lib/auth'
 
 const FILTERS: { key: 'all' | ActivityEntity; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -36,14 +39,17 @@ export default function ActivityPage() {
   const [query, setQuery] = useState('')
   const [action, setAction] = useState<ActionFilter>('all')
   const [period, setPeriod] = useState<Period>('all')
+  const [who, setWho] = useState('all')
+  const team = useTeam()
+  const { userId } = useAuthInfo()
   const [limit, setLimit] = useState(PAGE)
   const filterRow = useRef<HTMLDivElement>(null)
   useChipScroll(filterRow, filter)
   const entries = useCachedLiveQuery('activity', () => db.activity.orderBy('time').reverse().toArray())
 
   const visible = useMemo(
-    () => filterActivity(entries ?? [], { entity: filter, action, period, query }),
-    [entries, filter, action, period, query],
+    () => filterActivity(entries ?? [], { entity: filter, action, period, query, by: who }),
+    [entries, filter, action, period, query, who],
   )
 
   /** Open what the entry is about (deleted things have nowhere to go). */
@@ -106,6 +112,22 @@ export default function ActivityPage() {
             ))}
           </select>
         </label>
+        {(team.length > 1 || who !== 'all') && (
+          <label className="row">
+            <span className="row-label">Who</span>
+            <select value={who} onChange={(e) => setWho(e.target.value)}>
+              <option value="all">Anyone</option>
+              {userId && <option value={userId}>You</option>}
+              {team
+                .filter((m) => m.id !== userId)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {displayName(m) || 'Someone'}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
         <label className="row">
           <span className="row-label">Period</span>
           <select value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
@@ -132,7 +154,8 @@ export default function ActivityPage() {
             <button key={e.uuid} className="row" onClick={() => void open(e)} style={{ alignItems: 'flex-start' }}>
               <span className="row-main">
                 <div className="row-title" style={{ fontSize: 15 }}>
-                  {VERB[e.action]} · {e.label}
+                  {VERB[e.action] ?? e.action} · {e.label}
+                  {whoName(e, team, userId) && <span className="by"> · by {whoName(e, team, userId)}</span>}
                 </div>
                 {e.action === 'edit' || e.action === 'close'
                   ? e.changes.slice(0, 2).map((c) => (

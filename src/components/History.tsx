@@ -4,6 +4,9 @@ import { FIELD_LABELS } from '../lib/useData'
 import { DECLARATIONS, meetingAttended } from '../lib/kpi'
 import { sourceLabel } from '../lib/cases'
 import type { ActivityChange, ActivityEntry, Contractor } from '../types'
+import { whoName } from '../lib/actor'
+import { useTeam } from '../lib/team'
+import { useAuthInfo } from '../lib/auth'
 
 const ACTION_LABEL: Record<ActivityEntry['action'], string> = {
   add: 'Added',
@@ -41,6 +44,8 @@ export function changeText(c: ActivityChange, contractors?: Map<string, Contract
 /** Activity entries for one record, newest first. */
 export default function History({ uuid, contractors }: { uuid: string; contractors?: Map<string, Contractor> }) {
   const entries = useLiveQuery(() => db.activity.where('entityUuid').equals(uuid).reverse().sortBy('time'), [uuid])
+  const team = useTeam()
+  const { userId } = useAuthInfo()
   if (!entries || entries.length === 0) return null
   return (
     <>
@@ -50,7 +55,8 @@ export default function History({ uuid, contractors }: { uuid: string; contracto
           <div key={e.uuid} className="row" style={{ alignItems: 'flex-start' }}>
             <div className="row-main">
               <div className="row-title" style={{ fontSize: 15 }}>
-                {ACTION_LABEL[e.action]}
+                {ACTION_LABEL[e.action] ?? e.action}
+                {whoName(e, team, userId) && <span className="by"> · by {whoName(e, team, userId)}</span>}
               </div>
               {e.action !== 'add' &&
                 e.changes.slice(0, 6).map((c) => (

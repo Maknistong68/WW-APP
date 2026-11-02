@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
-import { getClient } from './sync'
+import { getClient, syncNow } from './sync'
+import { db } from '../db'
+import { showToast } from '../components/Toast'
+import { displayName } from './actor'
 
 // Sign-in gate: the app opens on Login, new accounts wait for the admin's
 // approval, approved users share the team's data (enforced by RLS).
@@ -29,6 +32,14 @@ export interface AuthState {
   session: Session | null
   email: string
   role: Role
+  /** Set once the person has chosen them (Settings › Your name). */
+  username: string
+  fullName: string
+}
+
+/** The name stamped on your changes: full name, else @username, else the email's first part. */
+export function actorName(p: { full_name?: string | null; username?: string | null; email?: string | null }): string {
+  return displayName(p) || (p.email ?? '').split('@')[0]
 }
 
 const redirectUrl = () => `${window.location.origin}${window.location.pathname}`
@@ -68,6 +79,8 @@ interface CachedAccess {
   uid: string
   status: AccessStatus
   role: Role
+  username?: string | null
+  full_name?: string | null
 }
 
 function readCache(uid: string): CachedAccess | null {
@@ -99,7 +112,7 @@ export function resolvePhase(
 }
 
 export function useAuth(): AuthState & { refresh: () => void; signOut: () => Promise<void> } {
-  const [state, setState] = useState<AuthState>({ phase: 'loading', session: null, email: '', role: 'viewer' })
+  const [state, setState] = useState<AuthState>({ phase: 'loading', session: null, email: '', role: 'viewer', username: '', fullName: '' })
   const [tick, setTick] = useState(0)
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
@@ -109,16 +122,21 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
     const load = async () => {
       const c = await getClient()
       if (!c) {
-        if (alive) setState({ phase: 'local', session: null, email: '', role: 'admin' })
+        if (alive) setState({ phase: 'local', session: null, email: '', role: 'admin', username: '', fullName: '' })
         return
       }
       const { data } = await c.auth.getSession()
       const session = data.session
-      let profile: { status: AccessStatus; role: Role } | null = null
+      type Profile = { status: AccessStatus; role: Role; username?: string | null; full_name?: string | null }
+      let profile: Profile | null = null
       if (session && navigator.onLine) {
-        const { data: p } = await c.from('profiles').select('status, role').eq('id', session.user.id).maybeSingle()
+        const q = (cols: string) => c.from('profiles').select(cols).eq('id', session.user.id).maybeSingle()
+        let res = await q('status, role, username, full_name')
+        // a server without the name columns yet: never fall back to "viewer" over it
+        if (res.error?.code === '42703') res = await q('status, role')
+        const p = res.data as Profile | null
         if (p) {
-          profile = p as { status: AccessStatus; role: Role }
+          profile = p
           try {
             localStorage.setItem(ACCESS_KEY, JSON.stringify({ uid: session.user.id, ...profile }))
           } catch {
@@ -126,8 +144,18 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
           }
         }
       }
-      const r = resolvePhase(true, session, profile, session ? readCache(session.user.id) : null)
-      if (alive) setState({ phase: r.phase, session, email: session?.user.email ?? '', role: r.role })
+      const cached = session ? readCache(session.user.id) : null
+      const r = resolvePhase(true, session, profile, cached)
+      const names = profile ?? cached
+      if (alive)
+        setState({
+          phase: r.phase,
+          session,
+          email: session?.user.email ?? '',
+          role: r.role,
+          username: names?.username ?? '',
+          fullName: names?.full_name ?? '',
+        })
       if (!unsub) {
         const { data: sub } = c.auth.onAuthStateChange((e) => {
           if (e === 'SIGNED_IN' || e === 'SIGNED_OUT' || e === 'USER_UPDATED') setTick((t) => t + 1)
@@ -147,6 +175,16 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
   }, [tick])
 
   const signOut = useCallback(async () => {
+    // Changes are stamped by the account that sends them: send them before leaving.
+    const unsent = await db.activity
+      .filter((a) => !a.synced)
+      .count()
+      .catch(() => 0)
+    if (unsent > 0 && navigator.onLine) await syncNow().catch(() => {})
+    else if (unsent > 0) {
+      showToast({ text: `${unsent} change${unsent === 1 ? '' : 's'} not sent yet. Connect to the internet, then sign out.`, tone: 'bad', duration: 8000 })
+      return
+    }
     const c = await getClient()
     await c?.auth.signOut()
     setTick((t) => t + 1)
@@ -162,8 +200,23 @@ export interface AuthInfo {
   /** Admin or editor. */
   canEdit: boolean
   signOut: () => Promise<void>
+  /** '' in local-only mode. */
+  userId: string
+  username: string
+  fullName: string
+  /** Reload the profile (after changing your name). */
+  refresh: () => void
 }
 
 /** Who is signed in, for the sidebar and admin pages. */
-export const AuthContext = createContext<AuthInfo>({ email: '', role: 'viewer', canEdit: false, signOut: async () => {} })
+export const AuthContext = createContext<AuthInfo>({
+  email: '',
+  role: 'viewer',
+  canEdit: false,
+  signOut: async () => {},
+  userId: '',
+  username: '',
+  fullName: '',
+  refresh: () => {},
+})
 export const useAuthInfo = () => useContext(AuthContext)

@@ -32,7 +32,8 @@ import MissingPage from './pages/MissingPage'
 import CloseoutPage from './pages/CloseoutPage'
 import LoginPage, { WaitingPage } from './pages/LoginPage'
 import UsersPage from './pages/UsersPage'
-import { AuthContext, canEditRole, useAuth, useAuthInfo } from './lib/auth'
+import { AuthContext, actorName, canEditRole, useAuth, useAuthInfo } from './lib/auth'
+import { setActor } from './lib/actor'
 import ToastHost, { showToast } from './components/Toast'
 import { backgroundSync, type SyncResult } from './lib/sync'
 
@@ -60,8 +61,25 @@ export default function App() {
       </>
     )
   }
+  // Every change made on this phone is stamped with who is signed in.
+  setActor(
+    auth.session
+      ? { id: auth.session.user.id, name: actorName({ full_name: auth.fullName, username: auth.username, email: auth.email }), role: auth.role }
+      : null,
+  )
   return (
-    <AuthContext.Provider value={{ email: auth.email, role: auth.role, canEdit: canEditRole(auth.role), signOut: auth.signOut }}>
+    <AuthContext.Provider
+      value={{
+        email: auth.email,
+        role: auth.role,
+        canEdit: canEditRole(auth.role),
+        signOut: auth.signOut,
+        userId: auth.session?.user.id ?? '',
+        username: auth.username,
+        fullName: auth.fullName,
+        refresh: auth.refresh,
+      }}
+    >
       <AppShell />
     </AuthContext.Provider>
   )

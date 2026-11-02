@@ -405,6 +405,7 @@ export async function syncNow(): Promise<SyncResult> {
     }
 
     localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString())
+    window.dispatchEvent(new Event('ww-synced'))
     const summary = `up ${result.pushed + result.photosUp}, down ${result.pulled + result.photosDown}, records ${result.records}, deleted ${result.deleted}`
     if (result.failed > 0) {
       logEvent(
@@ -515,9 +516,13 @@ async function syncActivity(c: SupabaseClient, userId: string, result: SyncResul
     await db.activity.bulkPut(batch.map((a) => ({ ...a, synced: true })))
     result.records += batch.length
   }
-  const remote = await selectAll<{ uuid: string }>(c, 'activity_log', 'uuid')
+  const remote = await selectAll<{ uuid: string; user_id: string }>(c, 'activity_log', 'uuid, user_id')
   const have = new Set((await db.activity.toCollection().primaryKeys()) as string[])
   const missing = remote.map((r) => r.uuid).filter((u) => !have.has(u))
+  // Entries this phone already had from before "who did it": take who from the server.
+  const sender = new Map(remote.map((r) => [r.uuid, r.user_id]))
+  const unnamed = await db.activity.filter((a) => !a.by && sender.has(a.uuid)).toArray()
+  if (unnamed.length) await db.activity.bulkPut(unnamed.map((a) => ({ ...a, by: sender.get(a.uuid) })))
   for (let i = 0; i < missing.length; i += 200) {
     const { data, error } = await c
       .from('activity_log')

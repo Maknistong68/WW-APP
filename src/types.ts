@@ -406,6 +406,10 @@ export interface ActivityEntry {
   /** Short human label, e.g. "RPCO · Salary not received". */
   label: string
   changes: ActivityChange[]
+  /** Who made the change (user id). The server stamps it again from the account that sent it. */
+  by?: string
+  /** Their name when the entry was made, for people no longer in the team list. */
+  byName?: string
   /** Set once the entry reached Supabase. */
   synced?: boolean
 }

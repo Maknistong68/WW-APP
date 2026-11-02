@@ -17,8 +17,9 @@ import { MENU_HUE } from '../lib/hues'
 import Page from '../components/Page'
 import { useThemeMode } from '../lib/theme'
 import PasswordInput from '../components/PasswordInput'
-import { RECOVERY_KEY, authErrorText, sendPasswordReset, signInWithPassword, signUpWithPassword } from '../lib/auth'
+import { RECOVERY_KEY, authErrorText, sendPasswordReset, signInWithPassword, signUpWithPassword, useAuthInfo } from '../lib/auth'
 import { showToast } from '../components/Toast'
+import ProfileCard from '../components/ProfileCard'
 import { logText, mergeLogs } from '../lib/logCopy'
 import { readLocalLog } from '../lib/localLog'
 import { canInstall, isIos, isStandalone, onInstallChange, promptInstall } from '../lib/installPrompt'
@@ -30,6 +31,7 @@ const fmtTime = (iso: string) => {
 }
 
 export default function SettingsPage() {
+  const me = useAuthInfo()
   const navigate = useNavigate()
   const [themeMode, setThemeMode] = useThemeMode()
   const [config, setConfig] = useState(getSyncConfig())
@@ -235,6 +237,7 @@ export default function SettingsPage() {
 
   return (
     <Page title="Settings" back="/library" backLabel="Library">
+        {me.userId && <ProfileCard />}
         <div className="section-label">Appearance</div>
         <div className="segmented fit" role="radiogroup" aria-label="Appearance">
           {(

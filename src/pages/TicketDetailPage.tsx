@@ -20,7 +20,10 @@ import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { TicketRow } from './TicketsPage'
 import Summary from '../components/Summary'
 import IconTile from '../components/IconTile'
+import { useLiveQuery } from 'dexie-react-hooks'
 import StatusChip from '../components/StatusChip'
+import { lastAction, whoName } from '../lib/actor'
+import { useTeam } from '../lib/team'
 import ActionBar from '../components/ActionBar'
 import { ticketTone } from '../lib/tone'
 import { ticketMenu } from '../components/menus'
@@ -57,7 +60,13 @@ export default function TicketDetailPage() {
   const t = useCachedLiveQuery(`ticket:${uuid}`, () => db.tickets.get(uuid).then((x) => x ?? null), [uuid])
   const allTickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
   const [sheet, setSheet] = useState<'edit' | 'close' | 'closeGroup' | 'delete' | null>(null)
-  const { canEdit } = useAuthInfo()
+  const { canEdit, userId } = useAuthInfo()
+  const team = useTeam()
+  // who closed it: the newest "close" in its history
+  const closedBy = useLiveQuery(async () => {
+    const e = lastAction(await db.activity.where('entityUuid').equals(uuid).toArray(), 'close')
+    return e ? whoName(e, team, userId) : null
+  }, [uuid, team, userId])
 
   if (t === undefined) return null
   if (t === null) {
@@ -100,6 +109,7 @@ export default function TicketDetailPage() {
             <StatusChip tone="none" icon="calendar">
               Opened {shortDate(t.openedAt)}
               {t.closedAt ? ` · closed ${shortDate(t.closedAt)}` : ''}
+              {!open && closedBy ? ` by ${closedBy}` : ''}
             </StatusChip>
           </>
         }

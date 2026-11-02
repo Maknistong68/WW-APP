@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canEditRole, normRole, resolvePhase } from './auth'
+import { actorName, canEditRole, normRole, resolvePhase } from './auth'
 import type { Session } from '@supabase/supabase-js'
 
 const s = { user: { id: 'u' } } as Session
@@ -23,5 +23,13 @@ describe('sign-in gate', () => {
     expect(canEditRole('admin')).toBe(true)
     expect(canEditRole('editor')).toBe(true)
     expect(canEditRole('viewer')).toBe(false)
+  })
+})
+
+describe('the name on your changes', () => {
+  it('full name, else @username, else the first part of the email', () => {
+    expect(actorName({ full_name: 'Ali Hassan', username: 'ali', email: 'ali@x.com' })).toBe('Ali Hassan')
+    expect(actorName({ full_name: '', username: 'ali', email: 'ali@x.com' })).toBe('@ali')
+    expect(actorName({ full_name: null, username: null, email: 'nievaoging@gmail.com' })).toBe('nievaoging')
   })
 })

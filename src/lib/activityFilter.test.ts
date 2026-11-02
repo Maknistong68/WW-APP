@@ -31,4 +31,10 @@ describe('activity log filters', () => {
     expect(f({ entity: 'kpi' })).toBe(1)
     expect(f({ query: 'wo 882' })).toBe(1)
   })
+  it('filters by who made the change', () => {
+    const list = [e({ by: 'u1' }), e({ by: 'u2' }), e({})]
+    const by = (who: string) => filterActivity(list, { entity: 'all', action: 'all', period: 'all', query: '', by: who }, now).length
+    expect(by('all')).toBe(3)
+    expect(by('u1')).toBe(1)
+  })
 })

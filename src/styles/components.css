@@ -339,3 +339,6 @@ button.row { cursor: pointer; }
 }
 .filter-chip button:active { background-color: var(--press); }
 .drill-chips .clear-btn { color: var(--brand); font: 600 15px var(--font); min-height: 40px; padding: 0 10px; border-radius: var(--r-btn); }
+
+/* "· by Ali" after an action in History and the Activity log */
+.row-title .by { font-weight: 500; color: var(--muted); }

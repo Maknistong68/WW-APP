@@ -18,18 +18,11 @@ import type {
 } from './types'
 import { NORMALIZE } from './lib/normalize'
 import { writeLocalLog } from './lib/localLog'
+import { newUuid } from './lib/uuid'
+import { activityEntry } from './lib/activityEntry'
 
-export const newUuid = (): string => {
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  // Fallback must still be a valid v4 UUID: these ids go into Postgres `uuid`
-  // columns during cloud sync, so a non-UUID shape would make the record
-  // permanently unsyncable.
-  const b = crypto.getRandomValues(new Uint8Array(16))
-  b[6] = (b[6] & 0x0f) | 0x40
-  b[8] = (b[8] & 0x3f) | 0x80
-  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
-}
+export { newUuid }
+
 
 class WWDatabase extends Dexie {
   inspections!: Table<Inspection, number>
@@ -142,13 +135,13 @@ export function logEvent(inspectionId: number | null, event: string, detail = ''
     .get(inspectionId)
     .then((ins) =>
       db.activity.add({
-        uuid: newUuid(),
+        ...activityEntry(
+          'audit',
+          ins?.uuid ?? String(inspectionId),
+          action,
+          `Audit · ${ins?.info?.contractorNames || ins?.info?.facilityLocation || 'inspection'}`,
+        ),
         time,
-        entity: 'audit',
-        entityUuid: ins?.uuid ?? String(inspectionId),
-        action,
-        label: `Audit · ${ins?.info?.contractorNames || ins?.info?.facilityLocation || 'inspection'}`,
-        changes: [],
       }),
     )
     .catch(() => {})
@@ -317,15 +310,9 @@ export async function deleteInspection(id: number): Promise<void> {
   await db.transaction('rw', db.inspections, db.photos, db.tombstones, db.activity, async () => {
     const ins = await db.inspections.get(id)
     if (ins?.uuid) await db.tombstones.add({ table: 'inspections', uuid: ins.uuid })
-    await db.activity.add({
-      uuid: newUuid(),
-      time: new Date().toISOString(),
-      entity: 'audit',
-      entityUuid: ins?.uuid ?? String(id),
-      action: 'delete',
-      label: `Audit · ${ins?.info?.contractorNames || ins?.info?.facilityLocation || 'inspection'}`,
-      changes: [],
-    })
+    await db.activity.add(
+      activityEntry('audit', ins?.uuid ?? String(id), 'delete', `Audit · ${ins?.info?.contractorNames || ins?.info?.facilityLocation || 'inspection'}`),
+    )
     const photoList = await db.photos.where('inspectionId').equals(id).toArray()
     for (const p of photoList) {
       if (p.uuid) await db.tombstones.add({ table: 'photos', uuid: p.uuid })

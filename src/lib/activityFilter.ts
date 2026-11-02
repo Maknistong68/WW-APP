@@ -22,7 +22,7 @@ export const PERIODS: { key: Period; label: string }[] = [
 /** Pure filter so it can be unit-tested. */
 export function filterActivity(
   entries: ActivityEntry[],
-  f: { entity: 'all' | ActivityEntity; action: ActionFilter; period: Period; query: string },
+  f: { entity: 'all' | ActivityEntity; action: ActionFilter; period: Period; query: string; by?: string },
   now = Date.now(),
 ): ActivityEntry[] {
   const q = f.query.trim().toLowerCase()
@@ -35,6 +35,7 @@ export function filterActivity(
       (f.entity === 'contractor' && e.entity === 'workOrder')
     if (!entityOk) return false
     if (f.action !== 'all' && e.action !== f.action) return false
+    if (f.by && f.by !== 'all' && e.by !== f.by) return false
     if (since && Date.parse(e.time) < since) return false
     return !q || e.label.toLowerCase().includes(q) || e.changes.some((c) => String(c.to ?? '').toLowerCase().includes(q))
   })

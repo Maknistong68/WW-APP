@@ -1,7 +1,10 @@
 import type { Table } from 'dexie'
-import { db, newUuid } from '../db'
+import { db } from '../db'
+import { activityEntry } from './activityEntry'
+
+export { activityEntry }
 import { diffRecords } from './diff'
-import type { ActivityAction, ActivityChange, ActivityEntity, ActivityEntry, RecordTable } from '../types'
+import type { ActivityAction, ActivityChange, ActivityEntity, RecordTable } from '../types'
 
 // ---------------------------------------------------------------------------
 // The only write path for co-pilot records. Every save/delete stamps
@@ -29,16 +32,6 @@ function tableOf(name: RecordTable): Table<AnyRecord, string> {
 }
 
 export const nowIso = () => new Date().toISOString()
-
-export function activityEntry(
-  entity: ActivityEntity,
-  entityUuid: string,
-  action: ActivityAction,
-  label: string,
-  changes: ActivityChange[] = [],
-): ActivityEntry {
-  return { uuid: newUuid(), time: nowIso(), entity, entityUuid, action, label, changes }
-}
 
 /** Fire-and-forget activity entry for things outside the record tables (audits, imports). */
 export function logActivity(
