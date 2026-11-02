@@ -30,7 +30,7 @@ export default function GetStarted() {
     cloud,
     mobile: install.platform.device !== 'desktop',
     installed: install.installed,
-    hasName: !!(me.fullName || me.username),
+    hasName: !!me.username,
     synced: !!lastSyncAt() && records > 0,
     seen: flags.seen,
     teamSize: team.length,

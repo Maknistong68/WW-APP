@@ -1,5 +1,5 @@
 import type { Table } from 'dexie'
-import { db } from '../db'
+import { db, logEvent } from '../db'
 import { activityEntry } from './activityEntry'
 
 export { activityEntry }
@@ -41,7 +41,12 @@ export function logActivity(
   label: string,
   changes: ActivityChange[] = [],
 ): void {
-  void db.activity.add(activityEntry(entity, entityUuid, action, label, changes)).catch(() => {})
+  void db.activity.add(activityEntry(entity, entityUuid, action, label, changes)).catch((err: unknown) => {
+    const detail = `${label}: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`
+    logEvent(null, 'Activity log failed', detail)
+    if (typeof window !== 'undefined')
+      window.dispatchEvent(new CustomEvent('ww-notice', { detail: { text: 'This change could not be added to the activity log.', reload: false } }))
+  })
 }
 
 /**

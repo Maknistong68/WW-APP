@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeSaveError, isNoise } from './saveError'
+import { describeSaveError, isNoise, unexpectedText } from './saveError'
 
 /** A DOMException-like error, as IndexedDB and Dexie throw them. */
 const err = (name: string, message = 'x', inner?: { name: string; message?: string }) =>
@@ -51,5 +51,21 @@ describe('Errors that are not worth a message', () => {
     expect(isNoise(err('AbortError', 'aborted', { name: 'QuotaExceededError' }))).toBe(false)
     expect(isNoise(err('VersionError'))).toBe(false)
     expect(isNoise(new Error('real bug'))).toBe(false)
+  })
+})
+
+describe('An unexpected error, in plain words', () => {
+  it('real storage trouble keeps its own message', () => {
+    expect(unexpectedText(err('QuotaExceededError')).text).toMatch(/storage is full/)
+    expect(unexpectedText(err('VersionError')).reload).toBe(true)
+    expect(unexpectedText(err('InvalidStateError', 'Failed to execute transaction on IDBDatabase: The database connection is closing.')).text).toMatch(
+      /storage didn’t answer/,
+    )
+  })
+  it('the same error name from something else is not blamed on storage', () => {
+    const d = unexpectedText(err('InvalidStateError', 'The play() request was interrupted'))
+    expect(d.text).toBe('Something went wrong. Details in Settings › Sync log.')
+    expect(d.reload).toBeUndefined()
+    expect(unexpectedText(new Error('x is undefined')).text).toBe('Something went wrong. Details in Settings › Sync log.')
   })
 })

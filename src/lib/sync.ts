@@ -1,6 +1,7 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { db, logEvent, newUuid } from '../db'
 import { NORMALIZE } from './normalize'
+import { mineToSend } from './activityPush'
 import type { ActivityEntry, Inspection, Photo, RecordTable } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -502,7 +503,7 @@ async function syncRecordTable(
 
 /** Activity log is append-only: push unsent entries, pull ones this device lacks. */
 async function syncActivity(c: SupabaseClient, userId: string, result: SyncResult, readOnly = false): Promise<void> {
-  const unsent = readOnly ? [] : (await db.activity.toArray()).filter((a) => !a.synced)
+  const unsent = readOnly ? [] : mineToSend(await db.activity.toArray(), userId)
   for (let i = 0; i < unsent.length; i += 200) {
     const batch = unsent.slice(i, i + 200)
     const { error } = await c.from('activity_log').upsert(

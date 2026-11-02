@@ -97,4 +97,6 @@ npm run build   # strict tsc + vite build
   computer. Home shows `GetStarted` (steps from `src/lib/onboarding.ts`, done by doing: installed, name, synced,
   holding a ticket, saving KPIs, opening the Dashboard, inviting) and `UseAppNote` after a skip; Settings › Get
   started brings the card back. Waiting asks for the name and checks again every 30 s.
+- Edge Function settings live in `supabase/config.toml` (`sign-in`: verify_jwt off; `invite-user`: on). A phone only
+  sends its signed-in person's own activity entries (`src/lib/activityPush.ts`); others wait for their owner.
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).

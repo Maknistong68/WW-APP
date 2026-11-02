@@ -42,7 +42,10 @@ export const isIos = (): boolean => currentPlatform().os === 'ios'
 
 let justInstalled = false
 const SKIP_KEY = 'ww.installSkip'
+// Kept in memory too: on a phone that blocks site storage, "Continue in browser" still works until the app closes.
+let skippedHere = false
 const skipped = (): boolean => {
+  if (skippedHere) return true
   try {
     return localStorage.getItem(SKIP_KEY) === '1'
   } catch {
@@ -52,6 +55,7 @@ const skipped = (): boolean => {
 /** "Continue in browser": the install screen stops coming first (Home still offers it). */
 export function skipInstall(on = true): void {
   if (on) justInstalled = false
+  skippedHere = on
   try {
     if (on) localStorage.setItem(SKIP_KEY, '1')
     else localStorage.removeItem(SKIP_KEY)

@@ -44,7 +44,15 @@ export default function SettingsPage() {
   const [password, setPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newPassword2, setNewPassword2] = useState('')
-  const [recovering, setRecovering] = useState(() => localStorage.getItem(RECOVERY_KEY) === '1')
+  // A reset link now opens "Set password" first; an old note from earlier versions is just cleared.
+  const [recovering, setRecovering] = useState(false)
+  useEffect(() => {
+    try {
+      localStorage.removeItem(RECOVERY_KEY)
+    } catch {
+      // private mode
+    }
+  }, [])
   const [busy, setBusy] = useState(false)
   const [lastSync, setLastSync] = useState(lastSyncAt())
   const [installable, setInstallable] = useState(canInstall())

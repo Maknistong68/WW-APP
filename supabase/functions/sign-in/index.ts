@@ -9,8 +9,12 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 const URL_ = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const ORIGINS = ['https://ww-app-omega.vercel.app', 'http://localhost:5179']
+const ORIGINS = ['https://ww-app-omega.vercel.app', 'http://localhost:5179', 'http://localhost:5180']
 const WRONG = 'Wrong username, email or password.'
+const BUSY = 'Sign-in is busy right now. Wait a minute, then try again.'
+// An unknown username answers after about as long as a real password check,
+// so the timing doesn't tell whether a username exists.
+const pause = () => new Promise((r) => setTimeout(r, 250 + Math.random() * 300))
 
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') ?? ''
@@ -32,6 +36,8 @@ Deno.serve(async (req) => {
   const login = typeof body.login === 'string' ? body.login.trim().toLowerCase() : ''
   const password = typeof body.password === 'string' ? body.password : ''
   if (!login || !password) return reply({ error: 'Type your username or email, and your password.' }, 400)
+  // Nothing longer than an email address is kept or checked.
+  if (login.length > 254 || password.length > 200) return reply({ error: WRONG }, 400)
 
   const admin = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } })
   const key = login.replace(/^@+/, '')
@@ -43,6 +49,7 @@ Deno.serve(async (req) => {
     const { data } = await admin.rpc('login_email', { p_username: key })
     if (typeof data !== 'string' || !data) {
       await admin.rpc('note_sign_in', { p_key: key, p_ok: false })
+      await pause()
       return reply({ error: WRONG }, 401)
     }
     email = data
@@ -51,6 +58,9 @@ Deno.serve(async (req) => {
   const anon = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } })
   const { data, error } = await anon.auth.signInWithPassword({ email, password })
   if (error || !data.session) {
+    // Supabase itself busy or limiting (all username sign-ins come from this one place): not a wrong password.
+    const status = (error as { status?: number } | null)?.status ?? 0
+    if (status === 429 || status >= 500) return reply({ error: BUSY }, 503)
     await admin.rpc('note_sign_in', { p_key: key, p_ok: false })
     if (error && /email not confirmed/i.test(error.message)) return reply({ error: 'Confirm your email first: open the link we sent you.' }, 401)
     return reply({ error: WRONG }, 401)

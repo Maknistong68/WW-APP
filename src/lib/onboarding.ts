@@ -62,9 +62,9 @@ interface Flags {
   seen: SeenFlag[]
 }
 const listeners = new Set<() => void>()
-let who = 'local'
+let who = ''
 let flags: Flags = { hidden: false, seen: [] }
-const key = () => `ww.onboarding.${who}`
+const key = () => `ww.onboarding.${who || 'local'}`
 
 function read(): Flags {
   try {
@@ -87,11 +87,15 @@ function write(next: Flags) {
 /** Whose flags these are (App sets it when someone signs in). */
 export function setOnboardingUser(id: string) {
   const next = id || 'local'
-  if (next === who && typeof localStorage !== 'undefined') return
+  if (next === who) return
+  // Read once per person, including the phone-only "local" person (it was never read before).
   who = next
-  if (typeof localStorage !== 'undefined') flags = read()
+  flags = typeof localStorage === 'undefined' ? { hidden: false, seen: [] } : read()
   listeners.forEach((l) => l())
 }
+
+/** The current person's flags (outside React). */
+export const getOnboardingFlags = (): Flags => flags
 
 /** Note that something was done (a hold menu opened, KPIs saved, the Dashboard opened). */
 export function markSeen(flag: SeenFlag) {

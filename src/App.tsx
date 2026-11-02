@@ -82,7 +82,8 @@ export default function App() {
         <WaitingPage
           email={auth.email}
           rejected={auth.phase === 'rejected'}
-          hasName={!!(auth.fullName || auth.username)}
+          fullName={auth.fullName}
+          username={auth.username}
           onRefresh={auth.refresh}
           onSignOut={() => void auth.signOut()}
         />

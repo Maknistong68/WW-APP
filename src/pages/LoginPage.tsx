@@ -339,17 +339,21 @@ export function SetPasswordPage({ name, invited, onDone, onSignOut }: { name: st
 export function WaitingPage({
   email,
   rejected,
-  hasName,
+  fullName,
+  username: savedUsername,
   onRefresh,
   onSignOut,
 }: {
   email: string
   rejected: boolean
-  hasName: boolean
+  fullName: string
+  username: string
   onRefresh: () => void
   onSignOut: () => void
 }) {
-  const [name, setName] = useState('')
+  // A name but no username: the username typed at sign-up was already taken.
+  const usernameTaken = !!fullName && !savedUsername
+  const [name, setName] = useState(fullName)
   const [username, setUsername] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
@@ -385,10 +389,12 @@ export function WaitingPage({
       title={rejected ? 'No access' : 'Waiting for approval'}
       sub={rejected ? `${email} does not have access. Ask the admin.` : `${email} is signed in. The admin approves new accounts; then the team’s data opens here.`}
     >
-      {!rejected && !hasName && (
+      {!rejected && !savedUsername && (
         <form onSubmit={(e) => void saveName(e)} noValidate style={{ marginBottom: 8 }}>
           <p className="login-note" style={{ margin: '0 0 12px' }}>
-            While you wait: add your name, so the admin knows who you are.
+            {usernameTaken
+              ? 'The username you picked is already taken. Choose another one.'
+              : 'While you wait: add your name, so the admin knows who you are.'}
           </p>
           <Alert text={problem} />
           <Field label="Your name" id={ids.name}>

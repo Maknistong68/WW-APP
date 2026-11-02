@@ -1,0 +1,12 @@
+# Supabase CLI settings for this project (ww-copilot). Only what the app relies on.
+project_id = "jiblxvnjjnrrapzieedm"
+
+# Username sign-in: the person has no session yet, so no JWT is checked here
+# (the function checks the password itself). A redeploy without this line
+# would make every username sign-in fail.
+[functions.sign-in]
+verify_jwt = false
+
+# Invites need the admin's session.
+[functions.invite-user]
+verify_jwt = true

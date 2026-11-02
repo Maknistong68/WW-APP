@@ -1,10 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { getClient, getSyncConfig, syncNow } from './sync'
 import { authProblemText, parseLogin } from './authForm'
 import { linkFailureText, takeAuthReturn, type AuthReturn } from './authReturn'
 import { passwordFlag, readPasswordFlag, type PasswordWhy } from './passwordFlag'
+import { mineToSend } from './activityPush'
 import { db } from '../db'
 import { showToast } from '../components/Toast'
 import { displayName } from './actor'
@@ -149,8 +150,8 @@ async function finishAuthReturn(c: SupabaseClient, ret: AuthReturn): Promise<str
     if (ret.kind === 'code') {
       const { data, error } = await c.auth.exchangeCodeForSession(ret.code)
       if (error) throw error
+      // Supabase says itself whether this was a password reset.
       type = (data as { redirectType?: string | null }).redirectType ?? ''
-      if (!type && localStorage.getItem(RECOVERY_KEY) === '1') type = 'recovery'
     } else if (ret.kind === 'tokens') {
       const { error } = await c.auth.setSession({ access_token: ret.accessToken, refresh_token: ret.refreshToken })
       if (error) throw error
@@ -178,7 +179,6 @@ export async function sendPasswordReset(c: SupabaseClient, email: string) {
   if (!email.trim()) throw new Error('Type your email first, then tap Forgot password')
   const { error } = await c.auth.resetPasswordForEmail(email.trim(), { redirectTo: redirectUrl() })
   if (error) throw error
-  localStorage.setItem(RECOVERY_KEY, '1')
 }
 
 interface CachedAccess {
@@ -300,22 +300,31 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
     }
   }, [tick])
 
-  const signOut = useCallback(async () => {
-    // Changes are stamped by the account that sends them: send them before leaving.
-    const unsent = await db.activity
-      .filter((a) => !a.synced)
-      .count()
-      .catch(() => 0)
-    if (unsent > 0 && navigator.onLine) await syncNow().catch(() => {})
-    else if (unsent > 0) {
-      showToast({ text: `${unsent} change${unsent === 1 ? '' : 's'} not sent yet. Connect to the internet, then sign out.`, tone: 'bad', duration: 8000 })
-      return
-    }
+  const signOut = useCallback(async (force = false) => {
     const c = await getClient()
+    const uid = (await c?.auth.getSession())?.data.session?.user.id ?? ''
+    // Changes are stamped by the account that sends them: send them before leaving.
+    const unsentMine = async () => mineToSend(await db.activity.toArray().catch(() => []), uid).length
+    if (!force && (await unsentMine()) > 0) {
+      if (navigator.onLine) await syncNow().catch(() => {})
+      const left = await unsentMine()
+      if (left > 0) {
+        showToast({
+          text: `${left} change${left === 1 ? '' : 's'} not sent yet. ${navigator.onLine ? 'Sync didn’t finish.' : 'Connect to the internet first.'} They go up when you sign in again.`,
+          tone: 'bad',
+          duration: 10000,
+          actionLabel: 'Sign out anyway',
+          onAction: () => void signOutRef.current(true),
+        })
+        return
+      }
+    }
     await c?.auth.signOut()
     markNeedsPassword(false)
     setTick((t) => t + 1)
   }, [])
+  const signOutRef = useRef(signOut)
+  signOutRef.current = signOut
 
   return { ...state, refresh, signOut }
 }

@@ -48,3 +48,19 @@ export function isNoise(err: unknown): boolean {
   if (e?.name === 'NotAllowedError') return true
   return e?.name === 'AbortError' && !named(e.inner)?.name
 }
+
+/** Names that only the phone's storage (IndexedDB, Dexie) uses. */
+const STORAGE_ONLY = new Set(['QuotaExceededError', 'VersionError', 'DatabaseClosedError', 'OpenFailedError', 'MissingAPIError'])
+
+/**
+ * An error nobody caught (the app-wide handler in main.tsx). Storage trouble
+ * gets its own words; anything else — even with a shared name such as
+ * InvalidStateError from a video or a canvas — is not blamed on storage.
+ */
+export function unexpectedText(err: unknown): SaveErrorInfo {
+  const d = describeSaveError(err)
+  const { name, message } = cause(err)
+  const fromStorage = STORAGE_ONLY.has(name) || /IDB|IndexedDB|Dexie|database/i.test(message)
+  if (fromStorage && !d.text.startsWith('Could not save:')) return d
+  return { text: 'Something went wrong. Details in Settings › Sync log.', detail: d.detail }
+}

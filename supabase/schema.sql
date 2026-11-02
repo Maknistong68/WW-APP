@@ -547,3 +547,21 @@ create or replace trigger on_auth_user_signed_in after update of last_sign_in_at
 
 update public.profiles p set joined_at = u.last_sign_in_at
 from auth.users u where u.id = p.id and p.joined_at is null and u.last_sign_in_at is not null;
+
+-- ---------------------------------------------------------------------------
+-- The server writes who sent each activity entry. Only an Admin removes
+-- tickets: a "Deleted" ticket entry from anyone else (an old copy of the app)
+-- did not happen — the ticket comes back on the next sync — so it is not
+-- logged. Replaces the stamp_activity above. Safe to re-run.
+-- ---------------------------------------------------------------------------
+create or replace function private.stamp_activity() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.data ->> 'entity' = 'ticket' and new.data ->> 'action' = 'delete'
+     and not exists (select 1 from public.profiles p where p.id = new.user_id and p.status = 'approved' and p.role = 'admin') then
+    return null;
+  end if;
+  new.data := new.data || jsonb_build_object('by', new.user_id, 'byName', private.who_name(new.user_id));
+  return new;
+end $$;
+revoke all on function private.stamp_activity() from public, anon, authenticated;

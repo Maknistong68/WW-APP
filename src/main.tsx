@@ -6,7 +6,7 @@ import { db, logEvent, requestPersistentStorage } from './db'
 import { showToast } from './components/Toast'
 import { startAppUpdates } from './lib/appUpdate'
 import { cleanUrl, parseAuthReturn, stashAuthReturn } from './lib/authReturn'
-import { describeSaveError, isNoise } from './lib/saveError'
+import { describeSaveError, isNoise, unexpectedText } from './lib/saveError'
 import { reloadApp } from './lib/useSave'
 import { setActor } from './lib/actor'
 import './lib/installPrompt'
@@ -31,13 +31,12 @@ void startAppUpdates((apply) =>
 let lastShown = 0
 function reportUnexpected(reason: unknown) {
   if (isNoise(reason)) return
-  const d = describeSaveError(reason)
+  const d = unexpectedText(reason)
   logEvent(null, 'Unexpected error', d.detail)
   if (Date.now() - lastShown < 5000) return
   lastShown = Date.now()
-  const known = !d.text.startsWith('Could not save:')
   showToast({
-    text: known ? d.text : 'Something went wrong. Details in Settings › Sync log.',
+    text: d.text,
     tone: 'bad',
     duration: 8000,
     ...(d.reload ? { actionLabel: 'Reload', onAction: reloadApp } : {}),

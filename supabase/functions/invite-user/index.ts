@@ -11,9 +11,10 @@ const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const PROD = 'https://ww-app-omega.vercel.app'
 const ROLES = ['admin', 'editor', 'viewer']
 
+// Links always open the real app; only local test copies get their own address.
 function origin(req: Request): string {
   const o = req.headers.get('origin') ?? ''
-  return o === PROD || o === 'http://localhost:5179' || o === 'http://localhost:5180' || /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(o) ? o : PROD
+  return o === 'http://localhost:5179' || o === 'http://localhost:5180' ? o : PROD
 }
 const cors = (req: Request) => ({
   'Access-Control-Allow-Origin': origin(req),
@@ -45,8 +46,10 @@ Deno.serve(async (req) => {
 
   // A fresh link for someone invited who never joined.
   if (typeof body.resendFor === 'string') {
-    const { data: who } = await admin.from('profiles').select('email, joined_at').eq('id', body.resendFor).maybeSingle()
+    const { data: who } = await admin.from('profiles').select('email, joined_at, invited_at').eq('id', body.resendFor).maybeSingle()
     if (!who?.email) return reply({ error: 'That person was not found.' }, 404)
+    // Only for people the admin invited: never a sign-in link for an account someone made themselves.
+    if (!who.invited_at) return reply({ error: 'They made their own account. They can use Forgot password.' }, 409)
     if (who.joined_at) return reply({ error: 'They already joined. They can use Forgot password.' }, 409)
     const { data, error } = await admin.auth.admin.generateLink({ type: 'recovery', email: who.email, options: { redirectTo: `${app}/` } })
     if (error || !data.properties?.hashed_token) return reply({ error: error?.message ?? 'Could not make a link.' }, 500)
