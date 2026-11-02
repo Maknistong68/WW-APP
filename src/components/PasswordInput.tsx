@@ -6,15 +6,24 @@ export default function PasswordInput({
   value,
   onChange,
   autoComplete,
+  id,
+  onBlur,
+  enterKeyHint,
 }: {
   value: string
   onChange: (v: string) => void
   autoComplete: string
+  id?: string
+  onBlur?: () => void
+  enterKeyHint?: 'go' | 'done' | 'next' | 'send'
 }) {
   const [show, setShow] = useState(false)
   return (
     <div style={{ position: 'relative' }}>
       <input
+        id={id}
+        onBlur={onBlur}
+        enterKeyHint={enterKeyHint}
         type={show ? 'text' : 'password'}
         value={value}
         autoComplete={autoComplete}

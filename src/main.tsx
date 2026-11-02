@@ -5,6 +5,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { db, logEvent, requestPersistentStorage } from './db'
 import { showToast } from './components/Toast'
 import { startAppUpdates } from './lib/appUpdate'
+import { cleanUrl, parseAuthReturn, stashAuthReturn } from './lib/authReturn'
 import { describeSaveError, isNoise } from './lib/saveError'
 import { reloadApp } from './lib/useSave'
 import { setActor } from './lib/actor'
@@ -53,21 +54,15 @@ window.addEventListener('ww-notice', (e) => {
 if (import.meta.env.DEV) Object.assign(window, { __ww: { db, setActor } })
 db.open().catch((err) => logEvent(null, 'Database open failed', describeSaveError(err).detail))
 
-// Back from an email link (password reset / confirmation): open Settings so
-// the code in the URL is exchanged there and a new password can be set.
-if (new URLSearchParams(window.location.search).has('code') && !window.location.hash.startsWith('#/settings')) {
-  window.location.hash = '#/settings'
-}
-// An expired / used email link comes back as #error=…: explain it in Settings.
-if (window.location.hash.startsWith('#error=')) {
-  const p = new URLSearchParams(window.location.hash.slice(1))
-  sessionStorage.setItem(
-    'ww.authLinkError',
-    p.get('error_code') === 'otp_expired'
-      ? 'That email link has expired or was already used. Ask for a new one.'
-      : (p.get('error_description') ?? 'The email link did not work. Ask for a new one.'),
-  )
-  window.location.hash = '#/settings'
+// Back from an email link (confirm, invite, password reset, or an expired
+// one): keep it for the sign-in code (lib/auth.ts) and tidy the address, so
+// the hash router only ever sees "#/…".
+{
+  const ret = parseAuthReturn(window.location.href)
+  if (ret) {
+    stashAuthReturn(ret)
+    window.history.replaceState(null, '', cleanUrl(window.location.href))
+  }
 }
 void requestPersistentStorage()
 initTheme()

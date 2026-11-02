@@ -81,4 +81,10 @@ npm run build   # strict tsc + vite build
   `src/lib/removal.ts`, menu via `ticketActions(…, { admin })` and `isAdmin()`/`setRole` in `actor.ts`). The server
   keeps a non-admin's change to `deleted` back (trigger `private.guard_ticket_removal`). Removed tickets are listed
   with who/when/why and restored at `/tickets/removed` (`RemovedTicketsPage`, admin, online).
+- Sign-in (`src/pages/LoginPage.tsx`): Sign in (username or email) · Create account (name, username, email,
+  password) · Forgot password · Check your email · Set password · Waiting. Which screen: `src/lib/gate.ts`.
+  Rules: `src/lib/authForm.ts`. A username signs in through the Edge Function `supabase/functions/sign-in`
+  (service-role lookup, same answer for any wrong login, 10 tries / 15 min). Email links of every shape are read
+  once in `main.tsx` (`src/lib/authReturn.ts`) and finished in `src/lib/auth.ts` (`detectSessionInUrl: false`);
+  invite and reset links open Set password first.
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).

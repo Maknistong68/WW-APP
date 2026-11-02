@@ -452,3 +452,73 @@ create or replace trigger guard_ticket_removal before update on public.tickets
 drop policy if exists "team remove" on public.tickets;
 drop policy if exists "admin remove" on public.tickets;
 create policy "admin remove" on public.tickets for delete to authenticated using ((select private.is_admin()));
+
+-- ---------------------------------------------------------------------------
+-- New accounts keep the name and username typed on Create account (checked;
+-- a bad or taken username is simply left empty). Role and status never come
+-- from what the person sends. This replaces the two earlier definitions above.
+-- Sign in with a username: the sign-in Edge Function (supabase/functions/sign-in,
+-- service role only) finds the email and stops guessing after 10 wrong tries in
+-- 15 minutes. Safe to re-run.
+-- ---------------------------------------------------------------------------
+create or replace function private.handle_new_user() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  first_user boolean := not exists (select 1 from public.profiles);
+  u text := lower(trim(coalesce(new.raw_user_meta_data ->> 'username', '')));
+  n text := trim(coalesce(new.raw_user_meta_data ->> 'full_name', ''));
+begin
+  if u !~ '^[a-z0-9][a-z0-9._-]{2,23}$' or exists (select 1 from public.profiles p where lower(p.username) = u) then
+    u := null;
+  end if;
+  if char_length(n) not between 1 and 60 then n := null; end if;
+  begin
+    insert into public.profiles (id, email, status, role, decided_at, username, full_name)
+    values (new.id, new.email,
+            case when first_user then 'approved' else 'pending' end,
+            case when first_user then 'admin' else 'editor' end,
+            case when first_user then now() else null end, u, n)
+    on conflict (id) do nothing;
+  exception when unique_violation then
+    insert into public.profiles (id, email, status, role, decided_at, full_name)
+    values (new.id, new.email,
+            case when first_user then 'approved' else 'pending' end,
+            case when first_user then 'admin' else 'editor' end,
+            case when first_user then now() else null end, n)
+    on conflict (id) do nothing;
+  end;
+  return new;
+end $$;
+revoke all on function private.handle_new_user() from public, anon, authenticated;
+
+create table if not exists private.sign_in_attempts (
+  key text not null,
+  at timestamptz not null default now(),
+  ok boolean not null
+);
+create index if not exists sign_in_attempts_key_at on private.sign_in_attempts (key, at);
+
+create or replace function public.login_email(p_username text) returns text
+language sql stable security definer set search_path = '' as $$
+  select u.email from public.profiles p join auth.users u on u.id = p.id
+  where lower(p.username) = lower(trim(both '@' from trim(p_username))) limit 1
+$$;
+
+create or replace function public.sign_in_blocked(p_key text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select count(*) >= 10 from private.sign_in_attempts a
+  where a.key = lower(p_key) and not a.ok and a.at > now() - interval '15 minutes'
+    and a.at > coalesce((select max(b.at) from private.sign_in_attempts b where b.key = lower(p_key) and b.ok), '-infinity'::timestamptz)
+$$;
+
+create or replace function public.note_sign_in(p_key text, p_ok boolean) returns void
+language sql security definer set search_path = '' as $$
+  insert into private.sign_in_attempts (key, ok) values (lower(p_key), p_ok);
+$$;
+
+revoke all on function public.login_email(text) from public, anon, authenticated;
+revoke all on function public.sign_in_blocked(text) from public, anon, authenticated;
+revoke all on function public.note_sign_in(text, boolean) from public, anon, authenticated;
+grant execute on function public.login_email(text) to service_role;
+grant execute on function public.sign_in_blocked(text) to service_role;
+grant execute on function public.note_sign_in(text, boolean) to service_role;

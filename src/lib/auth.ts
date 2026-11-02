@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
-import { getClient, syncNow } from './sync'
+import type { EmailOtpType } from '@supabase/supabase-js'
+import { getClient, getSyncConfig, syncNow } from './sync'
+import { authProblemText, parseLogin } from './authForm'
+import { takeAuthReturn, type AuthReturn } from './authReturn'
 import { db } from '../db'
 import { showToast } from '../components/Toast'
 import { displayName } from './actor'
@@ -30,6 +33,12 @@ export type AuthPhase = 'loading' | 'local' | 'signedOut' | AccessStatus
 export interface AuthState {
   phase: AuthPhase
   session: Session | null
+  /** Back from an invite or reset link: a new password comes first. */
+  setPassword: boolean
+  /** That link was an invite (else a password reset). */
+  invited: boolean
+  /** Why an email link didn't work (shown on Sign in). */
+  linkError: string
   email: string
   role: Role
   /** Set once the person has chosen them (Settings › Your name). */
@@ -58,14 +67,107 @@ export async function signInWithPassword(c: SupabaseClient, email: string, passw
   if (error) throw error
 }
 
-export async function signUpWithPassword(c: SupabaseClient, email: string, password: string) {
-  const { error } = await c.auth.signUp({
+/**
+ * Create an account; the name and username go with it (the server keeps them
+ * if they are free). Returns true when the account is signed in at once (no
+ * email to confirm), false when an email link must be opened first.
+ */
+export async function signUpWithPassword(
+  c: SupabaseClient,
+  email: string,
+  password: string,
+  names: { username?: string; fullName?: string } = {},
+): Promise<boolean> {
+  const { data, error } = await c.auth.signUp({
     email: email.trim(),
     password: password.trim(),
     // Confirmation link opens this app, not Supabase's default URL.
-    options: { emailRedirectTo: redirectUrl() },
+    options: {
+      emailRedirectTo: redirectUrl(),
+      data: { ...(names.username ? { username: names.username } : {}), ...(names.fullName ? { full_name: names.fullName.trim() } : {}) },
+    },
   })
   if (error) throw error
+  return !!data.session
+}
+
+/**
+ * Sign in with a username or an email. An email goes straight to Supabase; a
+ * username goes through the sign-in Edge Function, which finds the email
+ * without ever showing it, and hands back the session.
+ */
+export async function signInWithLogin(c: SupabaseClient, login: string, password: string): Promise<void> {
+  const l = parseLogin(login)
+  if (l.kind === 'email') return signInWithPassword(c, l.value, password)
+  const cfg = getSyncConfig()
+  if (!cfg) throw new Error('Cloud sync is not set up')
+  const res = await fetch(`${cfg.url}/functions/v1/sign-in`, {
+    method: 'POST',
+    headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login: l.value, password: password.trim() }),
+  })
+  const body = (await res.json().catch(() => ({}))) as { error?: string; access_token?: string; refresh_token?: string }
+  if (!res.ok || !body.access_token || !body.refresh_token) throw new Error(body.error || 'Could not sign in. Try again.')
+  const { error } = await c.auth.setSession({ access_token: body.access_token, refresh_token: body.refresh_token })
+  if (error) throw error
+}
+
+/** After an invite or a reset link: the new password, then the app. */
+export async function setNewPassword(c: SupabaseClient, password: string): Promise<void> {
+  const { error } = await c.auth.updateUser({ password: password.trim() })
+  if (error) throw error
+  markNeedsPassword(false)
+}
+
+const SET_PASSWORD_KEY = 'ww.setPassword'
+/** 'invite' or 'recovery' while a password must be set; false when done. */
+function markNeedsPassword(why: 'invite' | 'recovery' | false) {
+  try {
+    if (why) localStorage.setItem(SET_PASSWORD_KEY, why)
+    else localStorage.removeItem(SET_PASSWORD_KEY)
+  } catch {
+    // private mode
+  }
+}
+const needsPassword = (): string => {
+  try {
+    return localStorage.getItem(SET_PASSWORD_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** The email link being finished (shared by every run of the sign-in check until one shows it). */
+let linkWork: Promise<string> | null = null
+
+/** Finish an email link (main.tsx kept it): sign in from it. Returns a message when it didn't work. */
+async function finishAuthReturn(c: SupabaseClient, ret: AuthReturn): Promise<string> {
+  try {
+    if (ret.kind === 'error') return ret.message
+    let type = ''
+    if (ret.kind === 'code') {
+      const { data, error } = await c.auth.exchangeCodeForSession(ret.code)
+      if (error) throw error
+      type = (data as { redirectType?: string | null }).redirectType ?? ''
+      if (!type && localStorage.getItem(RECOVERY_KEY) === '1') type = 'recovery'
+    } else if (ret.kind === 'tokens') {
+      const { error } = await c.auth.setSession({ access_token: ret.accessToken, refresh_token: ret.refreshToken })
+      if (error) throw error
+      type = ret.type
+    } else {
+      const { error } = await c.auth.verifyOtp({ token_hash: ret.tokenHash, type: ret.type as EmailOtpType })
+      if (error) throw error
+      type = ret.type
+    }
+    localStorage.removeItem(RECOVERY_KEY)
+    if (type === 'invite' || type === 'recovery') markNeedsPassword(type)
+    return ''
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // a PKCE link opened in another browser than the one that asked for it
+    if (/code verifier/i.test(msg)) return 'Open the link on the phone and browser where you asked for it, or ask for a new one.'
+    return authProblemText(err)
+  }
 }
 
 export async function sendPasswordReset(c: SupabaseClient, email: string) {
@@ -112,7 +214,17 @@ export function resolvePhase(
 }
 
 export function useAuth(): AuthState & { refresh: () => void; signOut: () => Promise<void> } {
-  const [state, setState] = useState<AuthState>({ phase: 'loading', session: null, email: '', role: 'viewer', username: '', fullName: '' })
+  const [state, setState] = useState<AuthState>({
+    phase: 'loading',
+    session: null,
+    setPassword: false,
+    invited: false,
+    linkError: '',
+    email: '',
+    role: 'viewer',
+    username: '',
+    fullName: '',
+  })
   const [tick, setTick] = useState(0)
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
@@ -122,9 +234,15 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
     const load = async () => {
       const c = await getClient()
       if (!c) {
-        if (alive) setState({ phase: 'local', session: null, email: '', role: 'admin', username: '', fullName: '' })
+        if (alive) setState({ phase: 'local', session: null, setPassword: false, invited: false, linkError: '', email: '', role: 'admin', username: '', fullName: '' })
         return
       }
+      // An email link is finished once, even when this runs twice (React dev, a quick refresh).
+      if (!linkWork) {
+        const ret = takeAuthReturn()
+        if (ret) linkWork = finishAuthReturn(c, ret)
+      }
+      const linkError = linkWork ? await linkWork : ''
       const { data } = await c.auth.getSession()
       const session = data.session
       type Profile = { status: AccessStatus; role: Role; username?: string | null; full_name?: string | null }
@@ -147,15 +265,19 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
       const cached = session ? readCache(session.user.id) : null
       const r = resolvePhase(true, session, profile, cached)
       const names = profile ?? cached
+      if (alive) linkWork = null
       if (alive)
-        setState({
+        setState((prev) => ({
           phase: r.phase,
           session,
+          setPassword: !!session && !!needsPassword(),
+          invited: needsPassword() === 'invite',
+          linkError: linkError || (session ? '' : prev.linkError),
           email: session?.user.email ?? '',
           role: r.role,
           username: names?.username ?? '',
           fullName: names?.full_name ?? '',
-        })
+        }))
       if (!unsub) {
         const { data: sub } = c.auth.onAuthStateChange((e) => {
           if (e === 'SIGNED_IN' || e === 'SIGNED_OUT' || e === 'USER_UPDATED') setTick((t) => t + 1)

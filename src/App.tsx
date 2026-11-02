@@ -31,7 +31,8 @@ import LibraryPage from './pages/LibraryPage'
 const City3DPage = lazy(() => import('./pages/City3DPage'))
 import MissingPage from './pages/MissingPage'
 import CloseoutPage from './pages/CloseoutPage'
-import LoginPage, { WaitingPage } from './pages/LoginPage'
+import LoginPage, { SetPasswordPage, WaitingPage } from './pages/LoginPage'
+import { gateScreen } from './lib/gate'
 import UsersPage from './pages/UsersPage'
 import { AuthContext, actorName, canEditRole, useAuth, useAuthInfo } from './lib/auth'
 import { setActor, setRole } from './lib/actor'
@@ -40,16 +41,30 @@ import { backgroundSync, type SyncResult } from './lib/sync'
 
 export default function App() {
   const auth = useAuth()
-  if (auth.phase === 'loading') return null
-  if (auth.phase === 'signedOut') {
+  const screen = gateScreen({ phase: auth.phase, setPassword: auth.setPassword })
+  if (screen === 'loading') return null
+  if (screen === 'setPassword') {
     return (
       <>
-        <LoginPage onDone={auth.refresh} />
+        <SetPasswordPage
+          name={auth.fullName || (auth.username ? `@${auth.username}` : '')}
+          invited={auth.invited}
+          onDone={auth.refresh}
+          onSignOut={() => void auth.signOut()}
+        />
         <ToastHost />
       </>
     )
   }
-  if (auth.phase === 'pending' || auth.phase === 'rejected') {
+  if (screen === 'login') {
+    return (
+      <>
+        <LoginPage onDone={auth.refresh} linkError={auth.linkError} />
+        <ToastHost />
+      </>
+    )
+  }
+  if (screen === 'waiting') {
     return (
       <>
         <WaitingPage

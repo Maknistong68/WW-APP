@@ -61,9 +61,10 @@ export async function getClient(): Promise<SupabaseClient | null> {
   const cfg = getSyncConfig()
   if (!cfg) return null
   const { createClient } = await import('@supabase/supabase-js')
-  // PKCE: email links (confirm, password reset) come back as ?code=…, which
-  // works with the app's hash routes; the client exchanges it on startup.
-  client = createClient(cfg.url, cfg.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true } })
+  // PKCE for links this app asks for. Email links of every shape are read once
+  // at start (main.tsx, lib/authReturn.ts) and finished in lib/auth.ts, so the
+  // client doesn't look at the address itself.
+  client = createClient(cfg.url, cfg.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: false } })
   return client
 }
 
