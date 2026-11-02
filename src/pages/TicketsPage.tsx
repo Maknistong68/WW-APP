@@ -6,6 +6,7 @@ import Page from '../components/Page'
 import Icon from '../components/Icon'
 import IconTile from '../components/IconTile'
 import ItemRow from '../components/ItemRow'
+import SourceTabs from '../components/SourceTabs'
 import CardList from '../components/CardList'
 import ActionBar from '../components/ActionBar'
 import { ticketTone } from '../lib/tone'
@@ -24,11 +25,6 @@ import { shortName } from '../lib/names'
 import type { Contractor, Ticket, WorkOrder } from '../types'
 
 type Filter = 'open' | 'late' | 'closed' | 'all'
-/** Hotline tickets and Internal ones (raised by the team) are kept apart. */
-const SOURCE_TABS: { key: SourceTab; label: string }[] = [
-  { key: 'tickets', label: 'Tickets' },
-  { key: 'internal', label: 'Internal' },
-]
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'open', label: 'Open' },
   { key: 'late', label: '30+d' },
@@ -178,7 +174,6 @@ export default function TicketsPage() {
     setParams(next, { replace: true })
   }
   const setSource = (k: SourceTab) => {
-    haptic('tick')
     const next = new URLSearchParams(params)
     if (k === 'tickets') next.delete('tab')
     else next.set('tab', k)
@@ -256,15 +251,7 @@ export default function TicketsPage() {
         )
       }
     >
-      {bySource && (
-        <div className="segmented even" role="tablist">
-          {SOURCE_TABS.map((k) => (
-            <button key={k.key} role="tab" aria-selected={source === k.key} className={source === k.key ? 'on' : ''} onClick={() => setSource(k.key)}>
-              {k.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {bySource && <SourceTabs value={source} onChange={setSource} />}
       <label className="ios-search">
         <Icon name="search" size={18} />
         <input type="search" placeholder="Ticket no., contractor, WO, issue" value={query} onChange={(e) => setQuery(e.target.value)} />

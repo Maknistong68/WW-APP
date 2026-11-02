@@ -335,7 +335,7 @@ export function areaMenu(a: AreaDef, s: AreaSummary, o: { month: string; onAddTa
   const actions: SheetAction[] = []
   if (a.link) {
     const link = a.link
-    actions.push({ label: link.label, icon: link.icon, onSelect: () => go(link.to(o.month)) })
+    actions.push({ label: link.label, icon: link.icon, onSelect: () => go(link.to({ month: o.month, tab: 'tickets' })) })
   }
   if (o.onAddTask) actions.push({ label: 'Add task', icon: 'plus', edit: true, onSelect: o.onAddTask })
   showActions({

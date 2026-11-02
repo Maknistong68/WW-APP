@@ -93,6 +93,18 @@ describe('Home tasks: tickets, camps, drafts', () => {
     const soon = tasks.find((t) => t.group === 'week' && t.kind === 'ticket')!
     expect([soon.title, soon.detail.startsWith('WWCMPL-07 · Turns 30 days on')]).toEqual(['RPCO', true])
   })
+  it('Internal tickets get their own rows, cap and "more" row, marked for the Internal tab', () => {
+    const hotline = ['01', '02', '03', '04', '05', '06'].map((n, i) => ticket(n, `2026-09-0${i + 1}`))
+    const internal = ['11', '12', '13', '14', '15', '16', '17'].map((n, i) => ({ ...ticket(n, `2026-09-0${i + 1}`), source: 'Internal' }) as Ticket)
+    const { tasks, counts } = buildTasks(base({ tickets: [...hotline, ...internal] }), '2026-11-01')
+    const late = (tab: 'tickets' | 'internal') => tasks.filter((t) => t.group === 'overdue' && t.ticketSource === tab)
+    expect(late('tickets').map((t) => t.kind)).toEqual(['ticket', 'ticket', 'ticket', 'ticket', 'ticket', 'tickets'])
+    expect(late('internal').map((t) => t.kind)).toEqual(['ticket', 'ticket', 'ticket', 'ticket', 'ticket', 'tickets'])
+    const more = late('internal')[5]
+    expect([more.title, more.dueText, more.to]).toEqual(['More internal tickets over 30 days', '2 more', '/tickets?f=late&tab=internal'])
+    expect(late('tickets')[5].to).toBe('/tickets?f=late')
+    expect(counts.overdue).toBe(13)
+  })
   it('a ticket row is named by the contractor\'s short name ("No contractor" when there is none)', () => {
     const long = { uuid: 'c2', name: 'Project Pioneers Contracting Company', active: true, aliases: [] } as unknown as Contractor
     const tickets = [{ ...ticket('08', '2026-09-01'), contractorUuid: 'c2' }, { ...ticket('09', '2026-09-02'), contractorUuid: '' }]

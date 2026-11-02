@@ -11,6 +11,7 @@ import type { Tone } from './tone'
 import type { IconName } from '../components/Icon'
 import { nextDue, repeatText, routineGroup } from './routines'
 import { shortName } from './names'
+import { sourceTab, type SourceTab } from './ticketFilter'
 import type { Routine } from '../types'
 import type { MenuItem } from './hues'
 
@@ -52,6 +53,8 @@ export interface Task {
   subject?: { contractorUuid: string; workOrderUuid: string; month: string }
   sheet?: 'kpi' | 'manpower'
   ticketUuid?: string
+  /** A ticket row's tab on the Tickets card: hotline or Internal. */
+  ticketSource?: SourceTab
   campUuid?: string
   inspectionId?: number
   /** A grouped row's own rows (expand in place). */
@@ -266,55 +269,62 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
     })
   }
 
-  // 2. Tickets: over 30 days (named, then "more"), and turning 30 within a week.
+  // 2. Tickets: over 30 days (named, then "more"), and turning 30 within a week; hotline and
+  // Internal tickets each on their own (the Tickets card's two tabs).
   // Named by the contractor's short name; the ticket number leads the line below.
   const whoOf = (uuid: string) => {
     const name = d.byUuid.get(uuid)?.name
     return name ? shortName(name) : 'No contractor'
   }
-  const open = d.tickets.filter((t) => isOpen(t) && !t.parentUuid && t.openedAt)
-  const late = open.filter((t) => ageDays(t, today) > 30).sort((a, b) => ageDays(b, today) - ageDays(a, today) || a.ticketNo.localeCompare(b.ticketNo))
-  const ticketRow = (t: (typeof open)[number], group: TaskGroup, detail: string): Task => ({
-    key: `ticket:${t.uuid}`,
-    kind: 'ticket',
-    group,
-    title: whoOf(t.contractorUuid),
-    detail: `${t.ticketNo || 'No number'} · ${detail}`,
-    due: addDays(t.openedAt, 30),
-    dueText: `${ageDays(t, today)}d`,
-    tone: toneFor(group),
-    icon: 'ticket',
-    to: `/tickets/${t.uuid}`,
-    weight: 1,
-    ticketUuid: t.uuid,
-    help: HELP.ticket,
-  })
-  for (const t of late.slice(0, cap)) {
-    const days = ageDays(t, today)
-    tasks.push(ticketRow(t, 'overdue', `Open ${days} days · ${t.workers || 0} worker${s(t.workers || 0)}`))
-  }
-  if (late.length > cap) {
-    const more = late.length - cap
-    tasks.push({
-      key: 'tickets:late',
-      kind: 'tickets',
-      group: 'overdue',
-      title: 'More tickets over 30 days',
-      detail: 'Opens the 30+ days list',
-      due: addDays(late[cap - 1].openedAt, 30),
-      dueText: `${more} more`,
-      tone: 'bad',
+  const allOpen = d.tickets.filter((t) => isOpen(t) && !t.parentUuid && t.openedAt)
+  for (const tab of ['tickets', 'internal'] as const) {
+    const open = allOpen.filter((t) => sourceTab(t) === tab)
+    const internal = tab === 'internal'
+    const late = open.filter((t) => ageDays(t, today) > 30).sort((a, b) => ageDays(b, today) - ageDays(a, today) || a.ticketNo.localeCompare(b.ticketNo))
+    const ticketRow = (t: (typeof open)[number], group: TaskGroup, detail: string): Task => ({
+      key: `ticket:${t.uuid}`,
+      kind: 'ticket',
+      group,
+      title: whoOf(t.contractorUuid),
+      detail: `${t.ticketNo || 'No number'} · ${detail}`,
+      due: addDays(t.openedAt, 30),
+      dueText: `${ageDays(t, today)}d`,
+      tone: toneFor(group),
       icon: 'ticket',
-      to: '/tickets?f=late',
-      weight: more,
+      to: `/tickets/${t.uuid}`,
+      weight: 1,
+      ticketUuid: t.uuid,
+      ticketSource: tab,
+      help: HELP.ticket,
     })
-  }
-  const soon = open.filter((t) => {
-    const a = ageDays(t, today)
-    return a > 30 - 7 && a <= 30
-  })
-  for (const t of soon.sort((a, b) => ageDays(b, today) - ageDays(a, today)).slice(0, cap)) {
-    tasks.push(ticketRow(t, 'week', `Turns 30 days on ${weekday(addDays(t.openedAt, 31))}`))
+    for (const t of late.slice(0, cap)) {
+      const days = ageDays(t, today)
+      tasks.push(ticketRow(t, 'overdue', `Open ${days} days · ${t.workers || 0} worker${s(t.workers || 0)}`))
+    }
+    if (late.length > cap) {
+      const more = late.length - cap
+      tasks.push({
+        key: internal ? 'tickets:late:internal' : 'tickets:late',
+        kind: 'tickets',
+        group: 'overdue',
+        title: internal ? 'More internal tickets over 30 days' : 'More tickets over 30 days',
+        detail: 'Opens the 30+ days list',
+        due: addDays(late[cap - 1].openedAt, 30),
+        dueText: `${more} more`,
+        tone: 'bad',
+        icon: 'ticket',
+        to: internal ? '/tickets?f=late&tab=internal' : '/tickets?f=late',
+        weight: more,
+        ticketSource: tab,
+      })
+    }
+    const soon = open.filter((t) => {
+      const a = ageDays(t, today)
+      return a > 30 - 7 && a <= 30
+    })
+    for (const t of soon.sort((a, b) => ageDays(b, today) - ageDays(a, today)).slice(0, cap)) {
+      tasks.push(ticketRow(t, 'week', `Turns 30 days on ${weekday(addDays(t.openedAt, 31))}`))
+    }
   }
 
   // 3. Camps: expired or never inspected, or due
@@ -495,21 +505,21 @@ export interface AreaDef {
   /** What it means (the long-press note). */
   help: string
   /** The app's own screen for it (a shortcut in the long-press pop-up). */
-  link?: { label: string; icon: IconName; to: (month: string) => string }
+  link?: { label: string; icon: IconName; to: (o: { month: string; tab: SourceTab }) => string }
 }
 
 /** The six cards, in grid order. */
 export const AREAS: AreaDef[] = [
-  { key: 'tickets', label: 'Tickets', icon: 'ticket', hue: 'ticket', help: HELP.ticket, link: { label: 'Open Tickets', icon: 'ticket', to: () => '/tickets' } },
+  { key: 'tickets', label: 'Tickets', icon: 'ticket', hue: 'ticket', help: HELP.ticket, link: { label: 'Open Tickets', icon: 'ticket', to: ({ tab }) => (tab === 'internal' ? '/tickets?tab=internal' : '/tickets') } },
   {
     key: 'submission',
     label: 'Submission',
     icon: 'file-text',
     hue: 'submission',
     help: HELP.declarations,
-    link: { label: 'Missing submissions', icon: 'file-text', to: (m) => `/missing/submission?m=${m}` },
+    link: { label: 'Missing submissions', icon: 'file-text', to: ({ month }) => `/missing/submission?m=${month}` },
   },
-  { key: 'kpis', label: 'KPIs', icon: 'gauge', hue: 'kpis', help: HELP.kpis, link: { label: 'KPI dashboard', icon: 'gauge', to: (m) => `/dashboard?v=kpis&m=${m}` } },
+  { key: 'kpis', label: 'KPIs', icon: 'gauge', hue: 'kpis', help: HELP.kpis, link: { label: 'KPI dashboard', icon: 'gauge', to: ({ month }) => `/dashboard?v=kpis&m=${month}` } },
   { key: 'accommodation', label: 'Accommodation', icon: 'tent', hue: 'camps', help: HELP.camp, link: { label: 'Open Camps', icon: 'tent', to: () => '/camps' } },
   {
     key: 'audits',

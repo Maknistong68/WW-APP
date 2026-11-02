@@ -132,6 +132,9 @@ per screen.
       team's own to-dos.
     - **Tap** opens the card's list (`/today/:area`, `src/pages/AreaPage.tsx`): Overdue, This
       week, Later, with the shortcut to the app's own screen at the end (and **Add** on Tasks).
+      The Tickets card's list has the ticket log's **Tickets | Internal** tabs (with a count each;
+      `SourceTabs`); hotline and Internal tickets are capped and listed on their own
+      (`ticketSource`), and the card's number counts both.
     - **Hold** (`areaMenu`): Late / This week / Later, the most urgent names (or what the card
       means), the shortcut (Open Tickets, Missing submissions, KPI dashboard, Open Camps, Audit
       close-outs) and Add task.
