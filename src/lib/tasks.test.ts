@@ -85,11 +85,19 @@ describe('Home tasks: tickets, camps, drafts', () => {
     const tickets = ['01', '02', '03', '04', '05', '06'].map((n, i) => ticket(n, `2026-09-0${i + 1}`)).concat(ticket('07', '2026-10-06'))
     const { tasks, counts } = buildTasks(base({ tickets }), '2026-11-01')
     const late = tasks.filter((t) => t.group === 'overdue' && (t.kind === 'ticket' || t.kind === 'tickets'))
-    expect(late.map((t) => t.title)).toEqual(['WWCMPL-01', 'WWCMPL-02', 'WWCMPL-03', 'WWCMPL-04', 'WWCMPL-05', 'More tickets over 30 days'])
+    expect(late.map((t) => t.title)).toEqual(['RPCO', 'RPCO', 'RPCO', 'RPCO', 'RPCO', 'More tickets over 30 days'])
+    expect(late.slice(0, 5).map((t) => t.detail.split(' · ')[0])).toEqual(['WWCMPL-01', 'WWCMPL-02', 'WWCMPL-03', 'WWCMPL-04', 'WWCMPL-05'])
+    expect(late[0].detail).toBe('WWCMPL-01 · Open 61 days · 3 workers')
     expect(late[5].dueText).toBe('1 more')
     expect(counts.overdue).toBe(6)
     const soon = tasks.find((t) => t.group === 'week' && t.kind === 'ticket')!
-    expect([soon.title, soon.detail.startsWith('Turns 30 days on')]).toEqual(['WWCMPL-07', true])
+    expect([soon.title, soon.detail.startsWith('WWCMPL-07 · Turns 30 days on')]).toEqual(['RPCO', true])
+  })
+  it('a ticket row is named by the contractor\'s short name ("No contractor" when there is none)', () => {
+    const long = { uuid: 'c2', name: 'Project Pioneers Contracting Company', active: true, aliases: [] } as unknown as Contractor
+    const tickets = [{ ...ticket('08', '2026-09-01'), contractorUuid: 'c2' }, { ...ticket('09', '2026-09-02'), contractorUuid: '' }]
+    const { tasks } = buildTasks(base({ tickets, contractors: [c1, long], byUuid: new Map([[c1.uuid, c1], [long.uuid, long]]) }), '2026-11-01')
+    expect(tasks.filter((t) => t.kind === 'ticket').map((t) => t.title)).toEqual(['Project Pioneers', 'No contractor'])
   })
   it('a camp never inspected is overdue; a draft inspection waits under Later', () => {
     const camps = [{ uuid: 'p1', name: 'Camp 3', active: true, cycleDays: 90, contractorUuid: 'c1' } as Camp]

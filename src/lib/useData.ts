@@ -3,6 +3,7 @@ import { useCachedLiveQuery } from './useCachedQuery'
 import { db, newUuid } from '../db'
 import { localDate } from './dates'
 import { TICKET_PREFIX } from './lists'
+import { sar } from './money'
 import type { Contractor, Routine, Ticket, WorkOrder } from '../types'
 
 export function useContractors() {
@@ -68,6 +69,22 @@ export function newContractor(name = ''): Contractor {
 
 export function newWorkOrder(contractorUuid: string, number = ''): WorkOrder {
   return { uuid: newUuid(), updatedAt: '', contractorUuid, number, label: '', active: true, notes: '' }
+}
+
+/**
+ * "RPCO · WO 882 · Final salary · SAR 4,500" (the pop-up's line under the ticket number).
+ * Without the contractor map it is just "WO 882 · Final salary · SAR 4,500".
+ */
+export function ticketSub(t: Ticket, contractors?: Map<string, Contractor>, wos?: Map<string, WorkOrder>): string {
+  const wo = wos?.get(t.workOrderUuid)
+  return [
+    contractors ? contractorName(contractors, t.contractorUuid) : '',
+    wo ? `WO ${wo.number}` : '',
+    t.issue || '—',
+    t.amountOwed ? sar(t.amountOwed) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 /** Activity-log label: the ticket number first. */

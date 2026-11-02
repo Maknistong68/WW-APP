@@ -10,6 +10,7 @@ import { SUBJECT_ITEMS, quarterMonths, type SubjectItemKey } from './todo'
 import type { Tone } from './tone'
 import type { IconName } from '../components/Icon'
 import { nextDue, repeatText, routineGroup } from './routines'
+import { shortName } from './names'
 import type { Routine } from '../types'
 import type { MenuItem } from './hues'
 
@@ -33,7 +34,7 @@ export interface Task {
   key: string
   kind: TaskKind
   group: TaskGroup
-  /** Who or what: "RPCO · WO 882", "WWCMPL-1043", "Camp 3", "October declarations". */
+  /** Who or what: "RPCO · WO 882", "Project Pioneers" (a ticket's contractor), "Camp 3", "October declarations". */
   title: string
   /** What: "Oct: WPS, Salary missing". */
   detail: string
@@ -265,16 +266,20 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
     })
   }
 
-  // 2. Tickets: over 30 days (named, then "more"), and turning 30 within a week
-  const nameOf = (uuid: string) => d.byUuid.get(uuid)?.name ?? 'No contractor'
+  // 2. Tickets: over 30 days (named, then "more"), and turning 30 within a week.
+  // Named by the contractor's short name; the ticket number leads the line below.
+  const whoOf = (uuid: string) => {
+    const name = d.byUuid.get(uuid)?.name
+    return name ? shortName(name) : 'No contractor'
+  }
   const open = d.tickets.filter((t) => isOpen(t) && !t.parentUuid && t.openedAt)
   const late = open.filter((t) => ageDays(t, today) > 30).sort((a, b) => ageDays(b, today) - ageDays(a, today) || a.ticketNo.localeCompare(b.ticketNo))
   const ticketRow = (t: (typeof open)[number], group: TaskGroup, detail: string): Task => ({
     key: `ticket:${t.uuid}`,
     kind: 'ticket',
     group,
-    title: t.ticketNo || 'Ticket',
-    detail,
+    title: whoOf(t.contractorUuid),
+    detail: `${t.ticketNo || 'No number'} · ${detail}`,
     due: addDays(t.openedAt, 30),
     dueText: `${ageDays(t, today)}d`,
     tone: toneFor(group),
@@ -286,7 +291,7 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
   })
   for (const t of late.slice(0, cap)) {
     const days = ageDays(t, today)
-    tasks.push(ticketRow(t, 'overdue', `Open ${days} days · ${nameOf(t.contractorUuid)} · ${t.workers || 0} worker${s(t.workers || 0)}`))
+    tasks.push(ticketRow(t, 'overdue', `Open ${days} days · ${t.workers || 0} worker${s(t.workers || 0)}`))
   }
   if (late.length > cap) {
     const more = late.length - cap
@@ -309,7 +314,7 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
     return a > 30 - 7 && a <= 30
   })
   for (const t of soon.sort((a, b) => ageDays(b, today) - ageDays(a, today)).slice(0, cap)) {
-    tasks.push(ticketRow(t, 'week', `Turns 30 days on ${weekday(addDays(t.openedAt, 31))} · ${nameOf(t.contractorUuid)}`))
+    tasks.push(ticketRow(t, 'week', `Turns 30 days on ${weekday(addDays(t.openedAt, 31))}`))
   }
 
   // 3. Camps: expired or never inspected, or due

@@ -136,8 +136,9 @@ per screen.
       means), the shortcut (Open Tickets, Missing submissions, KPI dashboard, Open Camps, Audit
       close-outs) and Add task.
   - Rows (`src/components/TaskRow.tsx`): urgent ones are named one by one, e.g. "RPCO · WO 882 ·
-    Oct: WPS, Salary missing · 1d late". Later ones are grouped per month; tap a group to open it
-    in place.
+    Oct: WPS, Salary missing · 1d late". A ticket row, like the ticket log, is named by the
+    contractor's short name, with "WWCMPL… · Open 42 days · 3 workers" below. Later ones are grouped
+    per month; tap a group to open it in place.
   - Due dates: a month's declarations by the 15th of the next month, its KPIs by the end of the
     next month (`src/lib/due.ts`).
   - Gaps are chased from October 2026 (`TASKS_FROM`), for up to 3 ended months.

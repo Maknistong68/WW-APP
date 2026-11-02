@@ -19,8 +19,7 @@ import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { memberCounts } from '../lib/groups'
 import { ageDays, isOpen } from '../lib/aging'
 import { monthLabel, shortDate } from '../lib/dates'
-import { contractorName, useContractors } from '../lib/useData'
-import { sar } from '../lib/money'
+import { contractorName, ticketSub, useContractors } from '../lib/useData'
 import { shortName } from '../lib/names'
 import type { Contractor, Ticket, WorkOrder } from '../types'
 
@@ -32,21 +31,8 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
 ]
 
-/**
- * "RPCO · WO 882 · Final salary · SAR 4,500" (the pop-up's line under the ticket number).
- * Without the contractor map it is just "WO 882 · Final salary · SAR 4,500".
- */
-export function ticketSub(t: Ticket, contractors?: Map<string, Contractor>, wos?: Map<string, WorkOrder>): string {
-  const wo = wos?.get(t.workOrderUuid)
-  return [
-    contractors ? contractorName(contractors, t.contractorUuid) : '',
-    wo ? `WO ${wo.number}` : '',
-    t.issue || '—',
-    t.amountOwed ? sar(t.amountOwed) : '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
-}
+/** The pop-up's line under the ticket number (lives in src/lib/useData.ts). */
+export { ticketSub } from '../lib/useData'
 
 /** Copy a ticket number to the clipboard. */
 export { copyTicketNo } from '../components/menus'

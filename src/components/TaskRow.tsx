@@ -12,6 +12,7 @@ import { campMenu, inspectionMenu, markRoutine, routineMenu, ticketMenu } from '
 import { go, openSheet } from './SheetHost'
 import { showToast } from './Toast'
 import { monthLabel } from '../lib/dates'
+import { ticketSub } from '../lib/useData'
 import { haptic } from '../lib/haptics'
 import type { AllData } from '../lib/kpiData'
 import { completedSince, type Task, type TaskGroup } from '../lib/tasks'
@@ -55,7 +56,8 @@ const copyText = (t: Task) => {
 function taskMenu(t: Task, d: AllData) {
   if (t.kind === 'ticket' && t.ticketUuid) {
     const ticket = d.tickets.find((x) => x.uuid === t.ticketUuid)
-    if (ticket) return ticketMenu(ticket, { sub: t.detail })
+    // the pop-up's title is the ticket number; below it the same line as on the Tickets page
+    if (ticket) return ticketMenu(ticket, { sub: ticketSub(ticket, d.byUuid, d.woByUuid) })
   }
   if (t.kind === 'camp' && t.campUuid) {
     const camp = d.camps.find((x) => x.uuid === t.campUuid)
