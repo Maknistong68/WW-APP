@@ -9,6 +9,8 @@ const BUILD = (process.env.VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 7) || new Date(
 
 export default defineConfig({
   define: { __APP_BUILD__: JSON.stringify(BUILD) },
+  // Phones the team uses: iOS 15+ Safari, Chrome / Edge / Samsung Internet on Android, desktop Edge and Chrome.
+  build: { target: ['es2020', 'safari15', 'chrome100', 'edge100', 'firefox100'] },
   base: './',
   plugins: [
     react(),

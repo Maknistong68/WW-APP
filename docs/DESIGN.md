@@ -368,3 +368,16 @@ is in `src/three/`.
   float over a moving canvas).
 - **Failures:** no WebGL 2 → a message and a link to the 2D dashboard. If the first frame doesn't
   come within 10 s, a card says where it stopped.
+
+## Phones and browsers (minimums)
+- **iPhone / iPad:** iOS 15.4+ in Safari, Chrome, Edge or Firefox (all use Safari's engine). Install = Share →
+  Add to Home Screen; the home-screen app keeps its own sign-in and data, apart from the Safari tab.
+- **Android:** Chrome / Edge 108+, Samsung Internet 21+. Install = the browser's Install button or its menu.
+- **Computers:** current Edge and Chrome (never asked to install).
+- Built for `es2020`, `safari15`, `chrome100`, `edge100`, `firefox100` (`vite.config.ts`). Every `dvh` height has a
+  `vh` line before it; `:has()` only adds polish (each use has a fallback); inputs are 16 px or more (no zoom on
+  focus); `interactive-widget=resizes-content` keeps sheets and Save above the Android keyboard; copy buttons use
+  `src/lib/clipboard.ts` (falls back where the clipboard API is missing); ResizeObserver and pointer capture are
+  guarded. Settings › Sync log shows the version, installed or tab, and the phone storage used / kept.
+- Real-device check list: sign in (username and email), add a task, close a ticket, edit an old ticket, KPI
+  close-out, filter rows, a sheet with the keyboard open, dark mode, install flow.

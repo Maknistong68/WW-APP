@@ -10,6 +10,7 @@ import SaveButton from '../components/SaveButton'
 import { displayName } from '../lib/actor'
 import { normUsername } from '../lib/authForm'
 import { callFunction } from '../lib/functions'
+import { copyText } from '../lib/clipboard'
 import { inviteProblem, inviteStatus } from '../lib/invite'
 import { useSave } from '../lib/useSave'
 import { showToast } from '../components/Toast'
@@ -33,10 +34,7 @@ interface Profile {
 /** The link to send by hand: shown with a Copy button. */
 function LinkSheet({ name, link, noEmail, onClose }: { name: string; link: string; noEmail: boolean; onClose: () => void }) {
   const copy = () =>
-    void navigator.clipboard
-      ?.writeText(link)
-      .then(() => showToast({ text: 'Link copied. Send it by WhatsApp or email.' }))
-      .catch(() => showToast({ text: 'Could not copy. Hold the link to copy it.' }))
+    void copyText(link).then((ok) => showToast({ text: ok ? 'Link copied. Send it by WhatsApp or email.' : 'Could not copy. Hold the link to copy it.' }))
   return (
     <Modal title="Send this link" onClose={onClose}>
       <div className="sheet-body">

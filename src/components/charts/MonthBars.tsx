@@ -54,6 +54,7 @@ export default function MonthBars({
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    if (typeof ResizeObserver === 'undefined') return setW(Math.max(200, el.clientWidth))
     const ro = new ResizeObserver(([e]) => setW(Math.max(200, e.contentRect.width)))
     ro.observe(el)
     return () => ro.disconnect()

@@ -4,6 +4,7 @@ import Icon from '../components/Icon'
 import { showToast } from '../components/Toast'
 import { promptInstall, skipInstall, useInstallState } from '../lib/installPrompt'
 import { installPlan } from '../lib/platform'
+import { copyText } from '../lib/clipboard'
 
 /**
  * Install the app (first screen on a phone or tablet in a browser tab). The
@@ -45,10 +46,9 @@ export function InstallSteps({ signInAs }: { signInAs?: string }) {
   const [busy, setBusy] = useState(false)
   const ios = st.platform.os === 'ios'
   const copyLink = () =>
-    void navigator.clipboard
-      ?.writeText(window.location.origin + window.location.pathname)
-      .then(() => showToast({ text: 'Link copied. Paste it in Chrome or Safari.' }))
-      .catch(() => showToast({ text: 'Could not copy the link.' }))
+    void copyText(window.location.origin + window.location.pathname).then((ok) =>
+      showToast({ text: ok ? 'Link copied. Paste it in Chrome or Safari.' : 'Could not copy the link.' }),
+    )
 
   if (st.justInstalled) return <p className="login-note">Installed. Open WW Co-pilot from your home screen.</p>
   if (plan.kind === 'none' || plan.kind === 'installed')

@@ -10,6 +10,7 @@ import DoneCheck from './DoneCheck'
 import { showActions, type SheetAction } from './ActionSheet'
 import { campMenu, inspectionMenu, markRoutine, routineMenu, ticketMenu } from './menus'
 import { go, openSheet } from './SheetHost'
+import { copyText } from '../lib/clipboard'
 import { showToast } from './Toast'
 import { monthLabel } from '../lib/dates'
 import { ticketSub } from '../lib/useData'
@@ -45,12 +46,9 @@ function primaryOf(t: Task, canEdit: boolean): { label: string; icon: IconName; 
   return null
 }
 
-const copyText = (t: Task) => {
+const copyTask = (t: Task) => {
   const text = `${t.title} — ${t.detail} (${t.dueText})`
-  void navigator.clipboard?.writeText(text).then(
-    () => showToast({ text: 'Copied' }),
-    () => showToast({ text }),
-  )
+  void copyText(text).then((ok) => showToast({ text: ok ? 'Copied' : text }))
 }
 
 /** Hold a task: the record's own menu, or what it means and what to do. */
@@ -85,7 +83,7 @@ function taskMenu(t: Task, d: AllData) {
   } else if (t.to) {
     actions.push({ label: t.members ? 'Open the list' : 'Open', icon: 'arrow-right', onSelect: () => go(t.to) })
   }
-  actions.push({ label: 'Copy as text', icon: 'copy', onSelect: () => copyText(t) })
+  actions.push({ label: 'Copy as text', icon: 'copy', onSelect: () => copyTask(t) })
   showActions({
     title: t.title,
     sub: `${t.detail} · ${t.dueText}`,

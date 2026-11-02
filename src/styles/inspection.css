@@ -151,10 +151,10 @@
   background: none; border: none; border-bottom: 1px solid var(--line); font: 500 15px var(--font); color: var(--text); cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-80);
 }
-.assign-preview { width: 100%; max-height: 30dvh; object-fit: contain; background: #111; }
+.assign-preview { width: 100%; max-height: 30vh; max-height: 30dvh; object-fit: contain; background: #111; }
 .assign-search { padding: 10px 16px; }
 .assign-search input { width: 100%; min-height: 48px; padding: 0 18px; border: 1.5px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); font: 16px var(--font); }
 .jump-count { margin-left: auto; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 .viewer { padding: 16px; overflow-y: auto; }
-.viewer img { width: 100%; max-height: 50dvh; object-fit: contain; border-radius: 22px; background: #111; }
+.viewer img { width: 100%; max-height: 50vh; max-height: 50dvh; object-fit: contain; border-radius: 22px; background: #111; }
 .section-head .section-title { flex: 1; min-width: 0; line-height: 1.3; }

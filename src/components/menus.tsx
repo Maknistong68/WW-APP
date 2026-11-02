@@ -21,6 +21,7 @@ import { removeRecord, saveRecord } from '../lib/records'
 import { attempt, tryWrite } from '../lib/safeWrite'
 import { isAdmin } from '../lib/actor'
 import { markSeen } from '../lib/onboarding'
+import { copyText } from '../lib/clipboard'
 import { backgroundSync } from '../lib/sync'
 import { isFollowed, kpiSubjects, type KpiSubject } from '../lib/subjects'
 import { kpiTone, ticketTone, type Tone } from '../lib/tone'
@@ -38,10 +39,7 @@ const short = (month: string) => monthLabel(month).slice(0, 3)
 export const fillMonth = () => lastEndedMonth(localDate())
 
 export function copyTicketNo(t: Ticket) {
-  void navigator.clipboard?.writeText(t.ticketNo).then(
-    () => showToast({ text: `Copied ${t.ticketNo}` }),
-    () => showToast({ text: t.ticketNo }),
-  )
+  void copyText(t.ticketNo).then((ok) => showToast({ text: ok ? `Copied ${t.ticketNo}` : t.ticketNo }))
 }
 
 async function reopenTicket(t: Ticket) {

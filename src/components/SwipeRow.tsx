@@ -43,7 +43,13 @@ export default function SwipeRow({
     const dy = e.clientY - s.y
     if (s.horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
       s.horizontal = Math.abs(dx) > Math.abs(dy)
-      if (s.horizontal) (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      if (s.horizontal) {
+        try {
+          ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+        } catch {
+          // older browsers: the swipe still works, it just may stop at the row's edge
+        }
+      }
     }
     if (!s.horizontal) return
     s.moved = true

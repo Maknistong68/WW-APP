@@ -5,7 +5,7 @@
    slides under the row, the small one fades in. Everything lines up with the
    cards: the same --gutter, and buttons pulled out by their inner padding so
    the visible glyph sits on the edge. */
-.screen { min-height: 100dvh; }
+.screen { min-height: 100vh; min-height: 100dvh; }
 
 .nav-bar {
   /* the cards' edge: .page is 720px wide at most, centred, with --gutter inside */
@@ -166,7 +166,7 @@ body.has-actionbar .tabbar { display: none; }
 }
 .modal-backdrop.closing { opacity: 0; transition: opacity var(--dur-out) var(--ease-exit); pointer-events: none; }
 .modal {
-  width: 100%; max-width: 640px; max-height: calc(100dvh - env(safe-area-inset-top) - var(--bottom-gap) - 24px);
+  width: 100%; max-width: 640px; max-height: calc(100vh - env(safe-area-inset-top) - var(--bottom-gap) - 24px); max-height: calc(100dvh - env(safe-area-inset-top) - var(--bottom-gap) - 24px);
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--sheet); border-radius: var(--r-panel); box-shadow: var(--shadow-panel);
   animation: sheetIn var(--dur-in) var(--ease-90);
@@ -212,7 +212,7 @@ body.has-actionbar .tabbar { display: none; }
 }
 .as-backdrop.out { opacity: 0; transition: opacity var(--dur-out) var(--ease-exit); }
 .as-sheet {
-  width: 100%; max-width: 520px; max-height: 85dvh; overflow-y: auto;
+  width: 100%; max-width: 520px; max-height: 85vh; max-height: 85dvh; overflow-y: auto;
   background: var(--sheet); border-radius: var(--r-panel); box-shadow: var(--shadow-panel);
   padding: 10px 10px 10px;
   animation: sheetIn var(--dur-in) var(--ease-90);
@@ -244,7 +244,7 @@ body.has-actionbar .tabbar { display: none; }
   animation: fadeIn var(--dur-med) var(--ease-80) both;
 }
 .as-pop {
-  position: fixed; max-height: calc(100dvh - 24px); overflow-y: auto;
+  position: fixed; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto;
   background: var(--sheet); border-radius: var(--r-panel); box-shadow: var(--shadow-panel); padding: 10px;
 }
 .as-pop.in { animation: popIn var(--dur-in) var(--ease-spring) both; }

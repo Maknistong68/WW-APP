@@ -22,6 +22,7 @@ import { showToast } from '../components/Toast'
 import ProfileCard from '../components/ProfileCard'
 import { hideGetStarted } from '../lib/onboarding'
 import { logText, mergeLogs } from '../lib/logCopy'
+import { copyText } from '../lib/clipboard'
 import { readLocalLog } from '../lib/localLog'
 import { canInstall, isIos, isStandalone, onInstallChange, promptInstall } from '../lib/installPrompt'
 
@@ -81,13 +82,24 @@ export default function SettingsPage() {
 
   const dbLogs = useLiveQuery(() => db.logs.orderBy('time').reverse().limit(100).toArray())
   const logs = mergeLogs(dbLogs, readLocalLog()).slice(0, 100)
-  const versionLine = `Version ${__APP_BUILD__} · ${isStandalone() ? 'installed app' : 'browser tab'} · ${navigator.userAgent}`
+  // Phone storage: how much the app uses, and whether the phone keeps it (not cleared when space runs low).
+  const [storage, setStorage] = useState('')
+  useEffect(() => {
+    void (async () => {
+      try {
+        const est = await navigator.storage?.estimate?.()
+        const kept = await navigator.storage?.persisted?.()
+        const mb = (n?: number) => (n === undefined ? '?' : `${Math.round(n / 1048576)} MB`)
+        if (est) setStorage(`${mb(est.usage)} used${est.quota ? ` of ${mb(est.quota)}` : ''}${kept ? ' · kept' : ''}`)
+      } catch {
+        // older browsers: no storage line
+      }
+    })()
+  }, [])
+  const versionLine = `Version ${__APP_BUILD__} · ${isStandalone() ? 'installed app' : 'browser tab'}${storage ? ` · ${storage}` : ''} · ${navigator.userAgent}`
   const copyLog = () => {
     const text = logText(versionLine, logs)
-    void navigator.clipboard
-      ?.writeText(text)
-      .then(() => showToast({ text: 'Log copied. Paste it in a message.' }))
-      .catch(() => showToast({ text: 'Could not copy. Take a screenshot instead.' }))
+    void copyText(text).then((ok) => showToast({ text: ok ? 'Log copied. Paste it in a message.' : 'Could not copy. Take a screenshot instead.' }))
   }
 
   useEffect(() => onInstallChange(() => setInstallable(canInstall())), [])
@@ -445,6 +457,7 @@ export default function SettingsPage() {
         <div className="section-label">Sync &amp; system log</div>
         <div className="list-foot" style={{ marginTop: 0, overflowWrap: 'anywhere' }}>
           Version {__APP_BUILD__} · {isStandalone() ? 'installed app' : 'browser tab'}
+          {storage ? ` · ${storage}` : ''}
         </div>
         {logs.length > 0 && (
           <button className="btn block" style={{ marginBottom: 12 }} onClick={copyLog}>
