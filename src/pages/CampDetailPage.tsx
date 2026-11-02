@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import Page from '../components/Page'
+import Page, { NotFound, PageSkeleton } from '../components/Page'
 import Icon from '../components/Icon'
 import History from '../components/History'
 import CampSheet from '../components/CampSheet'
@@ -52,18 +52,15 @@ export default function CampDetailPage() {
   const [editing, setEditing] = useState(false)
   const camp = d.camps.find((c) => c.uuid === uuid)
 
-  if (!d.loaded) return null
-  if (!camp) {
+  if (!d.loaded || !camp) {
     return (
-      <Page title="Camp" back="/camps" backLabel="Camps" large={false}>
-        <div className="empty-state">
-          <b>Camp not found</b>
-        </div>
+      <Page title={d.loaded ? 'Camp' : ''} back="/camps" backLabel="Camps" large={false}>
+        {d.loaded ? <NotFound what="Camp" back="/camps" backLabel="Camps" /> : <PageSkeleton />}
       </Page>
     )
   }
   const state = campState(camp, d.inspections)
-  const log = campInspections(camp, d.inspections)
+  const log = campInspections(camp, d.inspections, true)
   const scores = campScoreSeries(camp, d.inspections)
   const contractor = d.byUuid.get(camp.contractorUuid)
   const wo = d.woByUuid.get(camp.workOrderUuid)

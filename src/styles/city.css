@@ -18,7 +18,7 @@
   border: 1px solid var(--chrome-border); border-radius: 999px; background: var(--card); color: var(--text);
   font: 700 15px var(--font); cursor: pointer; box-shadow: var(--shadow-float);
 }
-.city-btn.icon { padding: 0; width: 42px; min-width: 42px; }
+.city-btn.icon { padding: 0; width: 44px; min-width: 44px; }
 .city-btn.on { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
 .city-btn:active { transform: scale(0.95); }
 .city-title { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; padding: 0 4px; }
@@ -34,7 +34,7 @@
 .city-caption.bad svg { color: var(--bad); }
 .city-caption.warn svg { color: var(--warn); }
 .city-caption.good { color: var(--good); }
-.city-caption button { flex: none; min-height: 36px; padding: 0 14px; border: none; border-radius: 999px; background: var(--brand); color: var(--brand-ink); font: 700 14px var(--font); cursor: pointer; }
+.city-caption button { flex: none; min-height: 44px; padding: 0 14px; border: none; border-radius: 999px; background: var(--brand); color: var(--brand-ink); font: 700 14px var(--font); cursor: pointer; }
 
 .city-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 12px calc(env(safe-area-inset-bottom) + 12px); pointer-events: none; }
 .city-bottom > * { pointer-events: auto; max-width: 560px; margin: 0 auto; }
@@ -50,7 +50,7 @@
 .city-month { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .city-month b { font-size: 17px; font-weight: 700; }
 .city-month span { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.city-scrub input[type='range'] { width: 100%; height: 32px; accent-color: var(--brand); margin: 2px 0 0; }
+.city-scrub input[type='range'] { width: 100%; height: 44px; accent-color: var(--brand); margin: 2px 0 0; }
 
 .city-card {
   padding: 16px; max-height: 62vh; max-height: 62dvh; overflow-y: auto;
@@ -61,7 +61,7 @@
 .city-card-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .city-card-title b { font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
 .city-card-title > span { color: var(--muted); font-size: 14px; }
-.city-x { flex: none; width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--press); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.city-x { flex: none; width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--press); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .city-floors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 14px; }
 .city-card .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .city-floor { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 44px; padding: 8px 10px; border: none; border-radius: 12px; background: var(--none-tint); color: var(--none); font: 700 13px var(--font); text-align: left; cursor: pointer; }
@@ -89,7 +89,7 @@
 
 /* Site card: the same health bar as in 3D */
 .city-health { position: relative; height: 18px; margin-top: 14px; border-radius: 999px; background: var(--none-tint); overflow: hidden; box-shadow: inset 0 0 0 2px var(--border); }
-.city-health span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--none); transition: width var(--motion-300) var(--ease-out); }
+.city-health span { position: absolute; inset: 0; border-radius: 999px; background: var(--none); transform-origin: left center; transition: transform var(--motion-300) var(--ease-out); }
 .city-health.good span { background: var(--good); }
 .city-health.warn span { background: var(--warn); }
 .city-health.bad span { background: var(--bad); }
@@ -112,7 +112,7 @@
 .city-tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; }
 .city-tools button {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 4px 2px;
-  border: 1px solid var(--border); border-radius: 18px; background: var(--card); color: var(--muted); font: 600 12px var(--font); cursor: pointer;
+  border: 1px solid var(--border); border-radius: 18px; background: var(--card); color: var(--muted); font: 600 13px var(--font); cursor: pointer;
 }
 .city-tools button.on { background: var(--brand-tint); border-color: var(--brand); color: var(--brand); }
 .city-tools button:active { transform: scale(0.96); }

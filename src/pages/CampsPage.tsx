@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
@@ -8,6 +8,7 @@ import { campTone } from '../lib/tone'
 import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
 import { campMenu } from '../components/menus'
+import { openSheet } from '../components/SheetHost'
 import { useAuthInfo } from '../lib/auth'
 import { haptic } from '../lib/haptics'
 import { newUuid } from '../db'
@@ -40,23 +41,31 @@ export const newCamp = (): Camp => ({
 export default function CampsPage() {
   const navigate = useNavigate()
   const d = useAllData()
-  const { canEdit } = useAuthInfo()
   const [query, setQuery] = useState('')
   // Opened from a Dashboard number: only camps in that state.
   const [params, setParams] = useSearchParams()
   const only = params.get('s') as 'expired' | 'due' | 'ok' | null
   const ONLY_LABEL = { expired: 'Expired or never inspected', due: 'Due soon', ok: 'Up to date' } as const
 
-  // Old audits without a camp become camps once (editors only), so their history shows here.
-  const seeded = useRef(false)
-  useEffect(() => {
-    if (!d.loaded || seeded.current || !canEdit) return
-    seeded.current = true
-    const fresh = campsFromAudits(d.inspections, d.camps, d.contractors, newUuid, nowIso())
-    void tryWrite('Camps from audits', async () => {
-      for (const c of fresh) await saveRecord('camps', c, c.name)
+  // Audits at a facility no camp covers yet: the admin can turn them into camps
+  // (one tap, with the list shown first), so their history shows here. Never
+  // silently: two phones doing it offline would make each camp twice.
+  const { role } = useAuthInfo()
+  const fresh = useMemo(
+    () => (d.loaded && role === 'admin' ? campsFromAudits(d.inspections, d.camps, d.contractors, newUuid, nowIso()) : []),
+    [d, role],
+  )
+  const addFromAudits = () =>
+    openSheet({
+      kind: 'confirm',
+      title: `Add ${fresh.length} camp${fresh.length === 1 ? '' : 's'} from audits?`,
+      message: `${fresh.map((c) => c.name).join(', ')}. Each starts on a ${DEFAULT_CYCLE_DAYS}-day cycle.`,
+      confirmLabel: 'Add camps',
+      onConfirm: () =>
+        void tryWrite('Camps from audits', async () => {
+          for (const c of fresh) await saveRecord('camps', c, c.name)
+        }),
     })
-  }, [d, canEdit])
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -76,8 +85,19 @@ export default function CampsPage() {
     >
       <label className="ios-search">
         <Icon name="search" size={18} />
-        <input type="search" placeholder="Camp, contractor, area" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" aria-label="Search camps" placeholder="Camp, contractor, area" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
+      {fresh.length > 0 && !only && (
+        <div className="list">
+          <button className="row" onClick={addFromAudits}>
+            <span className="row-main">
+              <div className="row-title">Add {fresh.length} camp{fresh.length === 1 ? '' : 's'} from audits</div>
+              <div className="row-sub">Audits at places that aren’t a camp here yet</div>
+            </span>
+            <Icon name="plus" size={20} />
+          </button>
+        </div>
+      )}
       {only && ONLY_LABEL[only] && (
         <div className="chip-row drill-chips" aria-label="Filters">
           <span className="filter-chip">

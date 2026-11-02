@@ -22,6 +22,8 @@ import QuestionItem from '../components/QuestionItem'
 import WalkthroughLine, { lineStatus } from '../components/WalkthroughLine'
 import Modal, { ConfirmSheet } from '../components/Modal'
 import { showToast } from '../components/Toast'
+import { describeSaveError } from '../lib/saveError'
+import { beginEdit } from '../lib/editing'
 import Icon from '../components/Icon'
 import { newer } from '../lib/sync'
 import { useAuthInfo } from '../lib/auth'
@@ -162,6 +164,7 @@ export default function ChecklistPage() {
   // Photo captions are debounced the same way: a per-keystroke DB write would
   // re-fire the photos live query and re-decode every visible thumbnail.
   const setCaption = (photoId: number, caption: string) => {
+    if (!canEdit) return
     pendingCaption.current = { photoId, caption }
     clearTimeout(captionTimer.current)
     captionTimer.current = setTimeout(flushCaption, 400)
@@ -179,6 +182,9 @@ export default function ChecklistPage() {
       }),
     )
   }
+
+  // An app update waits while an inspection is open (its answers are flushed anyway, but the page would jump).
+  useEffect(() => beginEdit(), [])
 
   // Flush (not discard) pending saves when leaving the page or when the app
   // is backgrounded/closed, so edits from the last 400 ms are never lost.
@@ -315,10 +321,19 @@ export default function ChecklistPage() {
 
   // --- photo handling -------------------------------------------------------
 
+  const viewOnly = () => showToast({ text: 'View only — ask the admin for Editor access' })
+
   const addPhotos = async (files: FileList | File[], itemId: string | null): Promise<Photo[]> => {
     const saved: Photo[] = []
+    const failed: string[] = []
     for (const file of Array.from(files)) {
-      const blob = await compressPhoto(file)
+      let blob: Blob
+      try {
+        blob = await compressPhoto(file)
+      } catch (err) {
+        failed.push(err instanceof Error ? err.message : String(err))
+        continue
+      }
       const now = new Date().toISOString()
       const photo: Photo = {
         uuid: newUuid(),
@@ -329,8 +344,20 @@ export default function ChecklistPage() {
         createdAt: now,
         updatedAt: now,
       }
-      const photoId = await db.photos.add(photo)
-      saved.push({ ...photo, id: photoId })
+      try {
+        const photoId = await db.photos.add(photo)
+        saved.push({ ...photo, id: photoId })
+      } catch (err) {
+        failed.push(describeSaveError(err).text)
+      }
+    }
+    if (failed.length) {
+      logEvent(inspectionId, 'Photo save failed', failed.join('; '))
+      showToast({
+        text: `${failed.length} photo${failed.length === 1 ? '' : 's'} not saved. ${failed[0]}`,
+        tone: 'bad',
+        duration: 8000,
+      })
     }
     logEvent(
       inspectionId,
@@ -345,9 +372,13 @@ export default function ChecklistPage() {
     const files = e.target.files
     if (!files?.length) return
     // Photo-first flow: capture now, then choose where it belongs.
-    const saved = await addPhotos(files, null)
-    e.target.value = ''
-    setAssigningPhoto(saved[0])
+    try {
+      const saved = await addPhotos(files, null)
+      if (saved[0]) setAssigningPhoto(saved[0])
+    } finally {
+      // reset so picking the same file again still fires onChange
+      e.target.value = ''
+    }
   }
 
   const onItemCapture = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -355,8 +386,11 @@ export default function ChecklistPage() {
     const files = e.target.files
     const itemId = itemTarget.current
     if (!files?.length || !itemId) return
-    await addPhotos(files, itemId)
-    e.target.value = ''
+    try {
+      await addPhotos(files, itemId)
+    } finally {
+      e.target.value = ''
+    }
     if (itemId !== FACILITY_PHOTOS) setOpenDetails((d) => ({ ...d, [itemId]: true }))
   }
 
@@ -412,6 +446,7 @@ export default function ChecklistPage() {
 
   const assignPhoto = async (itemId: string) => {
     if (!assigningPhoto?.id) return
+    if (!canEdit) return viewOnly()
     await db.photos.update(assigningPhoto.id, { itemId, updatedAt: new Date().toISOString() })
     logEvent(inspectionId, 'Photo assigned', itemId === FACILITY_PHOTOS ? 'facility photos' : itemId)
     setAssignQuery('')
@@ -435,6 +470,7 @@ export default function ChecklistPage() {
 
   const deletePhoto = async (photo: Photo) => {
     if (!photo.id) return
+    if (!canEdit) return viewOnly()
     // Re-read before deleting so Undo restores the latest caption, not a stale copy.
     const fresh = (await db.photos.get(photo.id)) ?? photo
     await db.photos.delete(photo.id)
@@ -623,7 +659,7 @@ export default function ChecklistPage() {
         </header>
         <div className="progress-wrap">
           <div className="progress-bar">
-            <div style={{ width: `${progress.total ? (progress.answered / progress.total) * 100 : 0}%` }} />
+            <div style={{ transform: `scaleX(${progress.total ? progress.answered / progress.total : 0})` }} />
           </div>
           <div className="progress-text">
             {progress.answered} of {progress.total} answered
@@ -1063,13 +1099,14 @@ export default function ChecklistPage() {
               <label>Caption (printed in the reports)</label>
               <input
                 defaultValue={viewingPhoto.caption}
+                readOnly={!canEdit}
                 placeholder="e.g. Blocked fire exit, Block B"
                 onChange={(e) => {
                   if (viewingPhoto.id) setCaption(viewingPhoto.id, e.target.value)
                 }}
               />
             </div>
-            <div className="btn-row">
+            <div className="btn-row" hidden={!canEdit}>
               <button
                 className="btn"
                 onClick={() => {

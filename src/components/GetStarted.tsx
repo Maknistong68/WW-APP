@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
 import Icon from './Icon'
 import InstallSheet from './InstallSheet'
 import { useAuthInfo } from '../lib/auth'
@@ -23,15 +21,15 @@ export default function GetStarted() {
   const team = useTeam()
   const navigate = useNavigate()
   const [installing, setInstalling] = useState(false)
-  const records = useLiveQuery(() => db.tickets.count(), []) ?? 0
   const cloud = !!me.userId
   const r = onboardingSteps({
     role: me.role,
     cloud,
     mobile: install.platform.device !== 'desktop',
     installed: install.installed,
-    hasName: !!me.username,
-    synced: !!lastSyncAt() && records > 0,
+    hasName: !!me.fullName,
+    // a first sync done is enough: a brand-new team may have no tickets yet
+    synced: !!lastSyncAt(),
     seen: flags.seen,
     teamSize: team.length,
   })
@@ -56,7 +54,7 @@ export default function GetStarted() {
         </button>
       </div>
       <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={r.steps.length} aria-valuenow={r.doneCount}>
-        <div style={{ width: `${(r.doneCount / r.steps.length) * 100}%` }} />
+        <div style={{ transform: `scaleX(${r.doneCount / r.steps.length})` }} />
       </div>
       <ol className="gs-steps">
         {r.steps.map((s) => (

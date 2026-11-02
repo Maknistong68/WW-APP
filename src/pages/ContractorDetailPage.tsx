@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import Page from '../components/Page'
+import Page, { NotFound, PageSkeleton } from '../components/Page'
 import Icon from '../components/Icon'
 import History from '../components/History'
 import ContractorSheet, { WorkOrderSheet } from '../components/ContractorSheet'
@@ -89,7 +89,10 @@ function WoRow({
         <div className="row-title">{title}</div>
         <div className="row-sub">{sub}</div>
       </button>
-      <input type="checkbox" role="switch" aria-label={`${title} active`} checked={active} disabled={!canEdit} onChange={onToggle} />
+      {/* the label pads the small switch out to a 44px hit area */}
+      <label className="switch-hit">
+        <input type="checkbox" role="switch" aria-label={`${title} active`} checked={active} disabled={!canEdit} onChange={onToggle} />
+      </label>
     </div>
   )
 }
@@ -128,18 +131,15 @@ export default function ContractorDetailPage() {
     // The team's own cases, listed apart; they don't count in "Open tickets" or the KPIs.
     const cases = d.cases.filter((t) => t.contractorUuid === c.uuid)
     const audits = d.inspections
-      .filter((i) => mentions(i.info?.contractorNames ?? '', [c.name, ...c.aliases]))
-      .sort((a, b) => (a.info.reviewDate < b.info.reviewDate ? 1 : -1))
-    return { wos, subjects, results, tickets, cases, auditPct: auditPctFor(c, d.inspections, month), lastAudit: audits[0] }
+      .filter((i) => i.status === 'completed' && mentions(i.info?.contractorNames ?? '', [c.name, ...c.aliases]))
+      .sort((a, b) => (b.info?.reviewDate ?? '').localeCompare(a.info?.reviewDate ?? ''))
+    return { wos, subjects, results, tickets, cases, auditPct: auditPctFor(c, d.inspections, month, d.camps), lastAudit: audits[0] }
   }, [c, d, month])
 
-  if (!d.loaded) return null
-  if (!c || !data) {
+  if (!d.loaded || !c || !data) {
     return (
-      <Page title="Contractor" back="/contractors" backLabel="Contractors" large={false}>
-        <div className="empty-state">
-          <b>Contractor not found</b>
-        </div>
+      <Page title={d.loaded ? 'Contractor' : ''} back="/contractors" backLabel="Contractors" large={false}>
+        {d.loaded ? <NotFound what="Contractor" back="/contractors" backLabel="Contractors" /> : <PageSkeleton />}
       </Page>
     )
   }

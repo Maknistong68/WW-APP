@@ -109,15 +109,20 @@ export function TicketRow({
 export function groupTickets(list: Ticket[]): { key: string; title: string; items: Ticket[] }[] {
   const open = list.filter(isOpen)
   const closed = list.filter((t) => !isOpen(t))
+  // each ticket's age once, not three times per group
+  const age = new Map(open.map((t) => [t.uuid, ageDays(t)]))
+  const days = (t: Ticket) => age.get(t.uuid) ?? 0
   const groups = [
-    { key: 'late', title: 'Over 30 days', items: open.filter((t) => ageDays(t) > 30) },
-    { key: 'risk', title: '11–30 days', items: open.filter((t) => ageDays(t) > 10 && ageDays(t) <= 30) },
-    { key: 'ok', title: '0–10 days', items: open.filter((t) => ageDays(t) <= 10) },
+    { key: 'late', title: 'Over 30 days', items: open.filter((t) => days(t) > 30) },
+    { key: 'risk', title: '11–30 days', items: open.filter((t) => days(t) > 10 && days(t) <= 30) },
+    { key: 'ok', title: '0–10 days', items: open.filter((t) => days(t) <= 10) },
   ]
   const byMonth = new Map<string, Ticket[]>()
   for (const t of closed) {
     const m = (t.closedAt || t.openedAt).slice(0, 7)
-    byMonth.set(m, [...(byMonth.get(m) ?? []), t])
+    const list = byMonth.get(m)
+    if (list) list.push(t)
+    else byMonth.set(m, [t])
   }
   const months = [...byMonth.entries()].map(([m, items]) => ({ key: m, title: `Closed · ${m ? monthLabel(m) : 'no date'}`, items }))
   return [...groups, ...months].filter((g) => g.items.length > 0)
@@ -151,10 +156,12 @@ export default function TicketsPage() {
   )
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
+    const age = new Map(scoped.filter(isOpen).map((t) => [t.uuid, ageDays(t)]))
+    const ageDays_ = (t: Ticket) => age.get(t.uuid) ?? 0
     return scoped
       .filter((t) => {
         if (filter === 'open' && !isOpen(t)) return false
-        if (filter === 'late' && !(isOpen(t) && ageDays(t) > 30)) return false
+        if (filter === 'late' && !(isOpen(t) && ageDays_(t) > 30)) return false
         if (filter === 'closed' && isOpen(t)) return false
         if (!q) return true
         return [t.ticketNo, contractorName(byUuid, t.contractorUuid), woByUuid.get(t.workOrderUuid)?.number ?? '', t.issue, t.subcontractor, t.category]
@@ -162,10 +169,19 @@ export default function TicketsPage() {
       })
       .sort((a, b) =>
         isOpen(a) && isOpen(b)
-          ? ageDays(b) - ageDays(a)
+          ? ageDays_(b) - ageDays_(a)
           : (b.closedAt || b.openedAt).localeCompare(a.closedAt || a.openedAt),
       )
   }, [scoped, filter, query, byUuid, woByUuid])
+
+  // Closed tickets come in month groups: the latest 3 at first, older ones on request
+  // (a search shows everything), so a long history doesn't mount thousands of rows.
+  const [allMonths, setAllMonths] = useState(false)
+  const groups = useMemo(() => groupTickets(visible), [visible])
+  const monthGroups = groups.filter((g) => g.title.startsWith('Closed'))
+  const keepAll = allMonths || !!query.trim()
+  const hiddenMonths = keepAll ? 0 : Math.max(0, monthGroups.length - 3)
+  const shownGroups = hiddenMonths ? groups.slice(0, groups.length - hiddenMonths) : groups
 
   const chips = queryChips(linkQuery, {
     contractor: (uuid) => byUuid.get(uuid)?.name ?? 'Contractor',
@@ -266,7 +282,7 @@ export default function TicketsPage() {
       {bySource && <SourceTabs value={source} onChange={setSource} />}
       <label className="ios-search">
         <Icon name="search" size={18} />
-        <input type="search" placeholder={`${showingCases ? 'Case' : 'Ticket'} no., contractor, WO, issue`} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" aria-label={showingCases ? 'Search cases' : 'Search tickets'} placeholder={`${showingCases ? 'Case' : 'Ticket'} no., contractor, WO, issue`} value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
       {drilled && (
         <div className="chip-row drill-chips" aria-label="Filters">
@@ -304,8 +320,8 @@ export default function TicketsPage() {
           {tickets.length === 0 ? (canEdit ? 'Tap Create to log one.' : 'Nothing logged yet.') : 'Try another filter.'}
         </div>
       ) : (
-        <>
-          {groupTickets(visible).map((g) => (
+        <div className="ticket-rows">
+          {shownGroups.map((g) => (
             <CardList key={g.key} title={g.title} count={g.items.length}>
             {g.items.map((t) =>
               selecting ? (
@@ -328,13 +344,18 @@ export default function TicketsPage() {
             )}
             </CardList>
           ))}
+          {hiddenMonths > 0 && (
+            <button className="btn block" style={{ marginBottom: 12 }} onClick={() => setAllMonths(true)}>
+              Show {hiddenMonths} older month{hiddenMonths === 1 ? '' : 's'}
+            </button>
+          )}
           {visible.length > 0 && (
             <div className="list-foot">
               {visible.length} {noun}{visible.length === 1 ? '' : 's'} · {workers} workers
               {!selecting && (filter === 'open' && canEdit ? ' · swipe left to close · hold for more' : ' · hold for more')}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {role === 'admin' && !selecting && (

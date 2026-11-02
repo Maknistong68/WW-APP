@@ -19,7 +19,8 @@ const pause = () => new Promise((r) => setTimeout(r, 250 + Math.random() * 300))
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') ?? ''
   return {
-    'Access-Control-Allow-Origin': ORIGINS.includes(origin) || origin.endsWith('.vercel.app') ? origin : ORIGINS[0],
+    // Only the real app (and local test copies): other sites can't drive sign-ins from a browser.
+    'Access-Control-Allow-Origin': ORIGINS.includes(origin) ? origin : ORIGINS[0],
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     Vary: 'Origin',

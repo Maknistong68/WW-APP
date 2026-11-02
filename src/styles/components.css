@@ -218,13 +218,13 @@ button.row { cursor: pointer; }
 /* Swipe-to-close rows */
 .swipe { position: relative; overflow: hidden; background: var(--card); }
 .swipe-action {
-  position: absolute; top: 0; right: 0; bottom: 0; width: 104px; border: none; background: var(--good); color: #fff;
+  position: absolute; top: 0; right: 0; bottom: 0; width: 104px; border: none; background: var(--good); color: var(--good-ink);
   font: 700 15px var(--font); cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
 }
-.swipe-action.info { background: var(--info); }
-.swipe-action.warn { background: var(--warn); }
-.swipe-action.bad { background: var(--bad); }
+.swipe-action.info { background: var(--info); color: var(--info-ink); }
+.swipe-action.warn { background: var(--warn); color: var(--warn-ink); }
+.swipe-action.bad { background: var(--bad); color: var(--bad-ink); }
 /* The icon grows as the row is dragged, and pops when the swipe will trigger. */
 .swipe-action .swipe-icon { display: grid; transform: scale(var(--grow, 0.4)); transition: transform var(--dur-fast) var(--ease-spring); }
 .swipe-action.armed .swipe-icon { transform: scale(1.15); }
@@ -235,7 +235,7 @@ button.row { cursor: pointer; }
 .segmented { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -4px 16px; padding: 2px 4px; }
 .segmented::-webkit-scrollbar { display: none; }
 .segmented button {
-  flex: none; min-height: 42px; padding: 0 16px; border-radius: 999px; border: none;
+  flex: none; min-height: 44px; padding: 0 16px; border-radius: 999px; border: none;
   background: var(--card); box-shadow: inset 0 0 0 1px var(--line);
   color: var(--text); font: 600 15px var(--font); cursor: pointer; white-space: nowrap;
   transition: background-color var(--dur-med) var(--ease-80), color var(--dur-med) var(--ease-80), box-shadow var(--dur-med) var(--ease-80), transform var(--dur-med) var(--ease-80);
@@ -245,7 +245,7 @@ button.row { cursor: pointer; }
 .segmented button:disabled { opacity: 0.4; }
 /* Tabs (Dashboard views): a One UI sub-tab track */
 .segmented[role='tablist'] { gap: 2px; padding: 4px; margin: 0 0 14px; border-radius: 999px; background: var(--press); }
-.segmented[role='tablist'] button { min-height: 40px; padding: 0 14px; background: transparent; box-shadow: none; color: var(--muted); }
+.segmented[role='tablist'] button { min-height: 44px; padding: 0 14px; background: transparent; box-shadow: none; color: var(--muted); }
 .segmented.even button { flex: 1; }
 /* Up to 4 options that always fit on one line (320 px and up): equal columns, never scrolls. A count goes under its label. */
 .segmented.fit { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; overflow: visible; margin: 0 0 16px; padding: 0; }
@@ -285,13 +285,13 @@ button.row { cursor: pointer; }
 .badge { font-size: 13px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
 .badge.draft { background: var(--warn-tint); color: var(--warn); }
 .badge.completed { background: var(--good-tint); color: var(--good); }
-.group-chip { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--info-tint); color: var(--info); vertical-align: 2px; }
+.group-chip { display: inline-block; margin-left: 8px; font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--info-tint); color: var(--info); vertical-align: 2px; }
 .select-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--faint); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--brand-ink); transition: background-color var(--dur-fast) var(--ease-80), border-color var(--dur-fast) var(--ease-80); }
 .select-dot.on { background: var(--brand); border-color: var(--brand); }
 .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.pill { min-height: 40px; padding: 0 16px; border: none; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font: 600 14px var(--font); cursor: pointer; transition: background-color var(--dur-med) var(--ease-80), color var(--dur-med) var(--ease-80), transform var(--dur-med) var(--ease-80); }
+.pill { min-height: 44px; padding: 0 16px; border: none; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font: 600 14px var(--font); cursor: pointer; transition: background-color var(--dur-med) var(--ease-80), color var(--dur-med) var(--ease-80), transform var(--dur-med) var(--ease-80); }
 .pill.on { background: var(--brand-tint); color: var(--brand); box-shadow: inset 0 0 0 1.5px var(--brand); }
-.tog { min-height: 40px; padding: 0 14px; border: none; border-radius: 999px; background: var(--press); color: var(--text); font: 600 14px var(--font); cursor: pointer; flex-shrink: 0; transition: background-color var(--dur-med) var(--ease-80), color var(--dur-med) var(--ease-80), transform var(--dur-med) var(--ease-80); }
+.tog { min-height: 44px; padding: 0 14px; border: none; border-radius: 999px; background: var(--press); color: var(--text); font: 600 14px var(--font); cursor: pointer; flex-shrink: 0; transition: background-color var(--dur-med) var(--ease-80), color var(--dur-med) var(--ease-80), transform var(--dur-med) var(--ease-80); }
 .tog.on { background: var(--brand); color: var(--brand-ink); }
 /* Yes / No answer in a form row (nothing picked = not answered); colour = status */
 .yesno { display: inline-flex; gap: 6px; flex-shrink: 0; }
@@ -299,7 +299,7 @@ button.row { cursor: pointer; }
 .yesno .tog.on.yes { background: var(--good-tint); color: var(--good); box-shadow: inset 0 0 0 1.5px var(--good); }
 .yesno .tog.on.no { background: var(--bad-tint); color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
 .stepper { display: inline-flex; align-items: center; background: var(--press); border-radius: 999px; }
-.stepper button { width: 44px; height: 40px; border: none; background: none; font-size: 20px; color: var(--text); cursor: pointer; border-radius: 50%; }
+.stepper button { width: 44px; height: 44px; border: none; background: none; font-size: 20px; color: var(--text); cursor: pointer; border-radius: 50%; }
 .stepper span { min-width: 34px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
 .empty-state { text-align: center; color: var(--muted); padding: 44px 16px; font-size: 15px; }
 .empty-state svg { color: var(--faint); margin: 0 auto 10px; }
@@ -321,7 +321,7 @@ button.row { cursor: pointer; }
 .log-time { color: var(--muted); white-space: nowrap; font-size: 13px; font-variant-numeric: tabular-nums; }
 .log-detail { color: var(--muted); }
 .irow-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.irow-meta .schip { padding: 5px 8px; font-size: 12.5px; }
+.irow-meta .schip { padding: 5px 8px; font-size: 13px; }
 .irow-meta-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* dark: cards inside sheets are lighter than --line, so their dividers need their own tone */
 :root[data-theme='dark'] .modal :is(.list, .clist-body) > * + *::before { background: rgb(255 255 255 / 0.09); }
@@ -329,16 +329,16 @@ button.row { cursor: pointer; }
 /* ---- Drill-down filters: what a list was opened with, each removable ------- */
 .drill-chips { flex-wrap: wrap; overflow: visible; max-height: none; margin: 4px 0 12px; align-items: center; view-transition-name: drill; }
 .filter-chip {
-  display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 4px 0 14px;
+  display: inline-flex; align-items: center; gap: 0; min-height: 44px; padding: 0 0 0 14px;
   border-radius: var(--r-btn); background: var(--brand-tint); color: var(--brand);
   font-size: 15px; font-weight: 700; animation: popIn var(--dur-in) var(--ease-spring) both;
 }
 .filter-chip button {
-  display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%;
+  display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%;
   background: transparent; color: inherit; cursor: pointer;
 }
 .filter-chip button:active { background-color: var(--press); }
-.drill-chips .clear-btn { color: var(--brand); font: 600 15px var(--font); min-height: 40px; padding: 0 10px; border-radius: var(--r-btn); }
+.drill-chips .clear-btn { color: var(--brand); font: 600 15px var(--font); min-height: 44px; padding: 0 10px; border-radius: var(--r-btn); }
 
 /* "· by Ali" after an action in History and the Activity log */
 .row-title .by { font-weight: 500; color: var(--muted); }

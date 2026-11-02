@@ -52,11 +52,11 @@ export const SUBJECT_ITEMS: Record<SubjectItemKey, SubjectItem> = {
   accommodation: {
     title: 'Accommodation %',
     sheet: 'kpi',
-    done: (d, s, m) => kpiOf(d, s, m)?.accommodationPct != null || auditPctFor(s.contractor, d.inspections, m) !== null,
+    done: (d, s, m) => kpiOf(d, s, m)?.accommodationPct != null || auditPctFor(s.contractor, d.inspections, m, d.camps) !== null,
     value: (d, s, m) => {
       const typed = kpiOf(d, s, m)?.accommodationPct
       if (typed != null) return pctText(typed)
-      const audit = auditPctFor(s.contractor, d.inspections, m)
+      const audit = auditPctFor(s.contractor, d.inspections, m, d.camps)
       return audit === null ? '' : `${pctText(audit)} from audit`
     },
   },
@@ -81,11 +81,12 @@ export const SUBJECT_ITEMS: Record<SubjectItemKey, SubjectItem> = {
     sheet: 'manpower',
     done: (d, s, m) => {
       const mp = subjectManpower(s, d.manpower, m)
-      return (!!mp && mp.totalWorkers > 0) || kpiOf(d, s, m)?.legacy?.formalPct != null
+      // A saved count is an answer, even 0 workers (a work order winding down).
+      return !!mp || kpiOf(d, s, m)?.legacy?.formalPct != null
     },
     value: (d, s, m) => {
       const mp = subjectManpower(s, d.manpower, m)
-      if (mp && mp.totalWorkers > 0) return `${mp.totalWorkers} workers · ${mp.illegalOrFreelance} illegal`
+      if (mp) return mp.totalWorkers > 0 ? `${mp.totalWorkers} workers · ${mp.illegalOrFreelance} illegal` : 'No workers'
       return pctText(kpiOf(d, s, m)?.legacy?.formalPct)
     },
   },

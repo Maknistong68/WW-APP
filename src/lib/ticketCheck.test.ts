@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ticketDateHint, ticketProblem } from './ticketCheck'
+import { duplicateNumbers, ticketDateHint, ticketProblem } from './ticketCheck'
 
 const t = {
   ticketNo: 'WWCMPL-1101',
@@ -63,4 +63,19 @@ describe('A hint about dates that look wrong', () => {
     expect(ticketDateHint(t)).toBeNull()
     expect(ticketDateHint({ ...t, status: 'Open', closedAt: '' })).toBeNull()
   })
+  it('a ticket needs a real opening date, not in the future', () => {
+    const base = { ticketNo: 'WWCMPL0001234', contractorUuid: 'c', issue: 'Food', status: 'Open' as const, closedAt: '' }
+    expect(ticketProblem(null, { ...base, openedAt: '' }, '2026-11-02')).toBe('Add the opening date')
+    expect(ticketProblem(null, { ...base, openedAt: '2026-11-03' }, '2026-11-02')).toBe('Opening date is in the future')
+    expect(ticketProblem(null, { ...base, openedAt: '2026-11-02' }, '2026-11-02')).toBeNull()
+    expect(ticketProblem(null, { ...base, status: 'Closed', openedAt: '2026-10-01', closedAt: '2026-11-05' }, '2026-11-02')).toBe('Closing date is in the future')
+  })
 })
+
+describe('Numbers used twice', () => {
+  it('finds a number two tickets or cases share, ignoring blanks and bare prefixes', () => {
+    const t = (ticketNo: string) => ({ ticketNo })
+    expect(duplicateNumbers([t('CASE-0012'), t('case-0012 '), t('WWCMPL'), t('WWCMPL'), t(''), t(''), t('WWCMPL0001')])).toEqual(['CASE-0012'])
+  })
+})
+

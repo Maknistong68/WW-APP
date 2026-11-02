@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Page from '../components/Page'
+import Page, { PageSkeleton } from '../components/Page'
 import Icon from '../components/Icon'
 import IconTile from '../components/IconTile'
 import StatusChip from '../components/StatusChip'
@@ -91,9 +91,11 @@ export default function ContractorsPage() {
     >
       <label className="ios-search">
         <Icon name="search" size={18} />
-        <input type="search" placeholder="Name or work order" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" aria-label="Search contractors" placeholder="Name or work order" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
-      {d.loaded && d.contractors.length === 0 ? (
+      {!d.loaded ? (
+        <PageSkeleton hero={false} />
+      ) : d.contractors.length === 0 ? (
         <div className="empty-state">
           <Icon name="users" size={44} />
           <b>No contractors yet</b>

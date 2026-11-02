@@ -76,7 +76,9 @@ export default function ExploreCard({
     <div className="chart-card xcard">
       <Chips chips={EXPLORE_CHIPS[view]} value={chip} onChange={onChip} label="Explore" />
       <div className="chart-sub">{data.sub}</div>
-      {empty ? (
+      {!d.loaded ? (
+        <div className="skeleton xcard-skeleton" role="status" aria-label="Loading" style={{ height: 220 }} />
+      ) : empty ? (
         <div className="note">{data.empty}</div>
       ) : data.kind === 'bars' ? (
         <RankBars

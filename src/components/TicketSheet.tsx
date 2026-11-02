@@ -14,6 +14,7 @@ import SaveButton from './SaveButton'
 import { closingAmount, parseSar, sarInput } from '../lib/money'
 import { isCase, nextCaseNo, noun } from '../lib/cases'
 import { db } from '../db'
+import { takenContractorName } from '../lib/names'
 import type { Ticket } from '../types'
 
 const NEW = '__new__'
@@ -75,6 +76,10 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
       // A new case takes the next free number now, so one a teammate synced meanwhile isn't reused.
       if (isNew && isCase(rec)) rec = { ...rec, ticketNo: nextCaseNo(await usedNumbers()) }
       if (addingContractor && !newName.trim()) return 'Type the new contractor name'
+      if (addingContractor) {
+        const taken = takenContractorName(newName, await db.contractors.toArray())
+        if (taken) return `${taken} is already in the list: pick it above`
+      }
       rec = { ...rec, contractorAction: rec.contractorAction.trim(), wwAction: rec.wwAction.trim() }
       if (!isMember) {
         // a combined ticket's money stays on its main ticket
@@ -85,6 +90,10 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
       // Old imported tickets may lack a contractor, issue or good dates: they still save.
       const problem = ticketProblem(isNew ? null : ticket, addingContractor ? { ...rec, contractorUuid: NEW } : rec)
       if (problem) return problem
+      // With two or more active work orders a ticket without one counts in no KPI.
+      if (isNew && !rec.workOrderUuid && cWos.filter((w) => w.active).length > 1) return 'Pick the work order'
+      // The admin removed this ticket while it was open here: don't bring it back by saving.
+      if (!isNew && !(await db.tickets.get(rec.uuid))) return `This ${noun(rec)} was removed by the admin`
       if (rec.ticketNo !== ticket.ticketNo || isNew) {
         const clash = await db.tickets.where('ticketNo').equals(rec.ticketNo).filter((x) => x.uuid !== rec.uuid).count()
         if (clash) return `${rec.ticketNo} already exists`
@@ -297,11 +306,12 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
               <label className="row">
                 <textarea
                   value={t.notes}
-                  placeholder="No worker names or ID numbers"
+                  placeholder="What happened, what's next"
                   onChange={(e) => set('notes', e.target.value)}
                 />
               </label>
             </div>
+            <div className="list-foot">No worker names, Iqama, passport or phone numbers in any field: counts only.</div>
           </>
         )}
       </div>
@@ -328,6 +338,8 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
     run(async () => {
       if (!date) return 'Add the closing date'
       if (date < ticket.openedAt) return 'Closing date is before the opening date'
+      if (date > localDate()) return 'Closing date is in the future'
+      if (!(await db.tickets.get(ticket.uuid))) return `This ${noun(ticket)} was removed by the admin`
       let amountOwed = ticket.amountOwed
       if (!isMember) {
         const r = closingAmount(money, none)
@@ -355,7 +367,7 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
       alert={alert}
       header={
         <SaveButton saving={saving} onClick={() => void save()}>
-          Close
+          {`Close ${noun(ticket)}`}
         </SaveButton>
       }
     >

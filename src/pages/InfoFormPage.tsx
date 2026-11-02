@@ -1,3 +1,4 @@
+import { localDate } from '../lib/dates'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useGoBack } from '../lib/nav'
@@ -12,7 +13,8 @@ import { reloadApp } from '../lib/useSave'
 import { beginEdit } from '../lib/editing'
 import type { Camp, GeneralInfo, Inspection } from '../types'
 
-const today = () => new Date().toISOString().slice(0, 10)
+// The phone's own day (Saudi time), not UTC: an audit at 01:00 on the 1st belongs to that month.
+const today = () => localDate()
 
 /** "27.123456, 35.654321" (or any lat,lng pair in a string) → coordinates. */
 const parseCoords = (s: string): { lat: number; lng: number } | null => {
@@ -220,7 +222,8 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
       }
       const now = new Date().toISOString()
       if (mode === 'edit' && existing) {
-        await db.inspections.put({ ...existing, info, campUuid, updatedAt: now })
+        // Change only the details: the answers may have been updated by a teammate (sync) since this form opened.
+        await db.inspections.update(existing.id!, { info, campUuid, updatedAt: now })
         logEvent(existing.id!, 'Details edited', info.contractorNames)
         showToast({ text: 'Inspection details updated' })
         navigate(`/inspection/${existing.id}`, { replace: true })

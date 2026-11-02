@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mentions, nameKey, sameCompany, shortName } from './names'
+import { mentions, nameKey, sameCompany, shortName, takenContractorName } from './names'
 
 describe('contractor names', () => {
   it('strips legal words, punctuation and work-order numbers', () => {
@@ -37,5 +37,15 @@ describe('contractor names', () => {
     expect(shortName('RPCO')).toBe('RPCO')
     expect(shortName('Group')).toBe('Group')
     expect(shortName('  ')).toBe('')
+  })
+})
+
+describe('a new contractor name', () => {
+  const list = [{ uuid: 'a', name: 'RPCO', aliases: ['R.P.C.O. Contracting'] }]
+  it('is taken when another contractor has it as its name or other name, any case', () => {
+    expect(takenContractorName(' rpco ', list)).toBe('RPCO')
+    expect(takenContractorName('r.p.c.o.  contracting', list)).toBe('RPCO')
+    expect(takenContractorName('Al Fahad', list)).toBeNull()
+    expect(takenContractorName('RPCO', list, 'a')).toBeNull()
   })
 })

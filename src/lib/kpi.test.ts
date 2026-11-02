@@ -70,6 +70,10 @@ describe('KPI rules', () => {
     ]
     expect(closurePct(t, '2026-10')).toBe(50)
     expect(closurePct([], '2026-10')).toBeNull()
+    // a running month with nothing closed yet is not scored (not 0%)
+    expect(closurePct([tk('2026-10-01')], '2026-11', '2026-11-02')).toBeNull()
+    // once the month is over, nothing closed is 0%
+    expect(closurePct([tk('2026-10-01')], '2026-10', '2026-11-02')).toBe(0)
   })
   it('formal vs illegal from manpower counts', () => {
     expect(formalPct({ totalWorkers: 200, illegalOrFreelance: 10 })).toBe(95)

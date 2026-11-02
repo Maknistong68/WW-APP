@@ -47,13 +47,25 @@ export function kpiSubjects(contractors: Contractor[], workOrders: WorkOrder[]):
 /**
  * Tickets that count for a subject: its work order's tickets; contractor-level
  * tickets (no work order) count when the contractor has a single work order
- * or no work orders at all.
+ * or no work orders at all (only active work orders are counted: see holdsContractorTickets).
  */
 export function subjectTickets(s: KpiSubject, tickets: Ticket[], workOrders: WorkOrder[]): Ticket[] {
   const mine = tickets.filter((t) => t.contractorUuid === s.contractor.uuid)
   if (!s.workOrder) return mine
-  const single = workOrders.filter((w) => w.contractorUuid === s.contractor.uuid).length === 1
-  return mine.filter((t) => t.workOrderUuid === s.workOrder!.uuid || (single && !t.workOrderUuid))
+  return mine.filter((t) => t.workOrderUuid === s.workOrder!.uuid || (!t.workOrderUuid && holdsContractorTickets(s.workOrder!, workOrders)))
+}
+
+/**
+ * Tickets logged without a work order belong to a work order when it is the
+ * contractor's only one, or its only active one (a switched-off work order
+ * doesn't split them away). With two or more active, they stay unscored and
+ * the ticket sheet asks for the work order.
+ */
+export function holdsContractorTickets(wo: WorkOrder, workOrders: WorkOrder[]): boolean {
+  const all = workOrders.filter((w) => w.contractorUuid === wo.contractorUuid)
+  if (all.length === 1) return all[0].uuid === wo.uuid
+  const active = all.filter((w) => w.active)
+  return active.length === 1 && active[0].uuid === wo.uuid
 }
 
 export const subjectKpi = (s: KpiSubject, kpis: KpiMonth[], month: string) =>

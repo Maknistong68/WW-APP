@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { niceMax } from '../../lib/chartScale'
 import { haptic } from '../../lib/haptics'
 
@@ -50,6 +50,8 @@ export default function MonthBars({
   const [hover, setHover] = useState<number | null>(null)
   const [sel, setSel] = useState<number | null>(null)
   const scrubbing = useRef(false)
+  // The second series is hatched (not only another hue), so the two read apart in grey too.
+  const hatch = `mb-hatch-${useId().replace(/:/g, '')}`
 
   useEffect(() => {
     const el = ref.current
@@ -132,6 +134,14 @@ export default function MonthBars({
           setHover(null)
         }}
       >
+        {n > 1 && (
+          <defs>
+            <pattern id={hatch} width={5} height={5} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect className="hatch-bg" width={5} height={5} />
+              <rect className="hatch-line" width={2.5} height={5} />
+            </pattern>
+          </defs>
+        )}
         {ticks.map((t) => (
           <g key={t}>
             <line className="grid" x1={PAD.left} x2={w - PAD.right} y1={y(t)} y2={y(t)} />
@@ -149,7 +159,12 @@ export default function MonthBars({
             <g key={d.month}>
               {d.values.slice(0, n).map((v, k) =>
                 v === null ? null : (
-                  <path key={k} className={`col s${k}`} style={{ '--i': i } as CSSProperties} d={barPath(x0 + k * (barW + 2), y(v), barW, y(0) - y(v))} />
+                  <path
+                    key={k}
+                    className={`col s${k}`}
+                    style={{ '--i': i, ...(k === 1 ? { fill: `url(#${hatch})` } : null) } as CSSProperties}
+                    d={barPath(x0 + k * (barW + 2), y(v), barW, y(0) - y(v))}
+                  />
                 ),
               )}
               {(i % every === 0 || i === data.length - 1) && (data.length - 1 - i >= every || i === data.length - 1) && (

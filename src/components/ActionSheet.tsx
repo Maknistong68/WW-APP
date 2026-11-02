@@ -5,6 +5,7 @@ import { EXIT_MS, reducedMotion } from '../lib/motion'
 import { takeAnchor } from '../lib/anchor'
 import { placePopup, type Box, type Placement } from '../lib/popup'
 import type { Tone } from '../lib/tone'
+import { useBackClose, useFocusTrap } from '../lib/useBackClose'
 
 export interface SheetAction {
   label: string
@@ -94,6 +95,9 @@ export default function ActionSheetHost({ canEdit }: { canEdit: boolean }) {
     setClosing(true)
     window.setTimeout(done, EXIT_MS)
   }
+  // The phone's Back closes the menu; Tab stays inside it.
+  const isTop = useBackClose(!!spec, () => close())
+  useFocusTrap(sheet, !!spec, isTop)
 
   // Measure the pop-up, then place it next to the held item (before paint).
   useLayoutEffect(() => {
@@ -104,7 +108,7 @@ export default function ActionSheetHost({ canEdit }: { canEdit: boolean }) {
 
   useEffect(() => {
     if (!spec) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && isTop() && close()
     document.addEventListener('keydown', onKey)
     sheet.current?.querySelector<HTMLElement>('.as-item')?.focus({ preventScroll: true })
     // a pop-up belongs to a spot on the screen: scrolling or resizing closes it

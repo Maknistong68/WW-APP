@@ -19,7 +19,21 @@ function read(): TeamMember[] {
 
 let team: TeamMember[] = typeof localStorage === 'undefined' ? [] : read()
 
-export async function refreshTeam(): Promise<void> {
+let inFlight: Promise<void> | null = null
+let lastAt = 0
+
+/** Refresh the names: one request at a time, at most once a minute unless forced (after a sync). */
+export function refreshTeam(force = false): Promise<void> {
+  if (inFlight) return inFlight
+  if (!force && Date.now() - lastAt < 60_000) return Promise.resolve()
+  lastAt = Date.now()
+  inFlight = loadTeam().finally(() => {
+    inFlight = null
+  })
+  return inFlight
+}
+
+async function loadTeam(): Promise<void> {
   if (!navigator.onLine) return
   const c = await getClient()
   if (!c || !(await getSession())) return
@@ -44,9 +58,9 @@ export function useTeam(): TeamMember[] {
   const list = useSyncExternalStore(subscribe, () => team)
   useEffect(() => {
     void refreshTeam()
-    const onSynced = () => void refreshTeam()
-    window.addEventListener('ww-synced', onSynced)
-    return () => window.removeEventListener('ww-synced', onSynced)
   }, [])
   return list
 }
+
+// One listener for the whole app: after each sync, the names once.
+if (typeof window !== 'undefined') window.addEventListener('ww-synced', () => void refreshTeam(true))

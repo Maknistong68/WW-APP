@@ -4,6 +4,7 @@ import { refreshTeam } from '../lib/team'
 import { nameProblem, normUsername, usernameProblem } from '../lib/authForm'
 import { useAuthInfo } from '../lib/auth'
 import { useSave } from '../lib/useSave'
+import { beginEdit } from '../lib/editing'
 import { showToast } from './Toast'
 
 /** Settings › Your name: the name and @username shown on every change you make. */
@@ -19,6 +20,8 @@ export default function ProfileCard() {
   const nameId = useId()
   const userId = useId()
   const changed = name.trim() !== me.fullName || normUsername(username) !== me.username
+  // a half-typed name holds back an app update
+  useEffect(() => (changed ? beginEdit() : undefined), [changed])
 
   const save = () =>
     run(async () => {
@@ -31,7 +34,7 @@ export default function ProfileCard() {
       // the server's own words ("That username is taken") are already short and plain
       if (error) return error.message
       me.refresh()
-      void refreshTeam()
+      void refreshTeam(true)
       showToast({ text: 'Name saved' })
     })
 

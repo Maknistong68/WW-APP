@@ -42,6 +42,7 @@ export default function VoiceTextarea({
   const [listening, setListening] = useState(false)
   const recRef = useRef<SpeechRecognitionLike | null>(null)
   const baseRef = useRef('')
+  const wrapRef = useRef<HTMLDivElement>(null)
   const supported = getRecognizer() !== null
 
   useEffect(
@@ -70,6 +71,8 @@ export default function VoiceTextarea({
         spoken += e.results[i][0].transcript
       }
       onChange((baseRef.current + spoken).replace(/\s+$/, ''))
+      // tell a surrounding sheet the text changed (it asks before discarding)
+      wrapRef.current?.dispatchEvent(new Event('input', { bubbles: true }))
     }
     rec.onend = () => setListening(false)
     rec.onerror = () => setListening(false)
@@ -83,13 +86,15 @@ export default function VoiceTextarea({
   }
 
   return (
-    <div className="voice-wrap">
+    <div className="voice-wrap" ref={wrapRef}>
       <textarea value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
       {supported && (
         <button
           type="button"
           className={`mic-btn${listening ? ' listening' : ''}`}
           title={listening ? 'Stop dictation' : 'Dictate'}
+          aria-label="Dictate"
+          aria-pressed={listening}
           onClick={toggle}
         >
           <Icon name={listening ? 'stop' : 'mic'} size={19} />

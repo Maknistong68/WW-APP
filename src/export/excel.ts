@@ -179,8 +179,9 @@ export async function buildExcel(
     }
     if (label === 'Review Date') c.numFmt = FMT_DATE_SHORT
     if (label.startsWith('facility occupancy')) c.numFmt = '0.00%'
-    if (label === 'Link for google maps' && info.googleMapsLink) {
-      c.value = { text: info.googleMapsLink, hyperlink: info.googleMapsLink }
+    // Only a web link becomes clickable: a typed file:// or javascript: link in a shared report stays plain text.
+    if (label === 'Link for google maps' && /^https?:\/\//i.test(info.googleMapsLink.trim())) {
+      c.value = { text: info.googleMapsLink, hyperlink: info.googleMapsLink.trim() }
       c.font = font({ size: 9, color: { argb: 'FF0563C1' }, underline: true })
     }
   })

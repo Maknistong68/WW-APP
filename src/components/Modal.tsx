@@ -1,10 +1,8 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import Icon from './Icon'
 import { EXIT_MS, reducedMotion } from '../lib/motion'
 import { beginEdit } from '../lib/editing'
-
-// Open panels, newest last: Escape closes only the top one (a panel can open over another).
-const stack: object[] = []
+import { useBackClose, useFocusTrap } from '../lib/useBackClose'
 
 export interface ModalHandle {
   /** Animate out, then run `then` (default: onClose). */
@@ -13,9 +11,10 @@ export interface ModalHandle {
 
 /**
  * One UI floating panel: a bottom sheet (handle, title, ×) or a dialog.
- * Closes with an animation on backdrop tap, ×, Escape or a drag down; moves
- * focus in on open and back on close. Call `ref.close()` to animate out from
- * code (a parent that simply stops rendering it closes it instantly).
+ * Closes with an animation on backdrop tap, ×, Escape, the phone's Back or a
+ * drag down (asking first if something was changed); keeps focus inside while
+ * open and puts it back on close. Call `ref.close()` to animate out from code,
+ * without asking (a parent that simply stops rendering it closes it instantly).
  */
 const Modal = forwardRef<
   ModalHandle,
@@ -32,15 +31,22 @@ const Modal = forwardRef<
   }
 >(function Modal({ title, onClose, children, header, variant = 'sheet', alert }, ref) {
   const sheetRef = useRef<HTMLDivElement>(null)
-  const previousFocus = useRef<Element | null>(null)
+  const askRef = useRef<HTMLDivElement>(null)
+  const askId = useId()
+  // Who had focus before the panel opened (read during render, before any autoFocus inside it).
+  const [opener] = useState(() => (typeof document === 'undefined' ? null : document.activeElement))
   const [closing, setClosing] = useState(false)
+  const [asking, setAsking] = useState(false)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   const pending = useRef<{ timer: number; done: () => void } | null>(null)
   const drag = useRef<{ y: number; dy: number } | null>(null)
+  /** Something was typed or picked: ask before throwing it away. */
+  const dirty = useRef(false)
 
   const close = useCallback((then?: () => void) => {
     if (pending.current) return
+    setAsking(false)
     const done = then ?? (() => onCloseRef.current())
     if (reducedMotion()) return done()
     setClosing(true)
@@ -50,34 +56,99 @@ const Modal = forwardRef<
     }, EXIT_MS)
     pending.current = { timer, done }
   }, [])
+  // Code (a save, a Cancel button) closes straight away; only the person's own
+  // dismiss (scrim, drag, Escape, ×, Back) asks about unsaved changes.
   useImperativeHandle(ref, () => ({ close }), [close])
+
+  /** Returns true when the panel stays open (it asked first). */
+  const dismiss = useCallback(() => {
+    if (pending.current) return false
+    if (dirty.current) {
+      setAsking(true)
+      return true
+    }
+    close()
+    return false
+  }, [close])
+  const keepEditing = () => {
+    setAsking(false)
+    sheetRef.current?.focus({ preventScroll: true })
+  }
+
+  const isTop = useBackClose(true, () => {
+    if (asking) {
+      keepEditing()
+      return true
+    }
+    return dismiss()
+  })
+  useFocusTrap(sheetRef, !asking, isTop)
+  useFocusTrap(askRef, asking, isTop)
 
   // An app update waits while a panel is open (see lib/appUpdate.ts).
   useEffect(() => beginEdit(), [])
 
+  // Mark the sheet changed on any edit inside it (search boxes don't count).
   useEffect(() => {
-    previousFocus.current = document.activeElement
-    sheetRef.current?.querySelector<HTMLElement>('button, input, textarea')?.focus()
-    const me = {}
-    stack.push(me)
+    const el = sheetRef.current
+    if (!el) return
+    const onEdit = (e: Event) => {
+      const t = e.target as HTMLElement | null
+      if (!t || t.closest('[data-no-dirty], .discard') || (t instanceof HTMLInputElement && t.type === 'search')) return
+      dirty.current = true
+    }
+    el.addEventListener('input', onEdit, true)
+    el.addEventListener('change', onEdit, true)
+    return () => {
+      el.removeEventListener('input', onEdit, true)
+      el.removeEventListener('change', onEdit, true)
+    }
+  }, [])
+
+  // Focus moves in before paint: keep an autoFocus field's focus, else the
+  // first field (on a touch phone the panel itself, so the keyboard stays down).
+  useLayoutEffect(() => {
+    const el = sheetRef.current
+    if (el && !el.contains(document.activeElement)) {
+      const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+      const pick = touch
+        ? el.querySelector<HTMLElement>('[autofocus]')
+        : (['[autofocus]', 'input:not([type="hidden"]):not([disabled])', 'textarea:not([disabled])', 'select:not([disabled])', 'button:not([disabled])']
+            .map((q) => el.querySelector<HTMLElement>(q))
+            .find(Boolean) ?? null)
+      ;(pick ?? el).focus({ preventScroll: true })
+    }
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true })
+    }
+  }, [opener])
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && stack[stack.length - 1] === me) close()
+      if (e.key !== 'Escape' || !isTop()) return
+      if (asking) keepEditing()
+      else dismiss()
     }
     document.addEventListener('keydown', onKey)
-    return () => {
-      const i = stack.indexOf(me)
-      if (i >= 0) stack.splice(i, 1)
-      document.removeEventListener('keydown', onKey)
-      // closed by the parent mid-animation: still run what was asked for
+    return () => document.removeEventListener('keydown', onKey)
+  })
+
+  // Closed by the parent mid-animation: still run what was asked for.
+  useEffect(
+    () => () => {
       if (pending.current) {
         window.clearTimeout(pending.current.timer)
         const { done } = pending.current
         pending.current = null
         done()
       }
-      ;(previousFocus.current as HTMLElement | null)?.focus?.()
-    }
-  }, [close])
+    },
+    [],
+  )
+
+  useEffect(() => {
+    if (asking) askRef.current?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true })
+  }, [asking])
 
   // Drag the handle / title down to dismiss.
   const onPointerDown = (e: PointerEvent) => {
@@ -97,16 +168,17 @@ const Modal = forwardRef<
     drag.current = null
     sheetRef.current.style.transition = ''
     sheetRef.current.style.transform = ''
-    if (far) close()
+    if (far) dismiss()
   }
 
   return (
-    <div className={`modal-backdrop${closing ? ' closing' : ''}`} onClick={() => close()}>
+    <div className={`modal-backdrop${closing ? ' closing' : ''}`} onClick={() => (asking ? keepEditing() : dismiss())}>
       <div
         className={`modal${variant === 'dialog' ? ' dialog' : ''}`}
         role={variant === 'dialog' ? 'alertdialog' : 'dialog'}
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         ref={sheetRef}
         onClick={(e) => e.stopPropagation()}
       >
@@ -120,7 +192,7 @@ const Modal = forwardRef<
           >
             <b>{title}</b>
             {header}
-            <button className="icon-btn" aria-label="Close" onClick={() => close()}>
+            <button className="icon-btn" aria-label="Dismiss" onClick={() => dismiss()}>
               <Icon name="x" size={22} />
             </button>
           </div>
@@ -132,6 +204,30 @@ const Modal = forwardRef<
           </div>
         )}
         {children}
+        {asking && (
+          <div className="discard" onClick={keepEditing}>
+            <div
+              ref={askRef}
+              className="discard-box"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby={askId}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="dialog-title" id={askId}>
+                Discard changes?
+              </h2>
+              <div className="dialog-actions">
+                <button className="dialog-btn" onClick={keepEditing}>
+                  Keep editing
+                </button>
+                <button className="dialog-btn danger" onClick={() => close()}>
+                  Discard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import type { EmailOtpType } from '@supabase/supabase-js'
-import { getClient, getSyncConfig, syncNow } from './sync'
+import { getClient, getSyncConfig, syncNow, usingBuiltInConfig } from './sync'
 import { authProblemText, parseLogin } from './authForm'
 import { linkFailureText, takeAuthReturn, type AuthReturn } from './authReturn'
 import { passwordFlag, readPasswordFlag, type PasswordWhy } from './passwordFlag'
@@ -94,14 +94,15 @@ export async function signUpWithPassword(
 }
 
 /**
- * Sign in with a username or an email. An email goes straight to Supabase; a
- * username goes through the sign-in Edge Function, which finds the email
- * without ever showing it, and hands back the session.
+ * Sign in with a username or an email. Both go through the sign-in Edge
+ * Function, which finds a username's email without ever showing it, holds a
+ * login back after 10 wrong tries, and hands back the session.
  */
 export async function signInWithLogin(c: SupabaseClient, login: string, password: string): Promise<void> {
   const l = parseLogin(login)
-  if (l.kind === 'email') return signInWithPassword(c, l.value, password)
   const cfg = getSyncConfig()
+  // A project typed in Settings may not have the function: sign in directly there.
+  if (l.kind === 'email' && !usingBuiltInConfig()) return signInWithPassword(c, l.value, password)
   if (!cfg) throw new Error('Cloud sync is not set up')
   const res = await fetch(`${cfg.url}/functions/v1/sign-in`, {
     method: 'POST',
@@ -217,7 +218,7 @@ export function resolvePhase(
   return { phase: 'approved', role: 'viewer' }
 }
 
-export function useAuth(): AuthState & { refresh: () => void; signOut: () => Promise<void> } {
+export function useAuth(): AuthState & { refresh: () => void; signOut: (force?: boolean) => Promise<void> } {
   const [state, setState] = useState<AuthState>({
     phase: 'loading',
     session: null,
@@ -251,6 +252,18 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
       const session = data.session
       type Profile = { status: AccessStatus; role: Role; username?: string | null; full_name?: string | null }
       let profile: Profile | null = null
+      // Online with a stored session the server no longer knows (signed out on
+      // another device, refresh token gone): show Sign in now, not a failure later.
+      if (session && navigator.onLine) {
+        const { error: userErr } = await c.auth.getUser()
+        const status = (userErr as { status?: number } | null)?.status ?? 0
+        if (userErr && (status === 401 || status === 403 || /session|jwt|refresh token/i.test(userErr.message))) {
+          await c.auth.signOut({ scope: 'local' }).catch(() => {})
+          if (alive)
+            setState((prev) => ({ ...prev, phase: 'signedOut', session: null, email: '', role: 'viewer', linkError: 'Your sign-in ran out. Sign in again.' }))
+          return
+        }
+      }
       if (session && navigator.onLine) {
         const q = (cols: string) => c.from('profiles').select(cols).eq('id', session.user.id).maybeSingle()
         let res = await q('status, role, username, full_name')
@@ -335,7 +348,7 @@ export interface AuthInfo {
   role: Role
   /** Admin or editor. */
   canEdit: boolean
-  signOut: () => Promise<void>
+  signOut: (force?: boolean) => Promise<void>
   /** '' in local-only mode. */
   userId: string
   username: string

@@ -39,15 +39,20 @@ export default function PasswordInput({
         onClick={() => setShow(!show)}
         style={{
           position: 'absolute',
-          right: 6,
+          right: 2,
           top: '50%',
           transform: 'translateY(-50%)',
+          width: 44,
+          height: 44,
           border: 'none',
+          borderRadius: '50%',
           background: 'none',
-          padding: 8,
+          padding: 0,
           cursor: 'pointer',
           color: show ? 'var(--text)' : 'var(--muted)',
           display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <Icon name="eye" size={22} fill={show} />

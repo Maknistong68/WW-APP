@@ -1,6 +1,5 @@
-import { kpiForSubject, type AllData, type KpiItemKey } from './kpiData'
+import { kpiForSubject, rollup, type AllData, type KpiItemKey } from './kpiData'
 import { isFollowed, kpiSubjects } from './subjects'
-import { contractorKpiSeries } from './trends'
 
 // Compare contractors (or work orders) month by month on one KPI item: the
 // grid on /compare and the Dashboard's mini grid.
@@ -28,10 +27,26 @@ function row(key: string, label: string, contractorUuid: string, workOrderUuid: 
 
 /** Active contractors (or their active work orders), one value per month. */
 export function compareRows(d: AllData, months: string[], key: KpiItemKey, by: CompareBy = 'contractor'): CompareRow[] {
+  // Active work orders only, the same as the KPI pages and Explore (Trends keeps the switched-off ones as history).
+  const subjects = kpiSubjects(d.contractors, d.workOrders)
   if (by === 'contractor') {
-    return d.contractors.filter((c) => isFollowed(c, d.workOrders)).map((c) => row(c.uuid, c.name, c.uuid, undefined, contractorKpiSeries(d, c, months)[key]))
+    return d.contractors
+      .filter((c) => isFollowed(c, d.workOrders))
+      .map((c) => {
+        const own = subjects.filter((s) => s.contractor.uuid === c.uuid)
+        return row(
+          c.uuid,
+          c.name,
+          c.uuid,
+          undefined,
+          months.map((m) => {
+            const v = rollup(own.map((s) => kpiForSubject(d, s, m)))[key]
+            return v === null ? null : Math.round(v)
+          }),
+        )
+      })
   }
-  return kpiSubjects(d.contractors, d.workOrders).map((s) =>
+  return subjects.map((s) =>
     row(
       s.key,
       s.label,

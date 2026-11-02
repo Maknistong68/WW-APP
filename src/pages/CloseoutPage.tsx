@@ -58,7 +58,7 @@ export default function CloseoutPage() {
   const done = list.filter((c) => c.status === 'closed').slice(0, 10)
 
   return (
-    <Page title="Audit close-out" back=".." backLabel="Back">
+    <Page title="Audit close-out" back="/library" backLabel="Library">
       <div className="hero-row">
         <div className="hero">
           <div className={`hero-num${t.open ? ' warn' : ''}`}>{t.open}</div>

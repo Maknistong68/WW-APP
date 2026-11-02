@@ -22,7 +22,14 @@ import type { Contractor, KpiMonth, Manpower } from '../types'
 const num = (v: string): number | null => {
   const t = v.replace(/[^\d.]/g, '')
   if (t === '') return null
-  return Number(t)
+  const n = Number(t)
+  // "." or "1.2.3" is not a number yet: keep the field blank rather than NaN.
+  return Number.isFinite(n) ? n : null
+}
+/** Whole counts (findings, workers): no decimals. */
+const count = (v: string): number | null => {
+  const n = num(v)
+  return n === null ? null : Math.floor(n)
 }
 const str = (v: number | null) => (v === null || v === undefined ? '' : String(v))
 
@@ -45,7 +52,7 @@ function PctRow({ label, value, onChange }: { label: string; value: number | nul
 }
 
 /** Yes / No answer; tap the picked one again to clear it (not answered). */
-function YesNoRow({ label, value, onChange }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void }) {
+function YesNoRow({ label, value, onChange, noLabel = 'No' }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void; noLabel?: string }) {
   const pick = (v: boolean) => {
     haptic('tick')
     onChange(value === v ? null : v)
@@ -58,7 +65,7 @@ function YesNoRow({ label, value, onChange }: { label: string; value: boolean | 
           Yes
         </button>
         <button type="button" className={`tog no${value === false ? ' on' : ''}`} aria-pressed={value === false} onClick={() => pick(false)}>
-          No
+          {noLabel}
         </button>
       </span>
     </div>
@@ -142,6 +149,9 @@ export default function KpiSheet({
       }
     >
       <div className="sheet-body">
+        <div className="list-foot" style={{ marginTop: 0, overflowWrap: 'anywhere' }}>
+          {subjectLabel.startsWith(contractor.name) ? subjectLabel : `${contractor.name} · ${subjectLabel}`}
+        </div>
         <div className="section-label">Submitted</div>
         <div className="list">
           <button className="row" onClick={() => setDocsOpen(true)}>
@@ -191,11 +201,11 @@ export default function KpiSheet({
               </label>
               <label className="row">
                 <span className="row-label">Findings</span>
-                <input inputMode="numeric" placeholder="—" value={str(k.auditFindings ?? null)} onChange={(e) => set('auditFindings', num(e.target.value))} />
+                <input inputMode="numeric" placeholder="—" value={str(k.auditFindings ?? null)} onChange={(e) => set('auditFindings', count(e.target.value))} />
               </label>
               <label className="row">
                 <span className="row-label">Closed out</span>
-                <input inputMode="numeric" placeholder="—" value={str(k.auditClosed ?? null)} onChange={(e) => set('auditClosed', num(e.target.value))} />
+                <input inputMode="numeric" placeholder="—" value={str(k.auditClosed ?? null)} onChange={(e) => set('auditClosed', count(e.target.value))} />
               </label>
               <label className="row">
                 <span className="row-label">Due by</span>
@@ -243,7 +253,7 @@ export function ManpowerSheet({
   const field = (label: string, f: 'totalWorkers' | 'illegalOrFreelance' | 'visaExpiring30d' | 'paidRecruitmentFees') => (
     <label className="row">
       <span className="row-label">{label}</span>
-      <input inputMode="numeric" value={String(m[f])} onChange={(e) => setM({ ...m, [f]: num(e.target.value) ?? 0 })} />
+      <input inputMode="numeric" value={String(m[f])} onChange={(e) => setM({ ...m, [f]: count(e.target.value) ?? 0 })} />
     </label>
   )
   const sheet = useRef<ModalHandle>(null)

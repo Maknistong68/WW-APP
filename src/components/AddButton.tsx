@@ -28,7 +28,7 @@ export const openCreate = () => window.dispatchEvent(new Event(CREATE_EVENT))
 type Step = 'menu' | 'kpi' | 'inspection'
 
 const CHOICES: { key: 'ticket' | 'case' | 'kpi' | 'inspection' | 'camp' | 'task'; label: string; sub: string; icon: IconName; hue: Hue }[] = [
-  { key: 'ticket', label: 'Ticket', sub: 'Log a D&C complaint', icon: 'ticket', hue: MENU_HUE.ticket },
+  { key: 'ticket', label: 'Ticket', sub: 'Log a D&C ticket', icon: 'ticket', hue: MENU_HUE.ticket },
   { key: 'case', label: 'Case', sub: 'Raise with a contractor', icon: 'megaphone', hue: MENU_HUE.case },
   { key: 'kpi', label: 'Monthly KPIs', sub: 'Score a work order', icon: 'gauge', hue: MENU_HUE.kpis },
   { key: 'inspection', label: 'Inspection', sub: 'Start a camp inspection', icon: 'clipboard', hue: MENU_HUE.inspections },

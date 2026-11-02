@@ -125,7 +125,7 @@ export default function WalkthroughLine({
             )}
             <VoiceTextarea
               value={primary?.observation ?? ''}
-              placeholder="What did you observe? Type or tap the mic to dictate."
+              placeholder="What did you observe? No worker names or ID numbers."
               onChange={(observation) => onPatchPrimary({ observation })}
             />
           </div>

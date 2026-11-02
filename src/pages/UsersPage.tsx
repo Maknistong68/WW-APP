@@ -40,7 +40,8 @@ function LinkSheet({ name, link, noEmail, onClose }: { name: string; link: strin
       <div className="sheet-body">
         <p className="list-foot" style={{ marginTop: 0 }}>
           {noEmail ? `No email could go out, so send this link to ${name} yourself.` : `Send this link to ${name} by WhatsApp or email.`} It opens WW
-          Co-pilot, where they choose a password. It works once.
+          Co-pilot, where they choose a password. It works once and runs out after about an hour; then open their name
+          and tap Send a new link.
         </p>
         <div className="list">
           <div className="row" style={{ overflowWrap: 'anywhere', fontSize: 14, userSelect: 'all' }}>

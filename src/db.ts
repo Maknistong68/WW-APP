@@ -127,7 +127,8 @@ const PROBLEM = /fail|stopped|slow|error|blocked|closed/i
 /** Append an entry to the technical log (fire-and-forget). */
 export function logEvent(inspectionId: number | null, event: string, detail = ''): void {
   const time = new Date().toISOString()
-  if (PROBLEM.test(event)) writeLocalLog({ time, event, detail })
+  // "Save stopped" is a form saying what to fix, not a failure: kept out of the small problem log.
+  if (PROBLEM.test(event) && event !== 'Save stopped') writeLocalLog({ time, event, detail })
   void db.logs.add({ inspectionId, time, event, detail }).catch(() => {})
   const action = AUDIT_ACTIVITY[event]
   if (inspectionId === null || !action) return
@@ -361,7 +362,31 @@ export async function compressPhoto(file: File | Blob, maxDim = 1600): Promise<B
     )
     return blob ?? file
   } catch {
-    // e.g. unsupported format — store the original rather than losing it
-    return file
+    // A JPEG/PNG the browser can't redraw is still usable as it is. Any other
+    // format (HEIC from the gallery) would break the Excel and Word reports.
+    if (/^image\/(jpe?g|png)$/i.test(file.type)) return file
+    throw new Error('This photo type can’t go in the reports. Take it with the camera, or pick a JPG.')
+  }
+}
+
+/**
+ * Remove everything this app keeps on the phone: the database (tickets, KPIs,
+ * inspections, photos, log) and its settings, except the look (theme). For a
+ * shared or handed-over phone. Changes not yet sent are lost.
+ */
+export async function clearLocalData(): Promise<void> {
+  db.close()
+  await Dexie.delete('ww-app')
+  try {
+    const keep = new Set(['ww.theme'])
+    const drop: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && (k.startsWith('ww.') || k.startsWith('sb-')) && !keep.has(k)) drop.push(k)
+    }
+    drop.forEach((k) => localStorage.removeItem(k))
+    sessionStorage.clear()
+  } catch {
+    // private mode: nothing kept anyway
   }
 }

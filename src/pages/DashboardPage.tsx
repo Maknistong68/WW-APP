@@ -179,7 +179,11 @@ export default function DashboardPage() {
       </div>
 
       <div className="stagger dash" key={view}>
-        <FocusStrip cards={focus} onHold={holdFocus} format={(c) => (c.key === 'money' ? (v) => `SAR ${sarShort(v)}` : undefined)} />
+        {d.loaded ? (
+          <FocusStrip cards={focus} onHold={holdFocus} format={(c) => (c.key === 'money' ? (v) => `SAR ${sarShort(v)}` : undefined)} />
+        ) : (
+          <div className="skeleton" role="status" aria-label="Loading" style={{ height: 196, marginBottom: 24 }} />
+        )}
 
         <section aria-label="Explore">
           <h2 className="clist-head">
@@ -190,7 +194,11 @@ export default function DashboardPage() {
 
         <section aria-label="Over time">
           <h2 className="clist-head">Over time</h2>
-          <OverTimeCard chips={OVER_TIME_CHIPS[view]} chip={tChip} onChip={(k) => setChip('t', k, overTimeChip(view, null))} series={series} onOpen={openMonth} />
+          {d.loaded ? (
+            <OverTimeCard chips={OVER_TIME_CHIPS[view]} chip={tChip} onChip={(k) => setChip('t', k, overTimeChip(view, null))} series={series} onOpen={openMonth} />
+          ) : (
+            <div className="skeleton" style={{ height: 280 }} />
+          )}
         </section>
       </div>
 

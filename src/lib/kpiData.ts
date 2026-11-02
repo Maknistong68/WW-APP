@@ -68,11 +68,18 @@ export function useAllData(): AllData {
 }
 
 /** Score of the contractor's latest audit reviewed in the month, if any. */
-export function auditPctFor(c: Contractor, inspections: Inspection[], month: string): number | null {
+export function auditPctFor(c: Contractor, inspections: Inspection[], month: string, camps: Camp[] = []): number | null {
   const names = [c.name, ...c.aliases]
+  const own = new Set(camps.filter((k) => k.contractorUuid === c.uuid).map((k) => k.uuid))
+  // Drafts never count: only a finished inspection is a score.
   const hits = inspections
-    .filter((i) => i.info?.reviewDate?.startsWith(month) && mentions(i.info?.contractorNames ?? '', names))
-    .sort((a, b) => (a.info.reviewDate < b.info.reviewDate ? 1 : -1))
+    .filter(
+      (i) =>
+        i.status === 'completed' &&
+        i.info?.reviewDate?.startsWith(month) &&
+        ((!!i.campUuid && own.has(i.campUuid)) || mentions(i.info?.contractorNames ?? '', names)),
+    )
+    .sort((a, b) => b.info.reviewDate.localeCompare(a.info.reviewDate))
   for (const ins of hits) {
     const pct = inspectionPct(ins)
     if (pct !== null) return pct
@@ -92,7 +99,7 @@ export function kpiForSubject(d: AllData, s: KpiSubject, month: string): KpiResu
     manpower: subjectManpower(s, d.manpower, month),
     tickets: subjectTickets(s, d.tickets, d.workOrders),
     month,
-    auditPct: auditPctFor(s.contractor, d.inspections, month),
+    auditPct: auditPctFor(s.contractor, d.inspections, month, d.camps),
   })
 }
 

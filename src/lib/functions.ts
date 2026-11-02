@@ -7,6 +7,9 @@ import { getClient } from './sync'
 export async function callFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {
   const c = await getClient()
   if (!c) throw new Error('Cloud sync is not set up')
+  // Never call with the public key alone: an expired session is refreshed first, a lost one says so.
+  const { data: s } = await c.auth.getSession()
+  if (!s.session) throw new Error('Sign in again: your sign-in ran out.')
   const { data, error } = await c.functions.invoke(name, { body })
   if (error) {
     const ctx = (error as { context?: Response }).context
