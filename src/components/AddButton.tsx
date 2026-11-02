@@ -9,6 +9,7 @@ import { campTone } from '../lib/tone'
 import { MENU_HUE, type Hue } from '../lib/hues'
 import TicketSheet from './TicketSheet'
 import CampSheet from './CampSheet'
+import RoutineSheet from './RoutineSheet'
 import { MonthStepper, SubjectEditor, SubjectList } from './SubjectPicker'
 import { newCamp } from '../pages/CampsPage'
 import { useAuthInfo } from '../lib/auth'
@@ -16,8 +17,8 @@ import { CAMP_STATUS_LABEL, campState } from '../lib/camps'
 import { monthOf } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
 import { kpiSubjects, subjectKpi, type KpiSubject } from '../lib/subjects'
-import { newTicket } from '../lib/useData'
-import type { Camp, Ticket } from '../types'
+import { newRoutine, newTicket } from '../lib/useData'
+import type { Camp, Routine, Ticket } from '../types'
 
 const CREATE_EVENT = 'ww:create'
 /** Open the Create sheet from anywhere (the tab bar's + Create). */
@@ -25,22 +26,24 @@ export const openCreate = () => window.dispatchEvent(new Event(CREATE_EVENT))
 
 type Step = 'menu' | 'kpi' | 'inspection'
 
-const CHOICES: { key: 'ticket' | 'kpi' | 'inspection' | 'camp'; label: string; sub: string; icon: IconName; hue: Hue }[] = [
+const CHOICES: { key: 'ticket' | 'kpi' | 'inspection' | 'camp' | 'task'; label: string; sub: string; icon: IconName; hue: Hue }[] = [
   { key: 'ticket', label: 'Ticket', sub: 'Log a complaint', icon: 'ticket', hue: MENU_HUE.ticket },
   { key: 'kpi', label: 'Monthly KPIs', sub: 'Score a work order', icon: 'gauge', hue: MENU_HUE.kpis },
   { key: 'inspection', label: 'Inspection', sub: 'Start a camp inspection', icon: 'clipboard', hue: MENU_HUE.inspections },
   { key: 'camp', label: 'Camp', sub: 'Add a camp to track', icon: 'tent', hue: MENU_HUE.camps },
+  { key: 'task', label: 'Task', sub: 'A to-do for the team, once or repeating', icon: 'checklist', hue: MENU_HUE.task },
 ]
 
 const RANK = { never: 0, expired: 1, due: 2, ok: 3 } as const
 
-/** Create sheet (tab bar +): ticket, KPI month, inspection or camp. */
+/** Create sheet (tab bar +): ticket, KPI month, inspection, camp or task. */
 export default function AddButton() {
   const navigate = useNavigate()
   const { canEdit } = useAuthInfo()
   const [step, setStep] = useState<Step | null>(null)
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [camp, setCamp] = useState<Camp | null>(null)
+  const [routine, setRoutine] = useState<Routine | null>(null)
   const [subject, setSubject] = useState<KpiSubject | null>(null)
   const [month, setMonth] = useState(monthOf())
 
@@ -60,6 +63,9 @@ export default function AddButton() {
     } else if (key === 'camp') {
       close()
       setCamp(newCamp())
+    } else if (key === 'task') {
+      close()
+      setRoutine(newRoutine())
     } else {
       setMonth(monthOf())
       setStep(key)
@@ -104,6 +110,7 @@ export default function AddButton() {
 
       {ticket && <TicketSheet ticket={ticket} onClose={() => setTicket(null)} />}
       {camp && <CampSheet camp={camp} onClose={() => setCamp(null)} />}
+      {routine && <RoutineSheet routine={routine} onClose={() => setRoutine(null)} />}
       {subject && <KpiEditor subject={subject} month={month} onClose={() => setSubject(null)} />}
     </>
   )

@@ -126,7 +126,7 @@ export default function CloseTogetherSheet({
             <span className="row-label">{close ? 'Total paid' : 'Total owed'}</span>
             <input
               inputMode="decimal"
-              placeholder="SAR"
+              placeholder="e.g. 4,500"
               value={amount}
               onChange={(e) => {
                 setAmount(e.target.value)

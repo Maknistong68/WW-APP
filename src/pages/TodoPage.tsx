@@ -10,7 +10,7 @@ import StatusChip from '../components/StatusChip'
 import SwipeRow from '../components/SwipeRow'
 import DoneCheck from '../components/DoneCheck'
 import { showActions, type SheetAction } from '../components/ActionSheet'
-import { campMenu, inspectionMenu, ticketMenu } from '../components/menus'
+import { campMenu, inspectionMenu, markRoutine, routineMenu, ticketMenu } from '../components/menus'
 import { go, openSheet } from '../components/SheetHost'
 import { showToast } from '../components/Toast'
 import { useAuthInfo } from '../lib/auth'
@@ -18,6 +18,8 @@ import { dayMonth, localDate, monthLabel } from '../lib/dates'
 import { declarationsDue, dueTone, kpisDue } from '../lib/due'
 import { haptic } from '../lib/haptics'
 import { useAllData, type AllData } from '../lib/kpiData'
+import { useCachedLiveQuery } from '../lib/useCachedQuery'
+import { db } from '../db'
 import { buildTasks, completedSince, type Task, type TaskGroup } from '../lib/tasks'
 import type { IconName } from '../components/Icon'
 
@@ -48,6 +50,11 @@ function primaryOf(t: Task, canEdit: boolean): { label: string; icon: IconName; 
   }
   if (t.kind === 'ticket' && t.ticketUuid) return { label: 'Close', icon: 'check-circle', tone: 'good', run: () => openSheet({ kind: 'ticketClose', uuid: t.ticketUuid! }) }
   if (t.kind === 'camp' && t.campUuid) return { label: 'Start', icon: 'play', tone: 'info', run: () => go(`/new/accommodation?camp=${t.campUuid}`) }
+  if (t.kind === 'routine' && t.routine && t.due) {
+    const r = t.routine
+    const due = t.due
+    return { label: 'Done', icon: 'check-circle', tone: 'good', run: () => void markRoutine(r, due) }
+  }
   return null
 }
 
@@ -69,6 +76,7 @@ function taskMenu(t: Task, d: AllData) {
     const camp = d.camps.find((x) => x.uuid === t.campUuid)
     if (camp) return campMenu(camp, { sub: t.detail, tone: t.tone })
   }
+  if (t.kind === 'routine' && t.routine && t.due) return routineMenu(t.routine, { due: t.due, sub: `${t.detail} · ${t.dueText}`, tone: t.tone })
   if (t.kind === 'draft' && t.inspectionId !== undefined) {
     const ins = d.inspections.find((x) => x.id === t.inspectionId)
     if (ins) return inspectionMenu(ins, { title: t.detail.split(' · ')[0], sub: t.detail, tone: 'info' })
@@ -162,7 +170,9 @@ export default function TodoPage() {
   const [only, setOnly] = useState<TaskGroup | null>(null)
   const [showDone, setShowDone] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const list = useMemo(() => (d.loaded ? buildTasks(d, today) : null), [d, today])
+  // Routine tasks the team added (+ → Task); shown once both have loaded.
+  const routines = useCachedLiveQuery('routines', () => db.routines.toArray())
+  const list = useMemo(() => (d.loaded && routines ? buildTasks(d, today, { routines }) : null), [d, today, routines])
 
   // Finished since the last look: check, slide away, buzz, bump Done.
   const before = useRef<{ tasks: Task[]; done: number } | null>(null)

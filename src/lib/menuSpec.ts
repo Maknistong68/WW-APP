@@ -20,6 +20,8 @@ export type MenuAction =
   | 'repeat'
   | 'tickets'
   | 'trends'
+  | 'done'
+  | 'skip'
 
 /** Actions that change data: hidden from viewers. */
 export const EDIT_ACTIONS: ReadonlySet<MenuAction> = new Set<MenuAction>([
@@ -35,6 +37,8 @@ export const EDIT_ACTIONS: ReadonlySet<MenuAction> = new Set<MenuAction>([
   'turnOnWo',
   'inspect',
   'repeat',
+  'done',
+  'skip',
 ])
 
 export const viewerOnly = (ids: MenuAction[]) => ids.filter((a) => !EDIT_ACTIONS.has(a))
@@ -69,6 +73,11 @@ export function workOrderActions(wo: { active: boolean }): MenuAction[] {
 
 export function campActions(camp: { contractorUuid: string }): MenuAction[] {
   return ['inspect', ...(camp.contractorUuid ? (['contractor'] as const) : []), 'edit']
+}
+
+/** A routine task: tick off, skip this time (repeats only), edit, delete. */
+export function routineActions(r: { repeat: string }): MenuAction[] {
+  return ['done', ...(r.repeat !== 'once' ? (['skip'] as const) : []), 'edit', 'delete']
 }
 
 export function inspectionActions(): MenuAction[] {

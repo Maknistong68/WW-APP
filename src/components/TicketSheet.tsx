@@ -163,7 +163,7 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
           ) : (
             <label className="row">
               <span className="row-label">Money owed</span>
-              <input inputMode="decimal" placeholder="SAR" value={money} onChange={(e) => setMoney(e.target.value)} />
+              <input inputMode="decimal" placeholder="e.g. 4,500" value={money} onChange={(e) => setMoney(e.target.value)} />
               <span className="row-trail">SAR</span>
             </label>
           )}
@@ -356,7 +356,7 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
                 <span className="row-label">Money paid</span>
                 <input
                   inputMode="decimal"
-                  placeholder="SAR"
+                  placeholder="e.g. 4,500"
                   value={money}
                   onChange={(e) => {
                     setMoney(e.target.value)

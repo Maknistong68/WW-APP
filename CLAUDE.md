@@ -35,7 +35,8 @@ npm run build   # strict tsc + vite build
 ## Where things are
 - Data model: `src/types.ts`; every write goes through `src/lib/records.ts` (activity log).
 - KPI rules: `src/lib/kpi.ts`; per-work-order subjects: `src/lib/subjects.ts`, `src/lib/kpiData.ts`.
-- Home task list: `src/lib/tasks.ts` (due rules in `src/lib/due.ts`); the per-work-order checks and
+- Home task list: `src/lib/tasks.ts` (due rules in `src/lib/due.ts`; the team's own routine tasks in
+  `src/lib/routines.ts`, table `routines`, sheet `src/components/RoutineSheet.tsx`); the per-work-order checks and
   the `/missing/:item` lists: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
 - Long-press menus: `src/components/menus.tsx` (rules in `src/lib/menuSpec.ts`), sheets opened from
   anywhere via `SheetHost`; ticket drill-down filters: `src/lib/ticketFilter.ts`.

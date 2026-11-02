@@ -9,6 +9,8 @@ import { kpiSubjects, subjectKpi, woOf, type KpiSubject } from './subjects'
 import { SUBJECT_ITEMS, quarterMonths, type SubjectItemKey } from './todo'
 import type { Tone } from './tone'
 import type { IconName } from '../components/Icon'
+import { nextDue, repeatText, routineGroup } from './routines'
+import type { Routine } from '../types'
 
 // Home as a task list: everything to do, by name and due date. Urgent things
 // (overdue, due within 7 days) get a row each; later ones are grouped per
@@ -24,7 +26,7 @@ export const MAX_CARRY = 3
 export const TICKET_CAP = 5
 
 export type TaskGroup = 'overdue' | 'week' | 'later' | 'done'
-export type TaskKind = 'declarations' | 'kpis' | 'ticket' | 'tickets' | 'camp' | 'closeout' | 'quarterly' | 'draft' | 'older' | 'done'
+export type TaskKind = 'declarations' | 'kpis' | 'ticket' | 'tickets' | 'camp' | 'closeout' | 'quarterly' | 'draft' | 'older' | 'done' | 'routine'
 
 export interface Task {
   key: string
@@ -54,6 +56,8 @@ export interface Task {
   members?: Task[]
   /** What it means (the long-press note). */
   help?: string
+  /** A routine task (added by the team): tick it off from the row. */
+  routine?: Routine
 }
 
 export interface WatchItem {
@@ -226,7 +230,7 @@ function foldLater(rows: Task[], kind: 'declarations' | 'kpis', m: string): Task
 
 const weekday = (ymd: string) => new Date(`${ymd}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short' })
 
-export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: number } = {}): TaskList {
+export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: number; routines?: Routine[] } = {}): TaskList {
   const cap = o.ticketCap ?? TICKET_CAP
   const subjects = kpiSubjects(d.contractors, d.workOrders).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
   const tasks: Task[] = []
@@ -401,6 +405,28 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
       weight: 1,
       inspectionId: ins.id,
       help: HELP.draft,
+    })
+  }
+
+  // 7. Routine tasks the team added (+ → Task)
+  for (const r of o.routines ?? []) {
+    const due = nextDue(r, today)
+    if (!due) continue
+    const group = routineGroup(r.repeat, due, today)
+    tasks.push({
+      key: `routine:${r.uuid}:${due}`,
+      kind: 'routine',
+      group,
+      title: r.title || 'Task',
+      detail: [repeatText(r), r.notes.trim().split('\n')[0]].filter(Boolean).join(' · '),
+      due,
+      dueText: group === 'overdue' ? `${daysDiff(due, today)}d late` : due === today ? 'Today' : `due ${dayMonth(due)}`,
+      tone: toneFor(group),
+      icon: 'checklist',
+      to: '',
+      weight: 1,
+      routine: r,
+      help: r.notes.trim() || undefined,
     })
   }
 

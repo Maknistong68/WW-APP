@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildTasks, completedSince, taskMonths } from './tasks'
 import type { AllData } from './kpiData'
-import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Ticket, WorkOrder } from '../types'
+import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Routine, Ticket, WorkOrder } from '../types'
 
 const c1 = { uuid: 'c1', name: 'RPCO', active: true, aliases: [] } as unknown as Contractor
 const wo = (uuid: string, number: string) => ({ uuid, contractorUuid: 'c1', number, label: '', active: true }) as WorkOrder
@@ -107,5 +107,25 @@ describe('Home tasks: done since last look', () => {
     const before = buildTasks(base(), '2026-11-08').tasks
     const after = buildTasks(base(allIn('w1', '2026-10')), '2026-11-08').tasks
     expect(completedSince(before, after).map((t) => t.key)).toEqual(['decl:2026-10:w1', 'kpis:2026-10:w1'])
+  })
+})
+
+describe('Home tasks: routine tasks the team added', () => {
+  const routine = (p: Partial<Routine>): Routine => ({ uuid: 'r1', updatedAt: 'x', title: 'Camp walk', repeat: 'daily', start: '2026-10-28', doneThrough: '', notes: '', ...p })
+  it('a daily task is due today under This week; ticked off, it comes back tomorrow under Later', () => {
+    const row = buildTasks(base(), '2026-11-02', { routines: [routine({})] }).tasks.find((t) => t.kind === 'routine')!
+    expect([row.key, row.group, row.dueText, row.detail]).toEqual(['routine:r1:2026-11-02', 'week', 'Today', 'Every day'])
+    const next = buildTasks(base(), '2026-11-02', { routines: [routine({ doneThrough: '2026-11-02' })] }).tasks.find((t) => t.kind === 'routine')!
+    expect([next.group, next.dueText]).toEqual(['later', 'due 3 Nov'])
+  })
+  it('a one-off that is done is gone; a missed weekly one is late', () => {
+    expect(buildTasks(base(), '2026-11-02', { routines: [routine({ repeat: 'once', start: '2026-11-01', doneThrough: '2026-11-01' })] }).tasks.some((t) => t.kind === 'routine')).toBe(false)
+    const late = buildTasks(base(), '2026-11-04', { routines: [routine({ repeat: 'weekly', start: '2026-10-26', doneThrough: '2026-10-26' })] }).tasks.find((t) => t.kind === 'routine')!
+    expect([late.group, late.dueText, late.tone]).toEqual(['overdue', '2d late', 'bad'])
+  })
+  it('ticking one off counts as done since last look', () => {
+    const before = buildTasks(base(), '2026-11-02', { routines: [routine({})] }).tasks
+    const after = buildTasks(base(), '2026-11-02', { routines: [routine({ doneThrough: '2026-11-02' })] }).tasks
+    expect(completedSince(before, after).map((t) => t.key)).toEqual(['routine:r1:2026-11-02'])
   })
 })

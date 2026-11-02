@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EDIT_ACTIONS, campActions, contractorActions, inspectionActions, ticketActions, viewerOnly, workOrderActions } from './menuSpec'
+import { EDIT_ACTIONS, campActions, contractorActions, inspectionActions, routineActions, ticketActions, viewerOnly, workOrderActions } from './menuSpec'
 
 const open = { status: 'Open' as const, contractorUuid: 'c', parentUuid: '' }
 const closed = { status: 'Closed' as const, contractorUuid: 'c', parentUuid: '' }
@@ -38,6 +38,11 @@ describe('Other menus', () => {
     expect(contractorActions({ active: true }, false)).toEqual(['trends', 'tickets', 'edit', 'turnOnWo'])
     expect(contractorActions({ active: false }, false)).toEqual(['trends', 'tickets', 'edit', 'turnOn'])
     expect(viewerOnly(contractorActions({ active: true }, true))).toEqual(['trends', 'tickets'])
+  })
+  it('routine task: done, skip (repeats only), edit, delete; viewers get nothing to change', () => {
+    expect(routineActions({ repeat: 'weekly' })).toEqual(['done', 'skip', 'edit', 'delete'])
+    expect(routineActions({ repeat: 'once' })).toEqual(['done', 'edit', 'delete'])
+    expect(viewerOnly(routineActions({ repeat: 'daily' }))).toEqual([])
   })
   it('camp: inspect, contractor when linked, edit', () => {
     expect(campActions({ contractorUuid: 'c' })).toEqual(['inspect', 'contractor', 'edit'])

@@ -4,18 +4,19 @@ import { go, openSheet } from './SheetHost'
 import { showToast } from './Toast'
 import { db, deleteInspection, duplicateInspection } from '../db'
 import { ageDays, isOpen } from '../lib/aging'
-import { localDate, monthLabel, shortDate } from '../lib/dates'
+import { dayMonth, localDate, monthLabel, shortDate } from '../lib/dates'
 import { lastEndedMonth } from '../lib/due'
 import { haptic } from '../lib/haptics'
 import { kpiStatus, pct, type KpiResult } from '../lib/kpi'
-import { campActions, contractorActions, inspectionActions, ticketActions, workOrderActions, type MenuAction } from '../lib/menuSpec'
+import { campActions, contractorActions, inspectionActions, routineActions, ticketActions, workOrderActions, type MenuAction } from '../lib/menuSpec'
 import { sarShort } from '../lib/money'
 import { ticketLink } from '../lib/ticketFilter'
-import { saveRecord } from '../lib/records'
+import { removeRecord, saveRecord } from '../lib/records'
+import { backgroundSync } from '../lib/sync'
 import { isFollowed, kpiSubjects, type KpiSubject } from '../lib/subjects'
 import { kpiTone, ticketTone, type Tone } from '../lib/tone'
 import { ticketLabel } from '../lib/useData'
-import type { Camp, Contractor, Inspection, Ticket, WorkOrder } from '../types'
+import type { Camp, Contractor, Inspection, Routine, Ticket, WorkOrder } from '../types'
 
 // One long-press menu per kind of record, the same on every screen. Which
 // actions show comes from src/lib/menuSpec.ts (tested); edit actions are
@@ -262,5 +263,63 @@ export function inspectionMenu(ins: Inspection, o: { title: string; sub: string;
     sub: o.sub,
     cover: <IconTile icon="clipboard" tone={o.tone} size={52} />,
     actions: inspectionActions().map((a) => map[a]).filter((a): a is SheetAction => !!a),
+  })
+}
+
+/**
+ * Tick off a routine task for one date (or skip it), with Undo. Reads the task
+ * fresh so a teammate's change isn't overwritten, then syncs so the team sees it.
+ */
+export async function markRoutine(r: Routine, due: string, skip = false) {
+  const cur = await db.routines.get(r.uuid)
+  if (!cur) return
+  const prev = cur.doneThrough
+  const title = cur.title || 'Task'
+  await saveRecord('routines', { ...cur, doneThrough: due }, skip ? `${title} · skipped ${dayMonth(due)}` : `${title} · ${dayMonth(due)}`, skip ? 'edit' : 'close')
+  backgroundSync()
+  showToast({
+    text: skip ? `${title} skipped` : `${title} done`,
+    actionLabel: 'Undo',
+    onAction: () =>
+      void db.routines.get(r.uuid).then((now) => {
+        if (!now) return
+        void saveRecord('routines', { ...now, doneThrough: prev }, `${title} · ${dayMonth(due)}`, 'reopen').then(() => backgroundSync())
+      }),
+  })
+}
+
+/** Long-press on a routine task: done, skip this time, edit, delete. */
+export function routineMenu(r: Routine, o: { due: string; sub: string; tone: Tone }) {
+  const title = r.title || 'Task'
+  const map: Partial<Record<MenuAction, SheetAction>> = {
+    done: { label: 'Done', icon: 'check-circle', edit: true, onSelect: () => void markRoutine(r, o.due) },
+    skip: { label: 'Skip this time', icon: 'arrow-right', edit: true, onSelect: () => void markRoutine(r, o.due, true) },
+    edit: { label: 'Edit task', icon: 'pencil', edit: true, onSelect: () => openSheet({ kind: 'routineEdit', uuid: r.uuid }) },
+    delete: {
+      label: 'Delete task',
+      icon: 'trash',
+      danger: true,
+      edit: true,
+      onSelect: () =>
+        openSheet({
+          kind: 'confirm',
+          title: `Delete “${title}”?`,
+          message: 'It disappears for the whole team. The activity log keeps a record.',
+          confirmLabel: 'Delete task',
+          destructive: true,
+          onConfirm: () =>
+            void removeRecord('routines', r.uuid, title).then(() => {
+              showToast({ text: 'Task deleted' })
+              backgroundSync()
+            }),
+        }),
+    },
+  }
+  showActions({
+    title,
+    sub: o.sub,
+    cover: <IconTile icon="checklist" tone={o.tone} size={52} />,
+    note: r.notes.trim() || undefined,
+    actions: routineActions(r).map((a) => map[a]).filter((a): a is SheetAction => !!a),
   })
 }

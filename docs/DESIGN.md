@@ -132,7 +132,18 @@ per screen.
     day).
   - A Watch card (KPI below 70%, illegal workers, visas, recruitment fees) and the month's progress
     sit at the end.
+  - **Tasks** (+ → Task, `src/lib/routines.ts`): the team's own to-dos, Once / Daily / Weekly /
+    Monthly, shared with everyone (Editors add and tick off; Viewers see them).
+    - Weekly repeats on the start date's weekday, monthly on its day (the last day in shorter
+      months).
+    - Daily and weekly ones come up on their day; monthly and one-off ones a week ahead; past their
+      day they are late. Missed repeats don't pile up: only the latest one shows.
+    - Tap or swipe to tick off (check, slide away, Undo toast); hold for Done / Skip this time /
+      Edit / Delete.
 - **Contractor:** two tabs, **This month | Trends** (`?tab=trends`).
+  - Active = followed: switched on with an active work order, or with none at all
+    (`isFollowed`, `src/lib/subjects.ts`). All work orders off means Inactive. Hold a contractor to
+    turn it off or on, or to turn a work order back on.
   - Trends (`src/pages/ContractorTrends.tsx`, numbers from `src/lib/trends.ts`) shows the overall
     KPI line with the 90% / 70% lines (tap a month to open it), each KPI item with a sparkline,
     and tickets, money and workers per month.
@@ -156,8 +167,15 @@ per screen.
     by month ›" on a KPI page. That tab also has "Quarterly audits", one bar per quarter.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
-- **Dashboard:** views as a One UI sub-tab track, a month stepper, hero numbers, then charts.
-  - The view and month live in the link (`?v=`, `?m=`), so Back keeps them.
+  - Closing asks for the money paid to the workers, or **Nothing owed** (saved as 0, shown as
+    "None"); it won't close without an answer. A combined ticket's money stays on its main ticket.
+  - Edit shows the closing date and the actions too. Old imported tickets with gaps (no contractor
+    or issue) still save; a field that had a value can't be emptied (`src/lib/ticketCheck.ts`).
+- **Dashboard:** three views as a One UI sub-tab track: **Tickets** (default; ends with the money),
+  **Accommodation** (camps and inspections) and **KPIs** (ends with the workers). Then a month
+  stepper, hero numbers and charts.
+  - The view and month live in the link (`?v=`, `?m=`), so Back keeps them. Old links
+    (`?v=overview|money|workers|camps`) open the view that now holds them (`dashView`).
 - **Drill-down: every number opens what's behind it.**
   - A number that has a list shows a small green ›; a plain number has none.
   - Ticket links carry their filters (`src/lib/ticketFilter.ts`: contractor, month, opened /

@@ -57,6 +57,8 @@ export default function ActivityPage() {
       case 'site':
       case 'map':
         return navigate('/dashboard/3d')
+      case 'routine':
+        return navigate('/')
       case 'workOrder': {
         const wo = await db.workOrders.get(id)
         if (wo) navigate(`/contractors/${wo.contractorUuid}`)

@@ -199,7 +199,7 @@ export const EVIDENCE_NOTES: string[] = [
 // ---------------------------------------------------------------------------
 
 /** Dexie table names of the uuid-keyed record tables (also the sync tables). */
-export type RecordTable = 'contractors' | 'workOrders' | 'camps' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts' | 'sitePlaces' | 'mapItems'
+export type RecordTable = 'contractors' | 'workOrders' | 'camps' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts' | 'sitePlaces' | 'mapItems' | 'routines'
 
 interface RecordBase {
   uuid: string
@@ -256,6 +256,24 @@ export interface MapItemRecord extends RecordBase {
 }
 
 /** A worker accommodation camp, inspected every `cycleDays`. */
+/** How often a routine task comes back. */
+export type RoutineRepeat = 'once' | 'daily' | 'weekly' | 'monthly'
+
+/**
+ * A to-do the team adds with the + button (shared, like tickets). Repeating
+ * ones come back: weekly on the start date's weekday, monthly on its day
+ * (the last day in shorter months). See src/lib/routines.ts.
+ */
+export interface Routine extends RecordBase {
+  title: string
+  repeat: RoutineRepeat
+  /** YYYY-MM-DD: the due date (once) or the first one (repeats). */
+  start: string
+  /** YYYY-MM-DD of the latest date ticked off or skipped; '' = none yet. */
+  doneThrough: string
+  notes: string
+}
+
 export interface Camp extends RecordBase {
   name: string
   contractorUuid: string
@@ -350,7 +368,7 @@ export interface WeeklyCount extends RecordBase {
   openTickets: number
 }
 
-export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import' | 'site' | 'map'
+export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import' | 'site' | 'map' | 'routine'
 export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'import'
 
 export interface ActivityChange {

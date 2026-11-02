@@ -320,3 +320,29 @@ begin
     execute format('create policy "admin remove" on public.%I for delete to authenticated using ((select private.is_admin()))', t);
   end loop;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Routine tasks (Home): to-dos the team adds with the + button, once or
+-- repeating (daily / weekly / monthly). Shared like tickets: everyone approved
+-- reads them; Editors and Admins add, tick off and change them.
+-- Same row shape as the other record tables. Safe to re-run.
+-- ---------------------------------------------------------------------------
+create table if not exists public.routines (
+  uuid uuid primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz not null,
+  deleted boolean not null default false
+);
+create index if not exists routines_user_idx on public.routines (user_id);
+alter table public.routines enable row level security;
+drop policy if exists "team read" on public.routines;
+drop policy if exists "team add" on public.routines;
+drop policy if exists "team change" on public.routines;
+drop policy if exists "team remove" on public.routines;
+create policy "team read" on public.routines for select to authenticated using ((select private.is_approved()));
+create policy "team add" on public.routines for insert to authenticated with check ((select private.can_edit()));
+create policy "team change" on public.routines for update to authenticated
+  using ((select private.can_edit())) with check ((select private.can_edit()));
+create policy "team remove" on public.routines for delete to authenticated using ((select private.can_edit()));
+grant select, insert, update, delete on public.routines to authenticated;

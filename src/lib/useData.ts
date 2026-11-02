@@ -3,7 +3,7 @@ import { useCachedLiveQuery } from './useCachedQuery'
 import { db, newUuid } from '../db'
 import { localDate } from './dates'
 import { TICKET_PREFIX } from './lists'
-import type { Contractor, Ticket, WorkOrder } from '../types'
+import type { Contractor, Routine, Ticket, WorkOrder } from '../types'
 
 export function useContractors() {
   const list = useCachedLiveQuery('contractors', () => db.contractors.orderBy('name').toArray())
@@ -57,6 +57,11 @@ export function newTicket(): Ticket {
   }
 }
 
+/** A new routine task: weekly from today, not done yet. */
+export function newRoutine(today = localDate()): Routine {
+  return { uuid: newUuid(), updatedAt: '', title: '', repeat: 'weekly', start: today, doneThrough: '', notes: '' }
+}
+
 export function newContractor(name = ''): Contractor {
   return { uuid: newUuid(), updatedAt: '', name, active: true, aliases: [], notes: '' }
 }
@@ -71,6 +76,10 @@ export const ticketLabel = (t: Ticket, map: Map<string, Contractor>) =>
 
 /** Display names for record fields in the activity log. */
 export const FIELD_LABELS: Record<string, string> = {
+  title: 'Task',
+  repeat: 'Repeats',
+  start: 'Starts',
+  doneThrough: 'Done up to',
   siteId: 'Site',
   gx: 'Across',
   gz: 'Down',

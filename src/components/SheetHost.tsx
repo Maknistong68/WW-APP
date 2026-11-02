@@ -7,13 +7,14 @@ import KpiSheet, { ManpowerSheet } from './KpiSheet'
 import { ConfirmSheet } from './Modal'
 import CampSheet from './CampSheet'
 import ContractorSheet from './ContractorSheet'
+import RoutineSheet from './RoutineSheet'
 import { showToast } from './Toast'
 import { groupOf } from '../lib/groups'
 import { removeRecord } from '../lib/records'
 import { ticketLabel } from '../lib/useData'
 import { auditPctFor } from '../lib/kpiData'
 import { emptyKpi, emptyManpower } from '../lib/subjects'
-import type { Camp, Contractor, KpiMonth, Manpower, Ticket } from '../types'
+import type { Camp, Contractor, KpiMonth, Manpower, Routine, Ticket } from '../types'
 
 // The edit sheets that menus open (close a ticket, fill in a month, delete…),
 // hosted once near the root so any screen's long-press menu can open them.
@@ -24,11 +25,12 @@ export type SheetRequest =
   | { kind: 'ticketEdit' | 'ticketClose'; uuid: string }
   | { kind: 'ticketDelete'; uuid: string; after?: () => void }
   | { kind: 'kpi' | 'manpower'; contractorUuid: string; workOrderUuid: string; month: string }
-  | { kind: 'campEdit' | 'contractorEdit'; uuid: string }
+  | { kind: 'campEdit' | 'contractorEdit' | 'routineEdit'; uuid: string }
   | { kind: 'confirm'; title: string; message: string; confirmLabel: string; destructive?: boolean; onConfirm: () => void }
 
 type Shown =
   | { kind: 'campEdit'; camp: Camp }
+  | { kind: 'routineEdit'; routine: Routine }
   | { kind: 'contractorEdit'; contractor: Contractor }
   | { kind: 'ticketEdit' | 'ticketClose'; ticket: Ticket }
   | { kind: 'ticketGroup'; group: Ticket[]; all: Ticket[] }
@@ -68,6 +70,10 @@ async function load(r: SheetRequest): Promise<Shown | null> {
     case 'contractorEdit': {
       const contractor = await db.contractors.get(r.uuid)
       return contractor ? { kind: 'contractorEdit', contractor } : null
+    }
+    case 'routineEdit': {
+      const routine = await db.routines.get(r.uuid)
+      return routine ? { kind: 'routineEdit', routine } : null
     }
     case 'ticketEdit':
     case 'ticketDelete':
@@ -127,6 +133,8 @@ export default function SheetHost() {
       return <CampSheet camp={shown.camp} onClose={done} />
     case 'contractorEdit':
       return <ContractorSheet contractor={shown.contractor} onClose={done} />
+    case 'routineEdit':
+      return <RoutineSheet routine={shown.routine} onClose={done} />
     case 'ticketEdit':
       return <TicketSheet ticket={shown.ticket} onClose={done} />
     case 'ticketClose':
