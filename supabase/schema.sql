@@ -522,3 +522,28 @@ revoke all on function public.note_sign_in(text, boolean) from public, anon, aut
 grant execute on function public.login_email(text) to service_role;
 grant execute on function public.sign_in_blocked(text) to service_role;
 grant execute on function public.note_sign_in(text, boolean) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- Invites: who invited a person and when, and when they first signed in
+-- (the Users page shows "Invited · not joined yet" until then). Invites are
+-- made by the invite-user Edge Function (supabase/functions/invite-user).
+-- Safe to re-run.
+-- ---------------------------------------------------------------------------
+alter table public.profiles add column if not exists invited_by uuid;
+alter table public.profiles add column if not exists invited_at timestamptz;
+alter table public.profiles add column if not exists joined_at timestamptz;
+
+create or replace function private.mark_joined() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.last_sign_in_at is not null then
+    update public.profiles set joined_at = coalesce(joined_at, new.last_sign_in_at) where id = new.id and joined_at is null;
+  end if;
+  return new;
+end $$;
+revoke all on function private.mark_joined() from public, anon, authenticated;
+create or replace trigger on_auth_user_signed_in after update of last_sign_in_at on auth.users
+  for each row execute function private.mark_joined();
+
+update public.profiles p set joined_at = u.last_sign_in_at
+from auth.users u where u.id = p.id and p.joined_at is null and u.last_sign_in_at is not null;

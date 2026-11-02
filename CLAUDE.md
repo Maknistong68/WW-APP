@@ -87,4 +87,8 @@ npm run build   # strict tsc + vite build
   (service-role lookup, same answer for any wrong login, 10 tries / 15 min). Email links of every shape are read
   once in `main.tsx` (`src/lib/authReturn.ts`) and finished in `src/lib/auth.ts` (`detectSessionInUrl: false`);
   invite and reset links open Set password first.
+- Invites (Users page → Invite, admin): name, username, email, role → Edge Function `supabase/functions/invite-user`
+  (checks the caller is an approved admin; `inviteUserByEmail`, else a copy-able link via `generateLink`; the profile
+  is approved with the chosen role). Rows show "Invited · not joined yet" until `joined_at` (set on first sign-in);
+  "Send a new link" for them. Rules: `src/lib/invite.ts`; calls: `src/lib/functions.ts` (`callFunction`).
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).
