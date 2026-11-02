@@ -5,7 +5,7 @@ import { haptic } from '../lib/haptics'
 import { saveRecord } from '../lib/records'
 import { monthLabel, shortDate } from '../lib/dates'
 import { CLOSEOUT_DAYS, closeoutState, closeoutText, defaultDue, hasAudit, withoutAudit } from '../lib/closeout'
-import { offboardingScore, setOffboarding } from '../lib/kpi'
+import { attendedPct, meetingAttended, offboardingScore, setOffboarding } from '../lib/kpi'
 import type { Contractor, KpiMonth, Manpower } from '../types'
 
 const num = (v: string): number | null => {
@@ -30,6 +30,27 @@ function PctRow({ label, value, onChange }: { label: string; value: number | nul
       />
       <span className="row-trail">%</span>
     </label>
+  )
+}
+
+/** Yes / No answer; tap the picked one again to clear it (not answered). */
+function YesNoRow({ label, value, onChange }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void }) {
+  const pick = (v: boolean) => {
+    haptic('tick')
+    onChange(value === v ? null : v)
+  }
+  return (
+    <div className="row" role="group" aria-label={label}>
+      <span className="row-main">{label}</span>
+      <span className="yesno">
+        <button type="button" className={`tog yes${value === true ? ' on' : ''}`} aria-pressed={value === true} onClick={() => pick(true)}>
+          Yes
+        </button>
+        <button type="button" className={`tog no${value === false ? ' on' : ''}`} aria-pressed={value === false} onClick={() => pick(false)}>
+          No
+        </button>
+      </span>
+    </div>
   )
 }
 
@@ -106,7 +127,7 @@ export default function KpiSheet({
           <PctRow label="Accommodation" value={k.accommodationPct} onChange={(v) => set('accommodationPct', v)} />
           <PctRow label="Onboarding" value={k.onboardingPct} onChange={(v) => set('onboardingPct', v)} />
           <PctRow label="Offboarding" value={offShown} onChange={(v) => setK((p) => setOffboarding(p, v))} />
-          <PctRow label="Meeting attendance" value={k.meetingPct} onChange={(v) => set('meetingPct', v)} />
+          <YesNoRow label="Meeting attended" value={meetingAttended(k.meetingPct)} onChange={(v) => set('meetingPct', attendedPct(v))} />
         </div>
         {k.accommodationPct === null && auditPct !== null && (
           <div className="list-foot">Accommodation empty → uses this month’s audit: {auditPct}%</div>

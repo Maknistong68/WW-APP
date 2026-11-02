@@ -143,7 +143,7 @@ export const FIELD_LABELS: Record<string, string> = {
   offboardingPct: 'Offboarding %',
   offboarded: 'Offboarded',
   offboardTotal: 'Offboarding total',
-  meetingPct: 'Meeting attendance %',
+  meetingPct: 'Meeting attendance',
   quarterlyAuditPct: 'Quarterly audit %',
   totalWorkers: 'Total workers',
   illegalOrFreelance: 'Illegal / freelance',

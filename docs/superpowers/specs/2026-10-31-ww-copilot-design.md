@@ -49,10 +49,12 @@ wwAction, notes, updatedAt`
 
 ### KPI month (contractor × month)
 `uuid, contractorUuid, month (YYYY-MM), wps, manpowerDecl, salaryDecl (yes/no),
-accommodationPct, onboardingPct, offboardingPct, meetingAttended,
+accommodationPct, onboardingPct, offboardingPct, meetingPct,
 quarterlyAuditPct?, updatedAt`
 - Onboarding and offboarding are one typed score each. Older months stored
   offboarding as `offboarded` / `offboardTotal` counts; those still score.
+- Meeting attendance is answered Yes / No, stored as `meetingPct` 100 / 0
+  (blank until answered).
 - The quarterly audit (score + close-out) is optional each month: the KPI sheet
   shows it only when its "Audit this month" switch is on.
 - Calculated, not stored: monthly submission %, grievance %,

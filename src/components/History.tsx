@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { FIELD_LABELS } from '../lib/useData'
+import { meetingAttended } from '../lib/kpi'
 import type { ActivityChange, ActivityEntry, Contractor } from '../types'
 
 const ACTION_LABEL: Record<ActivityEntry['action'], string> = {
@@ -24,6 +25,7 @@ function show(v: unknown, field: string, contractors?: Map<string, Contractor>):
   if (v === null || v === undefined || v === '') return '—'
   if (field === 'contractorUuid' && contractors) return contractors.get(String(v))?.name ?? '—'
   if (typeof v === 'boolean') return v ? 'Yes' : 'No'
+  if (field === 'meetingPct' && typeof v === 'number') return meetingAttended(v) ? 'Yes' : 'No'
   if (Array.isArray(v)) return v.join(', ') || '—'
   const s = String(v)
   return s.length > 60 ? `${s.slice(0, 57)}…` : s

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { closurePct, computeKpi, formalPct, grievancePct, grievanceTier, kpiStatus, offboardingScore, setOffboarding, submissionPct } from './kpi'
+import { attendedPct, closurePct, computeKpi, formalPct, grievancePct, grievanceTier, kpiStatus, meetingAttended, offboardingScore, setOffboarding, submissionPct } from './kpi'
 import type { KpiMonth, Ticket } from '../types'
 
 const tk = (openedAt: string, closedAt = ''): Ticket => ({
@@ -103,6 +103,11 @@ describe('KPI rules', () => {
     expect(offboardingScore(setOffboarding(old, null))).toBeNull()
     // a month with no older data gains no extra fields
     expect(Object.keys(setOffboarding(kpi({ offboarded: undefined, offboardTotal: undefined }), 80))).not.toContain('legacy')
+  })
+  it('meeting attendance is yes / no: stored as 100 / 0, blank until answered', () => {
+    expect([true, false, null].map(attendedPct)).toEqual([100, 0, null])
+    expect([100, 0, null, undefined].map(meetingAttended)).toEqual([true, false, null, null])
+    expect(computeKpi({ kpi: kpi({ meetingPct: attendedPct(false) }), tickets: [], month: '2026-10' }).meeting).toBe(0)
   })
   it('accommodation falls back to the audit score', () => {
     expect(computeKpi({ kpi: kpi(), tickets: [], month: '2026-10', auditPct: 72 }).accommodation).toBe(72)

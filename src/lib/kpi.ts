@@ -60,6 +60,10 @@ export function setOffboarding(k: KpiMonth, v: number | null): KpiMonth {
   return out
 }
 
+/** Meeting attendance is answered yes / no and stored as 100 / 0 (null = not answered). */
+export const attendedPct = (attended: boolean | null): number | null => (attended === null ? null : attended ? 100 : 0)
+export const meetingAttended = (pct: number | null | undefined): boolean | null => (pct == null ? null : pct >= 50)
+
 export function formalPct(m: Pick<Manpower, 'totalWorkers' | 'illegalOrFreelance'> | undefined): number | null {
   if (!m || !m.totalWorkers) return null
   return Math.max(0, ((m.totalWorkers - m.illegalOrFreelance) / m.totalWorkers) * 100)

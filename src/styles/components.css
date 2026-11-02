@@ -298,6 +298,11 @@ button.row { cursor: pointer; }
 .pill.on { background: var(--brand-tint); color: var(--brand); box-shadow: inset 0 0 0 1.5px var(--brand); }
 .tog { min-height: 40px; padding: 0 14px; border: none; border-radius: 999px; background: var(--press); color: var(--text); font: 600 14px var(--font); cursor: pointer; flex-shrink: 0; transition: background-color var(--dur-med) var(--ease-80), color var(--dur-med) var(--ease-80), transform var(--dur-med) var(--ease-80); }
 .tog.on { background: var(--brand); color: var(--brand-ink); }
+/* Yes / No answer in a form row (nothing picked = not answered); colour = status */
+.yesno { display: inline-flex; gap: 6px; flex-shrink: 0; }
+.yesno .tog { min-width: 64px; }
+.yesno .tog.on.yes { background: var(--good-tint); color: var(--good); box-shadow: inset 0 0 0 1.5px var(--good); }
+.yesno .tog.on.no { background: var(--bad-tint); color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
 .stepper { display: inline-flex; align-items: center; background: var(--press); border-radius: 999px; }
 .stepper button { width: 44px; height: 40px; border: none; background: none; font-size: 20px; color: var(--text); cursor: pointer; border-radius: 50%; }
 .stepper span { min-width: 34px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }

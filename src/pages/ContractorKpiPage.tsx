@@ -21,7 +21,7 @@ const RULE: Record<KpiItemKey, string> = {
   grievance: 'Average days to close the tickets closed that month. Up to 10 days 100% · 15 days 90% · 20 days 80% · 30 days 70% · over 30 days 0%.',
   formal: 'Formal workers out of all declared workers; illegal / freelance count against it.',
   closure: 'Tickets closed in the month out of the tickets open at any point in it.',
-  meeting: 'Meeting attendance typed in each month.',
+  meeting: 'Attended the monthly meeting: yes 100%, no 0%.',
   quarterly: 'The quarterly audit score (shown, not averaged into the overall).',
   overall: 'The average of the KPI items that have a value.',
 }

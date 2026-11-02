@@ -1,5 +1,5 @@
 import { addMonths, monthLabel } from './dates'
-import { offboardingScore, submissionsComplete } from './kpi'
+import { meetingAttended, offboardingScore, submissionsComplete } from './kpi'
 import { auditPctFor, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectManpower, type KpiSubject } from './subjects'
 import { closeoutState } from './closeout'
@@ -85,7 +85,10 @@ export const SUBJECT_ITEMS: Record<SubjectItemKey, SubjectItem> = {
     title: 'Meeting attendance',
     sheet: 'kpi',
     done: (d, s, m) => kpiOf(d, s, m)?.meetingPct != null,
-    value: (d, s, m) => pctText(kpiOf(d, s, m)?.meetingPct),
+    value: (d, s, m) => {
+      const attended = meetingAttended(kpiOf(d, s, m)?.meetingPct)
+      return attended === null ? '' : attended ? 'Attended' : 'Not attended'
+    },
   },
   quarterly: {
     title: 'Quarterly audit',

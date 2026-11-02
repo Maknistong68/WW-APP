@@ -347,7 +347,7 @@ export interface KpiMonth extends RecordBase {
   /** Older months only: offboarded on time / total offboarded. */
   offboarded?: number | null
   offboardTotal?: number | null
-  /** 0–100 */
+  /** Meeting attended: yes = 100, no = 0, null = not answered. */
   meetingPct: number | null
   /** Optional each month: only filled in the month of the quarterly audit. */
   quarterlyAuditPct: number | null
