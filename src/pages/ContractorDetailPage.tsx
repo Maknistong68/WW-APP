@@ -8,7 +8,7 @@ import KpiSheet, { ManpowerSheet, emptyKpi, emptyManpower } from '../components/
 import { showToast } from '../components/Toast'
 import { TicketRow } from './TicketsPage'
 import { ageDays, isOpen } from '../lib/aging'
-import { addMonths, monthLabel, monthOf, shortDate } from '../lib/dates'
+import { addMonths, monthLabel, monthOf } from '../lib/dates'
 import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
 import { auditPctFor, kpiForSubject, rollup, useAllData } from '../lib/kpiData'
 import { mentions } from '../lib/names'
@@ -24,6 +24,8 @@ import ActionBar from '../components/ActionBar'
 import { kpiTone } from '../lib/tone'
 import { workOrderMenu } from '../components/menus'
 import ContractorTrends from './ContractorTrends'
+import AuditList from '../components/AuditList'
+import { contractorAudits } from '../lib/audits'
 import { useLongPress } from '../lib/useLongPress'
 
 function Ring({ value, status }: { value: number | null; status: string }) {
@@ -151,6 +153,9 @@ export default function ContractorDetailPage() {
     </span>
   )
   const topResult: KpiResult = rollup(data.subjects.map((s) => data.results.get(s.key)!))
+  const auditList = contractorAudits(d, c, []).list
+  const recentAudits = auditList.slice(0, 3)
+  const auditCount = auditList.length
   const toggleWo = (w: WorkOrder) =>
     void saveRecord('workOrders', { ...w, active: !w.active }, `${c.name} · WO ${w.number}`).then(() =>
       showToast({ text: `WO ${w.number} ${w.active ? 'deactivated' : 'activated'}` }),
@@ -365,20 +370,22 @@ export default function ContractorDetailPage() {
         <div className="list-foot">None.</div>
       )}
 
-      {data.lastAudit && (
+      {recentAudits.length > 0 && (
         <>
-          <div className="section-label">Last audit</div>
-          <div className="list">
-            <button className="row" onClick={() => navigate(`/inspection/${data.lastAudit!.id}`)}>
-              <span className="row-main">
-                <div className="row-title">{data.lastAudit.info.facilityLocation || 'Audit'}</div>
-                <div className="row-sub">{shortDate(data.lastAudit.info.reviewDate)}</div>
-              </span>
-              <span className="row-chev">
-                <Icon name="chevron-right" size={18} />
-              </span>
+          <div className="section-label">Audits · {auditCount}</div>
+          <AuditList items={recentAudits} />
+          {auditCount > recentAudits.length && (
+            <button
+              className="show-more"
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                setTab('trends')
+                window.setTimeout(() => document.getElementById('audits')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150)
+              }}
+            >
+              All audits ›
             </button>
-          </div>
+          )}
         </>
       )}
 

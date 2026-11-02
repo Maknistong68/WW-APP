@@ -14,10 +14,13 @@ import Summary from '../components/Summary'
 import IconTile from '../components/IconTile'
 import StatusChip from '../components/StatusChip'
 import ActionBar from '../components/ActionBar'
-import { campTone, type Tone } from '../lib/tone'
+import { campTone, kpiTone, type Tone } from '../lib/tone'
 import { inspectionMenu } from '../components/menus'
 import { useLongPress } from '../lib/useLongPress'
 import type { Inspection } from '../types'
+import TrendLine from '../components/charts/TrendLine'
+import { campScoreSeries } from '../lib/audits'
+import { kpiStatus } from '../lib/kpi'
 
 /** One inspection in the camp's log: tap opens it, hold for Repeat visit / Delete. */
 function LogRow({ ins, onOpen }: { ins: Inspection; onOpen: () => void }) {
@@ -61,6 +64,7 @@ export default function CampDetailPage() {
   }
   const state = campState(camp, d.inspections)
   const log = campInspections(camp, d.inspections)
+  const scores = campScoreSeries(camp, d.inspections)
   const contractor = d.byUuid.get(camp.contractorUuid)
   const wo = d.woByUuid.get(camp.workOrderUuid)
   const nextDue = state.lastDate ? addDays(state.lastDate, camp.cycleDays || 90) : ''
@@ -84,6 +88,25 @@ export default function CampDetailPage() {
         secondary={canEdit ? [{ icon: 'pencil', label: 'Edit camp', onClick: () => setEditing(true) }] : []}
         primary={canEdit ? { icon: 'play', label: 'Start inspection', onClick: () => navigate(`/new/accommodation?camp=${camp.uuid}`) } : undefined}
       />
+
+      {scores.length >= 2 && (
+        <div className="chart-card">
+          <div className="chart-title">Score over time</div>
+          <div className="chart-sub">Completed inspections · tap a point to open it</div>
+          <TrendLine
+            data={scores}
+            unit="%"
+            max={100}
+            guides={[
+              { value: 90, tone: 'good' },
+              { value: 70, tone: 'bad' },
+            ]}
+            toneOf={(v) => kpiTone(kpiStatus(v))}
+            onOpen={(i) => navigate(`/inspection/${scores[i].id}`)}
+            openLabel="Open inspection"
+          />
+        </div>
+      )}
 
       <div className="section-label">Inspection log · {log.length}</div>
       {log.length === 0 ? (

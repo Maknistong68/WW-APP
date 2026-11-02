@@ -2,9 +2,8 @@ import { AGING_BUCKETS, ageDays, agingBucket, isOpen, type AgingBucket } from '.
 import { campState, type CampState } from './camps'
 import { addDays, addMonths, daysBetween, localDate, monthRange } from './dates'
 import { submissionsComplete } from './kpi'
-import { scoreInspection } from './score'
+import { inspectionPct } from './inspectionScore'
 import { subjectKpi, subjectManpower, type KpiSubject } from './subjects'
-import { getTemplate } from '../templates'
 import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Ticket, WeeklyCount } from '../types'
 
 // Month rules shared with the Tickets list filters (src/lib/ticketFilter.ts),
@@ -261,10 +260,7 @@ export function inspectionsPerMonth(inspections: Inspection[], months: string[])
 export function auditAverage(inspections: Inspection[], month: string): { avg: number | null; count: number } {
   const scores = inspections
     .filter((i) => i.info?.reviewDate?.startsWith(month))
-    .map((i) => {
-      const t = getTemplate(i.templateId)
-      return t ? scoreInspection(t, i).pct : null
-    })
+    .map((i) => inspectionPct(i))
     .filter((p): p is number => p !== null)
   return { avg: scores.length ? scores.reduce((s, p) => s + p, 0) / scores.length : null, count: scores.length }
 }

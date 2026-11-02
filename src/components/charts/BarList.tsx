@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useLongPress } from '../../lib/useLongPress'
+import type { Tone } from '../../lib/tone'
 
 export interface BarDatum {
   key: string
@@ -9,6 +10,8 @@ export interface BarDatum {
   onClick?: () => void
   /** Hold (or right-click) for a menu. */
   onMore?: () => void
+  /** Colours the bar by status (e.g. a score); otherwise the chart colour. */
+  tone?: Tone
 }
 
 function BarRow({ d, top, format }: { d: BarDatum; top: number; format: (v: number) => string }) {
@@ -22,7 +25,7 @@ function BarRow({ d, top, format }: { d: BarDatum; top: number; format: (v: numb
         {d.detail ? ` · ${d.detail}` : ''}
       </span>
       <span className="bar-track">
-        <span className="bar-fill" style={{ width: `${(d.value / top) * 100}%` }} />
+        <span className={`bar-fill${d.tone ? ` ${d.tone}` : ''}`} style={{ width: `${(d.value / top) * 100}%` }} />
       </span>
     </>
   )
@@ -42,19 +45,25 @@ export default function BarList({
   data,
   max = 7,
   format = (v) => String(v),
+  scale,
+  other = 'sum',
 }: {
   data: BarDatum[]
   max?: number
   /** How the value is written at the bar's tip. */
   format?: (v: number) => string
+  /** A fixed full-bar value (100 for percentages); otherwise the largest bar. */
+  scale?: number
+  /** Fold the rest into one "Other" bar (counts), or show them all (percentages can't be added). */
+  other?: 'sum' | 'none'
 }) {
   if (data.length === 0) return <div className="note">Nothing in this period.</div>
-  const shown = data.slice(0, max)
-  const rest = data.slice(max)
+  const shown = other === 'none' ? [...data] : data.slice(0, max)
+  const rest = other === 'none' ? [] : data.slice(max)
   if (rest.length) {
     shown.push({ key: '__other', label: `Other (${rest.length})`, value: rest.reduce((s, d) => s + d.value, 0) })
   }
-  const top = Math.max(...shown.map((d) => d.value), 1)
+  const top = scale ?? Math.max(...shown.map((d) => d.value), 1)
   return (
     <div className="bars" role="list">
       {shown.map((d) => (

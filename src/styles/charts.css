@@ -77,3 +77,7 @@ button.bar-row:active { transform: scale(0.98); background-color: var(--press); 
 .bar-value { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 .bar-track { grid-column: 1 / -1; height: 10px; border-radius: 999px; background: var(--bg); overflow: hidden; }
 .bar-fill { height: 10px; background: var(--chart); border-radius: 999px; min-width: 4px; }
+.bar-fill.good { background: var(--good); }
+.bar-fill.warn { background: var(--warn); }
+.bar-fill.bad { background: var(--bad); }
+.bar-fill.none { background: var(--none); }

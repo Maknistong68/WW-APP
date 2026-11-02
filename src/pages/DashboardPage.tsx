@@ -15,11 +15,14 @@ import CardList from '../components/CardList'
 import IconTile from '../components/IconTile'
 import { showActions } from '../components/ActionSheet'
 import { campMenu, contractorMenu } from '../components/menus'
+import CompareGrid from '../components/CompareGrid'
+import { compareRows, sortRows } from '../lib/compare'
+import { quarterlyAudits } from '../lib/audits'
 import { ticketLink, type TicketQuery } from '../lib/ticketFilter'
 import { contractorOverall } from '../lib/trends'
 import { isOpen } from '../lib/aging'
 import { useLongPress } from '../lib/useLongPress'
-import { campTone } from '../lib/tone'
+import { campTone, kpiTone } from '../lib/tone'
 import { TicketRow, ticketSub } from './TicketsPage'
 import {
   auditAverage,
@@ -178,6 +181,13 @@ export default function DashboardPage() {
   const subjects = useMemo(() => subjectKpis(d, kpiMonth), [d, kpiMonth])
   const overall = itemStats(subjects, 'overall')
   const kpiMap = useMemo(() => kpisForMonth(d, kpiMonth), [d, kpiMonth])
+  // Compare card: the 5 lowest contractors over 6 months, ending with the month that's due.
+  const miniMonths = useMemo(() => lastMonths(dueMonthFor(kpiMonth, today), 6), [kpiMonth, today])
+  const miniRows = useMemo(
+    () => (view === 'kpis' ? sortRows(compareRows(d, miniMonths, 'overall'), 'worst').slice(0, 5) : []),
+    [d, miniMonths, view],
+  )
+  const quarters = useMemo(() => (view === 'kpis' ? quarterlyAudits(d, subjectList) : []), [d, subjectList, view])
   /** Hold a contractor (bar or table row): its pop-up with a 6-month trend. */
   const holdContractor = (uuid: string) => {
     const c = d.byUuid.get(uuid)
@@ -604,6 +614,40 @@ export default function DashboardPage() {
             })}
           </div>
           <div className="list-foot">Averages over {subjects.length} active work orders / contractors.</div>
+
+          <Card title="Compare contractors" sub={`Overall KPI · worst 5 · ${miniMonths.length} months to ${monthLabel(miniMonths[miniMonths.length - 1])}`}>
+            <CompareGrid
+              rows={miniRows}
+              months={miniMonths}
+              onOpenCell={(r, m) => navigate(`/contractors/${r.contractorUuid}?m=${m}`)}
+              onOpenRow={(r) => navigate(`/contractors/${r.contractorUuid}?tab=trends`)}
+              onHoldRow={(r) => holdContractor(r.contractorUuid)}
+              label="Overall KPI, the 5 lowest contractors"
+            />
+            <button className="compare-link" onClick={() => navigate('/compare')}>
+              Open full grid ›
+            </button>
+          </Card>
+
+          <Card title="Quarterly audits" sub="Average score per quarter · tap for each work order">
+            {quarters.length === 0 ? (
+              <div className="note">No quarterly audit scores yet.</div>
+            ) : (
+              <BarList
+                scale={100}
+                other="none"
+                format={(v) => `${v}%`}
+                data={quarters.map((q) => ({
+                  key: q.key,
+                  label: q.label,
+                  value: q.avg,
+                  tone: kpiTone(kpiStatus(q.avg)),
+                  detail: `${STATUS_LABEL[kpiStatus(q.avg)]} · ${q.audited} of ${q.total} audited`,
+                  onClick: () => navigate(`/missing/quarterly?m=${q.lastMonth}`),
+                }))}
+              />
+            )}
+          </Card>
 
           <Card title="Quarterly audit close-out" sub={`${co.findings} finding${co.findings === 1 ? '' : 's'} logged · ${co.audits} audit${co.audits === 1 ? '' : 's'} still open`}>
             <div className="hero-row" style={{ marginBottom: 0 }}>

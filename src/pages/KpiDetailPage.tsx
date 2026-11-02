@@ -119,6 +119,10 @@ export default function KpiDetailPage() {
         />
       </div>
 
+      <button className="compare-link" style={{ marginBottom: 6 }} onClick={() => navigate(`/compare${itemKey === 'overall' ? '' : `?k=${itemKey}`}`)}>
+        Compare month by month ›
+      </button>
+
       <div className="section-label">
         {only ? `${STATUS_LABEL[only]} · ${ranked.length}` : `Worst first · ${rows.length}`}
         {only && (

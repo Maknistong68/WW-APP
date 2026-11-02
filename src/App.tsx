@@ -20,6 +20,7 @@ import TabBar from './components/TabBar'
 import ActionSheetHost from './components/ActionSheet'
 import SheetHost from './components/SheetHost'
 import ContractorKpiPage from './pages/ContractorKpiPage'
+import ComparePage from './pages/ComparePage'
 import NavProvider, { useShown } from './components/RouteTransition'
 import type { NavKind } from './lib/nav'
 import LibraryPage from './pages/LibraryPage'
@@ -134,6 +135,7 @@ function AppRoutes() {
           }
         />
         <Route path="/kpis/:key" element={<KpiDetailPage />} />
+        <Route path="/compare" element={<ComparePage />} />
         <Route path="/missing/:item" element={<MissingPage />} />
         <Route path="/closeouts" element={<CloseoutPage />} />
         <Route path="/library" element={<LibraryPage />} />

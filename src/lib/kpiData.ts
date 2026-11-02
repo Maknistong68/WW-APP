@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
-import { getTemplate } from '../templates'
-import { scoreInspection } from './score'
+import { inspectionPct } from './inspectionScore'
 import { KPI_PARTS, computeKpi, kpiStatus, type KpiResult } from './kpi'
 import { mentions } from './names'
 import { kpiSubjects, subjectKpi, subjectManpower, subjectTickets, type KpiSubject } from './subjects'
@@ -63,8 +62,7 @@ export function auditPctFor(c: Contractor, inspections: Inspection[], month: str
     .filter((i) => i.info?.reviewDate?.startsWith(month) && mentions(i.info?.contractorNames ?? '', names))
     .sort((a, b) => (a.info.reviewDate < b.info.reviewDate ? 1 : -1))
   for (const ins of hits) {
-    const t = getTemplate(ins.templateId)
-    const pct = t ? scoreInspection(t, ins).pct : null
+    const pct = inspectionPct(ins)
     if (pct !== null) return pct
   }
   return null

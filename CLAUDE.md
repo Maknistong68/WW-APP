@@ -41,6 +41,9 @@ npm run build   # strict tsc + vite build
   anywhere via `SheetHost`; ticket drill-down filters: `src/lib/ticketFilter.ts`.
 - Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
 - Dashboard numbers: `src/lib/dashboard.ts`; charts in `src/components/charts/`.
+- Compare grid (`/compare`, every contractor or work order month by month): `src/lib/compare.ts`,
+  `src/components/CompareGrid.tsx`. Audit history (quarterly scores + camp inspections):
+  `src/lib/audits.ts`; inspection scores are memoised in `src/lib/inspectionScore.ts`.
 - 3D "Live site" (Dashboard → 3D): world `src/lib/world.ts` (city-scale octagon, coast), zones
   `src/lib/zones.ts` (industrial zone, port land, harbour basin, island, floating city: land/water and the
   pale fill), model `src/lib/site.ts` (sites, fit rules, coast sites on the basin quay, manpower crews) and

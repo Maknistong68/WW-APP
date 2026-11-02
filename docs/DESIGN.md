@@ -140,6 +140,20 @@ per screen.
     were switched off still count in their past months.
   - A KPI row opens `/contractors/:id/kpi/:key`: how it's scored, its line, and a month table
     that says what made each score (e.g. "2 closed · avg 19 days").
+  - **Audits** (`src/lib/audits.ts`): quarterly audit scores per work order plus camp inspection
+    scores, as a line and a list, newest first. Quarterly rows open their month; inspections open
+    themselves. This month shows the last 3, with "All audits ›".
+  - A camp with 2 or more scored inspections shows its score over time.
+- **Compare** (`/compare`, `src/lib/compare.ts`): every contractor (or work order) month by month on
+  one KPI.
+  - Cells show the number on a status tint, so status never relies on colour alone.
+  - Tap a cell to select it (tick and callout), then **Open** for that contractor's month. Tap a
+    name for its Trends; hold it for its pop-up.
+  - Sorted worst first by the latest month, or A–Z. The name column stays pinned while the months
+    scroll.
+  - The KPI, range, rows and sort live in the link.
+  - Entry points: the Dashboard KPIs tab ("Compare contractors", the 5 worst) and "Compare month
+    by month ›" on a KPI page. That tab also has "Quarterly audits", one bar per quarter.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
 - **Dashboard:** views as a One UI sub-tab track, a month stepper, hero numbers, then charts.

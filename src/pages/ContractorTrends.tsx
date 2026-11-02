@@ -23,6 +23,8 @@ import {
   type TrendRange,
 } from '../lib/trends'
 import type { Contractor } from '../types'
+import AuditList from '../components/AuditList'
+import { contractorAudits } from '../lib/audits'
 
 const RANGES: { key: TrendRange; label: string }[] = [
   { key: '6m', label: '6 months' },
@@ -44,6 +46,7 @@ export default function ContractorTrends({ d, c, onOpenMonth }: { d: AllData; c:
   const woParam = params.get('wo')
   const wo = woParam && wos.some((w) => w.uuid === woParam) ? woParam : undefined
   const [table, setTable] = useState(false)
+  const [allAudits, setAllAudits] = useState(false)
   const set = (k: 'r' | 'wo', v: string | null) => {
     haptic('tick')
     const next = new URLSearchParams(params)
@@ -58,6 +61,8 @@ export default function ContractorTrends({ d, c, onOpenMonth }: { d: AllData; c:
   const money = useMemo(() => contractorMoneySeries(d, c, months, wo, today), [d, c, months, wo, today])
   const workers = useMemo(() => contractorWorkforceSeries(d, c, months, wo), [d, c, months, wo])
   const sum = trendSummary(series.overall)
+  const audits = useMemo(() => contractorAudits(d, c, months), [d, c, months])
+  const auditPoints = audits.series.filter((v) => v !== null).length
   const openNow = d.tickets.filter((t) => t.contractorUuid === c.uuid && isOpen(t) && (!wo || t.workOrderUuid === wo))
   const lateNow = openNow.filter((t) => ageDays(t, today) > 30).length
   const from = `/contractors/${c.uuid}?tab=trends${range !== '1y' ? `&r=${range}` : ''}${wo ? `&wo=${wo}` : ''}`
@@ -202,6 +207,38 @@ export default function ContractorTrends({ d, c, onOpenMonth }: { d: AllData; c:
               <div className={`hero-num${lastWorkers.paidFees ? ' bad' : ''}`}>{lastWorkers.paidFees}</div>
               <div className="hero-label">Paid fees</div>
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="chart-card" id="audits">
+        <div className="chart-title">Audits</div>
+        <div className="chart-sub">Quarterly audit scores and camp inspections · all work orders</div>
+        {auditPoints >= 2 && (
+          <TrendLine
+            data={months.map((m, i) => ({ date: `${m}-01`, value: audits.series[i] }))}
+            unit="%"
+            mode="month"
+            max={100}
+            guides={[
+              { value: 90, tone: 'good' },
+              { value: 70, tone: 'bad' },
+            ]}
+            toneOf={(v) => kpiTone(kpiStatus(v))}
+            onOpen={(i) => onOpenMonth(months[i])}
+            openLabel="Open month"
+          />
+        )}
+        {audits.list.length === 0 ? (
+          <div className="note">No audits yet.</div>
+        ) : (
+          <div style={{ marginTop: auditPoints >= 2 ? 12 : 4 }}>
+            <AuditList flush items={allAudits ? audits.list : audits.list.slice(0, 5)} />
+            {audits.list.length > 5 && (
+              <button className="show-more" style={{ marginTop: 10 }} onClick={() => setAllAudits((v) => !v)}>
+                {allAudits ? 'Show fewer' : `Show all ${audits.list.length}`}
+              </button>
+            )}
           </div>
         )}
       </div>
