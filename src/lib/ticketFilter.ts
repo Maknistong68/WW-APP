@@ -137,7 +137,7 @@ export function queryChips(q: TicketQuery, names: { contractor: (uuid: string) =
   return chips
 }
 
-/** The ticket log's two tabs, D&C | Cases: D&C hotline tickets, and the team's own cases (src/lib/cases.ts). */
+/** The ticket log's two tabs, D&C Tickets | Cases: D&C hotline tickets, and the team's own cases (src/lib/cases.ts). */
 export type SourceTab = 'tickets' | 'internal'
 
 /** Which tab a record sits in: cases (stored as Internal) apart, everything else (System, or no source) under D&C. */

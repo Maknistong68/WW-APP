@@ -138,7 +138,7 @@ per screen.
       team's own to-dos.
     - **Tap** opens the area's list (`/today/:area`, `src/pages/AreaPage.tsx`): Overdue, This
       week, Later, with the shortcut to the app's own screen at the end (and **Add** on Tasks).
-      The Tickets list has the ticket log's **D&C | Cases** tabs (with a count each;
+      The Tickets list has the ticket log's **D&C Tickets | Cases** tabs (with a count each;
       `SourceTabs`); D&C tickets and the team's own cases are capped and listed on their own
       (`ticketSource`), and the badge counts both.
     - **Hold** (`areaMenu`): Late / This week / Later, the most urgent names (or what the area
@@ -194,7 +194,7 @@ per screen.
     by month ›" on a KPI page. That tab also has "Quarterly audits", one bar per quarter.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
-  - Two tabs on top, **D&C | Cases** (`?tab=internal`, `sourceTab` in
+  - Two tabs on top, **D&C Tickets | Cases** (`?tab=internal`, `sourceTab` in
     `src/lib/ticketFilter.ts`): D&C hotline tickets and the team's own **cases** apart. The large
     title ("Tickets" / "Cases"), the search, the Open / 30+d / Closed / All counts and the footer
     follow the tab. A link that names a source (a Dashboard bar) hides the tabs.

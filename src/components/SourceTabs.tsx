@@ -2,11 +2,11 @@ import { haptic } from '../lib/haptics'
 import type { SourceTab } from '../lib/ticketFilter'
 
 const TABS: { key: SourceTab; label: string }[] = [
-  { key: 'tickets', label: 'D&C' },
+  { key: 'tickets', label: 'D&C Tickets' },
   { key: 'internal', label: 'Cases' },
 ]
 
-/** D&C | Cases: D&C hotline tickets and the team's own cases kept apart (a One UI sub-tab track). */
+/** D&C Tickets | Cases: D&C hotline tickets and the team's own cases kept apart (a One UI sub-tab track). */
 export default function SourceTabs({
   value,
   onChange,

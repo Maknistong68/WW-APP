@@ -268,7 +268,7 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
   }
 
   // 2. Tickets: over 30 days (named, then "more"), and turning 30 within a week; D&C tickets
-  // and the team's own cases each on their own (the Tickets card's two tabs, D&C | Cases).
+  // and the team's own cases each on their own (the Tickets card's two tabs, D&C Tickets | Cases).
   // Named by the contractor's short name; the ticket / case number leads the line below.
   const whoOf = (uuid: string) => {
     const name = d.byUuid.get(uuid)?.name

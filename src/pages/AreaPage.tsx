@@ -18,7 +18,7 @@ import type { Routine } from '../types'
 
 /**
  * One Home card's list (/today/:area): its named rows, Overdue / This week / Later. The Tickets
- * card has two tabs, D&C | Cases (`?tab=internal`), like the ticket log.
+ * card has two tabs, D&C Tickets | Cases (`?tab=internal`), like the ticket log.
  */
 export default function AreaPage() {
   const { area } = useParams()

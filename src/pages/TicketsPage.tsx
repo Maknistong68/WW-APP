@@ -129,7 +129,7 @@ export default function TicketsPage() {
   // Filters from the link (a Dashboard number, a chart bar, a contractor…)
   const linkQuery = useMemo(() => parseTicketQuery(params), [params])
   const drilled = hasQuery(linkQuery)
-  // D&C | Cases; a link that names a source (a Dashboard bar) decides it instead.
+  // D&C Tickets | Cases; a link that names a source (a Dashboard bar) decides it instead.
   const source = parseSourceTab(params)
   const bySource = linkQuery.src === undefined
   /** Showing the team's own cases: the title, search and counts say "case". */
@@ -143,7 +143,7 @@ export default function TicketsPage() {
   const { byUuid, woByUuid } = useContractors()
   const tickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
 
-  /** The tickets the link and the D&C | Cases tab point at, before the filter and the search. */
+  /** The tickets the link and the D&C Tickets | Cases tab point at, before the filter and the search. */
   const scoped = useMemo(
     () => filterTickets(tickets ?? [], { ...linkQuery, f: undefined }).filter((t) => !bySource || sourceTab(t) === source),
     [tickets, linkQuery, bySource, source],
