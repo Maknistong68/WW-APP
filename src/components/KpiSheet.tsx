@@ -122,7 +122,7 @@ export default function KpiSheet({
             <YesNoRow key={x.key} label={x.label} value={declState(k, x.key)} onChange={(v) => setK((p) => setDecl(p, x.key, v))} />
           ))}
         </div>
-        <div className="list-foot">No = they can’t provide it. It isn’t chased, but scores as missing.</div>
+        <div className="list-foot">No = they can’t provide it. It isn’t chased or counted against them.</div>
         <div className="section-label">Scores</div>
         <div className="list">
           <PctRow label="Accommodation" value={k.accommodationPct} onChange={(v) => set('accommodationPct', v)} />

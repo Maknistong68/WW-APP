@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
@@ -9,7 +9,7 @@ import { showToast } from '../components/Toast'
 import { TicketRow } from './TicketsPage'
 import { ageDays, isOpen } from '../lib/aging'
 import { addMonths, monthLabel, monthOf } from '../lib/dates'
-import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
+import { DECLARATIONS, KPI_PARTS, STATUS_LABEL, declState, pct, type KpiResult } from '../lib/kpi'
 import { auditPctFor, kpiForSubject, rollup, useAllData } from '../lib/kpiData'
 import { mentions } from '../lib/names'
 import { saveRecord } from '../lib/records'
@@ -147,9 +147,10 @@ export default function ContractorDetailPage() {
   const kpi = chosen ? subjectKpi(chosen, d.kpis, month) : undefined
   const manpower = chosen ? subjectManpower(chosen, d.manpower, month) : undefined
   const open = data.tickets.filter(isOpen).sort((a, b) => a.openedAt.localeCompare(b.openedAt))
-  const mark = (v: boolean | undefined, label: string) => (
-    <span className={v ? 'yes' : 'no'}>
-      <Icon name={v ? 'check' : 'x'} size={16} strokeWidth={2.6} /> {label}
+  // ✓ in · ✗ awaited · – not provided (not counted against them)
+  const mark = (v: boolean | null, label: string) => (
+    <span className={v ? 'yes' : v === false ? 'na' : 'no'} title={v === false ? `${label} not provided` : undefined}>
+      <Icon name={v ? 'check' : v === false ? 'minus' : 'x'} size={16} strokeWidth={2.6} /> {label}
     </span>
   )
   const topResult: KpiResult = rollup(data.subjects.map((s) => data.results.get(s.key)!))
@@ -304,9 +305,9 @@ export default function ContractorDetailPage() {
               </div>
               {chosen ? (
                 <div className="checks" style={{ marginTop: 6 }}>
-                  {mark(kpi?.wps, 'WPS')}
-                  {mark(kpi?.manpowerDecl, 'Manpower')}
-                  {mark(kpi?.salaryDecl, 'Salary')}
+                  {DECLARATIONS.map((x) => (
+                    <Fragment key={x.key}>{mark(declState(kpi, x.key), x.short)}</Fragment>
+                  ))}
                 </div>
               ) : (
                 <div className="row-sub">Average of {data.subjects.length} work orders</div>

@@ -1,5 +1,5 @@
 import { addMonths, monthLabel } from './dates'
-import { declNotProvided, declWaiting, meetingAttended, offboardingScore } from './kpi'
+import { declNotProvided, declWaiting, meetingAttended, offboardingScore, submissionsComplete } from './kpi'
 import { auditPctFor, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectManpower, type KpiSubject } from './subjects'
 import { closeoutState } from './closeout'
@@ -35,7 +35,7 @@ export const SUBJECT_ITEMS: Record<SubjectItemKey, SubjectItem> = {
     title: 'Monthly submission',
     sheet: 'kpi',
     // Done once nothing is awaited: each one in, or marked not provided.
-    done: (d, s, m) => declWaiting(kpiOf(d, s, m)).length === 0,
+    done: (d, s, m) => submissionsComplete(kpiOf(d, s, m)),
     value: (d, s, m) => {
       const k = kpiOf(d, s, m)
       const waiting = declWaiting(k).map((x) => x.short)

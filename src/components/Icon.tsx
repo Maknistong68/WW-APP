@@ -1,4 +1,5 @@
 import {
+  Minus,
   Polygon,
   ArrowCounterClockwise,
   ArrowsOutCardinal,
@@ -94,6 +95,7 @@ const ICONS = {
   'chevron-down': CaretDown,
   'chevron-right': CaretRight,
   x: X,
+  minus: Minus,
   check: Check,
   'check-circle': CheckCircle,
   'map-pin': MapPin,

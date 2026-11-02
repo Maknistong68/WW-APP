@@ -315,6 +315,7 @@ button.row { cursor: pointer; }
 .checks span { display: inline-flex; align-items: center; gap: 4px; }
 .checks .yes { color: var(--good); }
 .checks .no { color: var(--bad); }
+.checks .na { color: var(--muted); }
 .kpi-table { width: 100%; border-collapse: collapse; font-size: 15px; }
 .kpi-table td { padding: 12px 0; border-top: 1px solid var(--line); }
 .kpi-table tr:first-child td { border-top: none; }

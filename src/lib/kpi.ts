@@ -59,10 +59,15 @@ export const declWaiting = (k: KpiMonth | undefined) => DECLARATIONS.filter((d) 
 /** Declarations marked not provided. */
 export const declNotProvided = (k: KpiMonth | undefined) => DECLARATIONS.filter((d) => declState(k, d.key) === false)
 
-/** WPS + manpower + salary declarations: all 3 = 100, none = 0, else 50 (not provided = not in). */
-export function submissionPct(k: Pick<KpiMonth, 'wps' | 'manpowerDecl' | 'salaryDecl'>): number {
-  const yes = [k.wps, k.manpowerDecl, k.salaryDecl].filter(Boolean).length
-  return yes === 3 ? 100 : yes === 0 ? 0 : 50
+/**
+ * WPS + manpower + salary declarations: all in = 100, none = 0, else 50. Ones the
+ * contractor can't provide are left out; if none can be provided it's blank.
+ */
+export function submissionPct(k: KpiMonth): number | null {
+  const due = DECLARATIONS.filter((d) => declState(k, d.key) !== false)
+  if (due.length === 0) return null
+  const yes = due.filter((d) => k[d.key]).length
+  return yes === due.length ? 100 : yes === 0 ? 0 : 50
 }
 
 /** Older months: offboarded on time ÷ total offboarded. */
@@ -173,7 +178,7 @@ export function computeKpi(input: {
   return { ...r, overall, status: kpiStatus(overall) }
 }
 
-/** Submissions complete for the month (WPS, manpower and salary all in). */
-export const submissionsComplete = (k: KpiMonth | undefined) => !!k && k.wps && k.manpowerDecl && k.salaryDecl
+/** Submissions complete for the month: WPS, manpower and salary each in or not provided. */
+export const submissionsComplete = (k: KpiMonth | undefined) => !!k && declWaiting(k).length === 0
 
 export const pct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${Math.round(v)}%`)

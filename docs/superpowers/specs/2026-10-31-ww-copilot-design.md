@@ -55,7 +55,8 @@ quarterlyAuditPct?, updatedAt`
   offboarding as `offboarded` / `offboardTotal` counts; those still score.
 - Each declaration (WPS, manpower, salary) is answered Yes / No / blank.
   No = the contractor can't provide it (`notProvided`): it is no longer chased
-  on Home or the missing list, but still scores as not submitted.
+  on Home or the missing list, and is left out of the submission score (all
+  three not provided = blank).
 - Meeting attendance is answered Yes / No, stored as `meetingPct` 100 / 0
   (blank until answered).
 - The quarterly audit (score + close-out) is optional each month: the KPI sheet
@@ -113,7 +114,7 @@ viewer (filter by type, search) · backup/restore (existing).
 | Item | Rule |
 |---|---|
 | Aging bucket | 0–10 · 11–30 · 31–60 · 61–90 · 90+ days |
-| Monthly submission % | WPS, manpower, salary: all 3 yes = 100%, none = 0%, otherwise 50% |
+| Monthly submission % | WPS, manpower, salary: all in = 100%, none = 0%, otherwise 50%. Not provided ones are left out; all three not provided = blank |
 | Offboarding % | Typed score; older months: `offboarded ÷ offboardTotal` (blank if total is 0) |
 | Formal vs illegal % | From manpower: `(total − illegal) ÷ total` (blank if no manpower record) |
 | Grievance % | Average days-to-close of the contractor's tickets **closed in the month**: ≤10 → 100%, ≤15 → 90%, ≤20 → 80%, ≤30 → 70%, >30 → 0%. Blank if none closed. |

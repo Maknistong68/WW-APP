@@ -14,7 +14,7 @@ import { contractorKpiSeries, itemInputs, trendMonths, type TrendRange } from '.
 
 /** How each KPI item is scored, in one or two short sentences. */
 const RULE: Record<KpiItemKey, string> = {
-  submission: 'WPS, manpower and salary declarations: all three in 100%, some 50%, none 0%.',
+  submission: 'WPS, manpower and salary declarations: all in 100%, some 50%, none 0%. Ones they can’t provide are left out.',
   accommodation: 'Accommodation score typed in, or the score of that month’s audit.',
   onboarding: 'Onboarding score typed in each month.',
   offboarding: 'Offboarding score typed in each month.',

@@ -108,7 +108,7 @@ export function periodStats(
   }
 }
 
-/** Active work orders / contractors whose WPS, manpower and salary aren't all in for the month. */
+/** Active work orders / contractors still awaiting WPS, manpower or salary for the month (not provided ones aren't awaited). */
 export function missingSubmissions(subjects: KpiSubject[], kpis: KpiMonth[], month: string): KpiSubject[] {
   return subjects.filter((s) => !submissionsComplete(subjectKpi(s, kpis, month)))
 }
