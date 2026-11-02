@@ -85,7 +85,7 @@ export default function RoutineSheet({ routine, onClose }: { routine: Routine; o
             <input value={r.title} autoFocus={isNew} placeholder="e.g. Camp walk" onChange={(e) => setR({ ...r, title: e.target.value })} />
           </label>
         </div>
-        <div className="segmented" role="tablist" aria-label="Repeats">
+        <div className="segmented fit" role="tablist" aria-label="Repeats">
           {REPEATS.map((x) => (
             <button
               key={x.key}

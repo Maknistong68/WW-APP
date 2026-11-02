@@ -236,7 +236,7 @@ export default function SettingsPage() {
   return (
     <Page title="Settings" back="/library" backLabel="Library">
         <div className="section-label">Appearance</div>
-        <div className="segmented" role="radiogroup" aria-label="Appearance">
+        <div className="segmented fit" role="radiogroup" aria-label="Appearance">
           {(
             [
               ['auto', 'Auto'],

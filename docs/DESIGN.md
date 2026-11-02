@@ -71,6 +71,9 @@ per screen.
 - **Rows:** dividers are inset and start after the tile. The "more" icon is ⋮ (vertical).
 - **On/off:** a One UI switch, i.e. `input[type=checkbox][role=switch]`.
 - **Touch targets:** rows ≥ 76px, buttons ≥ 52px, inspection answers 56px, chips 40–44px.
+- **Filter rows never cut a button at the margin.** Up to 4 options: `.segmented.fit` (equal columns, the
+  count under the label, fits at 320 px). More: `.segmented.scroll` runs edge to edge and `useChipScroll`
+  (`src/lib/chipScroll.ts`) keeps the chosen chip in view. Chips inside a card scroll to the card's edge.
 - **Type:**
 
   | Text | Size / weight |

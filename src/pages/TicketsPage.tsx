@@ -282,14 +282,16 @@ export default function TicketsPage() {
           </button>
         </div>
       )}
-      <div className="segmented">
+      <div className="segmented fit" role="group" aria-label="Show">
         {FILTERS.map((f) => (
           <button
             key={f.key}
             className={filter === f.key ? 'on' : ''}
+            aria-pressed={filter === f.key}
             onClick={() => setTab(f.key)}
           >
-            {f.label} {tickets ? <b style={{ fontVariantNumeric: 'tabular-nums' }}>{counts[f.key]}</b> : null}
+            {f.label}
+            <b>{tickets ? counts[f.key] : '–'}</b>
           </button>
         ))}
       </div>

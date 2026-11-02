@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useChipScroll } from '../lib/chipScroll'
 import { useCachedLiveQuery } from '../lib/useCachedQuery'
 import { useNavigate } from 'react-router-dom'
 import { db } from '../db'
@@ -36,6 +37,8 @@ export default function ActivityPage() {
   const [action, setAction] = useState<ActionFilter>('all')
   const [period, setPeriod] = useState<Period>('all')
   const [limit, setLimit] = useState(PAGE)
+  const filterRow = useRef<HTMLDivElement>(null)
+  useChipScroll(filterRow, filter)
   const entries = useCachedLiveQuery('activity', () => db.activity.orderBy('time').reverse().toArray())
 
   const visible = useMemo(
@@ -85,9 +88,9 @@ export default function ActivityPage() {
         <Icon name="search" size={18} />
         <input type="search" placeholder="Ticket no., contractor, value" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
-      <div className="segmented">
+      <div className="segmented scroll" role="group" aria-label="Show" ref={filterRow}>
         {FILTERS.map((f) => (
-          <button key={f.key} className={filter === f.key ? 'on' : ''} onClick={() => setFilter(f.key)}>
+          <button key={f.key} className={filter === f.key ? 'on' : ''} aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
             {f.label}
           </button>
         ))}

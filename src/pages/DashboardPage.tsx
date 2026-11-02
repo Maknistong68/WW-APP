@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useChipScroll } from '../lib/chipScroll'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { saveAs } from 'file-saver'
 import Page from '../components/Page'
@@ -45,6 +46,8 @@ export default function DashboardPage() {
   const [params, setParams] = useSearchParams()
   // Old links (?v=overview, money, workers, camps) open the view that now holds them.
   const view = dashView(params.get('v'))
+  const viewRow = useRef<HTMLDivElement>(null)
+  useChipScroll(viewRow, view, 8)
   const d = useAllData()
   const today = localDate()
   const thisMonth = monthOf()
@@ -144,7 +147,7 @@ export default function DashboardPage() {
         </>
       }
     >
-      <div className="segmented scroll" role="tablist">
+      <div className="segmented scroll" role="tablist" ref={viewRow}>
         {VIEWS.map((v) => (
           <button
             key={v.key}

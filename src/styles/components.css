@@ -247,7 +247,18 @@ button.row { cursor: pointer; }
 .segmented[role='tablist'] { gap: 2px; padding: 4px; margin: 0 0 14px; border-radius: 999px; background: var(--press); }
 .segmented[role='tablist'] button { min-height: 40px; padding: 0 14px; background: transparent; box-shadow: none; color: var(--muted); }
 .segmented.even button { flex: 1; }
+/* Up to 4 options that always fit on one line (320 px and up): equal columns, never scrolls. A count goes under its label. */
+.segmented.fit { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; overflow: visible; margin: 0 0 16px; padding: 0; }
+.segmented.fit button { min-width: 0; padding: 5px 6px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; }
+.segmented.fit button b { display: block; margin: 1px 0 0; font-size: 13px; }
+.segmented[role='tablist'].fit { gap: 2px; padding: 4px; }
+.segmented[role='tablist'].fit button { padding: 0 2px; }
+/* A row that scrolls sideways runs edge to edge, so a chip is never cut off at the page margin. */
+.segmented.scroll:not([role='tablist']) { margin-left: calc(-1 * var(--gutter)); margin-right: calc(-1 * var(--gutter)); padding-left: var(--gutter); padding-right: var(--gutter); scroll-padding-inline: var(--gutter); }
+.segmented.scroll:not([role='tablist'])::after { content: ''; flex: none; width: 1px; }
 .segmented[role='tablist'] button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); }
+/* Very narrow phones (320 px): tighter tabs so a three-tab track still fits. */
+@media (max-width: 340px) { .segmented[role='tablist']:not(.fit) button { padding: 0 9px; } }
 /* Month steppers: neutral, not filters */
 .segmented[style*='grid'] { display: grid; }
 .segmented[style*='grid'] button { padding: 0 8px; }
