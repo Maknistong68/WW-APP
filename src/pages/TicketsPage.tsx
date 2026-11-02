@@ -17,7 +17,8 @@ import { QUERY_KEYS, filterTickets, hasQuery, parseSourceTab, parseTicketQuery, 
 import { haptic } from '../lib/haptics'
 import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
-import { memberCounts } from '../lib/groups'
+import { memberCounts, sameKind } from '../lib/groups'
+import { showToast } from '../components/Toast'
 import { ageDays, ageLabel, isOpen } from '../lib/aging'
 import { monthLabel } from '../lib/dates'
 import { contractorName, ticketSub, useContractors } from '../lib/useData'
@@ -128,9 +129,12 @@ export default function TicketsPage() {
   // Filters from the link (a Dashboard number, a chart bar, a contractor…)
   const linkQuery = useMemo(() => parseTicketQuery(params), [params])
   const drilled = hasQuery(linkQuery)
-  // Tickets | Internal; a link that names a source (a Dashboard bar) decides it instead.
+  // D&C | Cases; a link that names a source (a Dashboard bar) decides it instead.
   const source = parseSourceTab(params)
   const bySource = linkQuery.src === undefined
+  /** Showing the team's own cases: the title, search and counts say "case". */
+  const showingCases = bySource ? source === 'internal' : linkQuery.src === 'Internal'
+  const noun = showingCases ? 'case' : 'ticket'
   const [query, setQuery] = useState('')
   const { canEdit } = useAuthInfo()
   const [selecting, setSelecting] = useState(false)
@@ -139,7 +143,7 @@ export default function TicketsPage() {
   const { byUuid, woByUuid } = useContractors()
   const tickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
 
-  /** The tickets the link and the Tickets | Internal tab point at, before the filter and the search. */
+  /** The tickets the link and the D&C | Cases tab point at, before the filter and the search. */
   const scoped = useMemo(
     () => filterTickets(tickets ?? [], { ...linkQuery, f: undefined }).filter((t) => !bySource || sourceTab(t) === source),
     [tickets, linkQuery, bySource, source],
@@ -175,6 +179,8 @@ export default function TicketsPage() {
     setParams(next, { replace: true })
   }
   const setSource = (k: SourceTab) => {
+    // a case and a D&C ticket are never ticked together
+    setPicked(new Set())
     const next = new URLSearchParams(params)
     if (k === 'tickets') next.delete('tab')
     else next.set('tab', k)
@@ -200,6 +206,10 @@ export default function TicketsPage() {
       return n
     })
   const pickedTickets = (tickets ?? []).filter((t) => picked.has(t.uuid))
+  const startTogether = (how: 'close' | 'combine') => {
+    if (!sameKind(pickedTickets)) return showToast({ text: 'Cases and D&C tickets can’t be combined' })
+    setTogether(how)
+  }
   const endSelect = () => {
     setSelecting(false)
     setPicked(new Set())
@@ -235,7 +245,7 @@ export default function TicketsPage() {
 
   return (
     <Page
-      title="Tickets"
+      title={showingCases ? 'Cases' : 'Tickets'}
       back={drilled ? (from ?? '/dashboard') : undefined}
       backLabel={drilled ? (from?.startsWith('/contractors') ? 'Contractor' : from?.startsWith('/kpis') ? 'KPI' : 'Dashboard') : undefined}
       actions={
@@ -255,7 +265,7 @@ export default function TicketsPage() {
       {bySource && <SourceTabs value={source} onChange={setSource} />}
       <label className="ios-search">
         <Icon name="search" size={18} />
-        <input type="search" placeholder="Ticket no., contractor, WO, issue" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" placeholder={`${showingCases ? 'Case' : 'Ticket'} no., contractor, WO, issue`} value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
       {drilled && (
         <div className="chip-row drill-chips" aria-label="Filters">
@@ -287,7 +297,7 @@ export default function TicketsPage() {
       {tickets && visible.length === 0 ? (
         <div className="empty-state">
           <Icon name="ticket" size={44} />
-          <b>{tickets.length === 0 ? 'No tickets yet' : source === 'internal' && bySource && scoped.length === 0 ? 'No internal tickets' : 'Nothing here'}</b>
+          <b>{tickets.length === 0 ? 'No tickets yet' : showingCases && scoped.length === 0 ? 'No cases yet' : 'Nothing here'}</b>
           {tickets.length === 0 ? (canEdit ? 'Tap Create to log one.' : 'Nothing logged yet.') : 'Try another filter.'}
         </div>
       ) : (
@@ -317,7 +327,7 @@ export default function TicketsPage() {
           ))}
           {visible.length > 0 && (
             <div className="list-foot">
-              {visible.length} ticket{visible.length === 1 ? '' : 's'} · {workers} workers
+              {visible.length} {noun}{visible.length === 1 ? '' : 's'} · {workers} workers
               {!selecting && (filter === 'open' && canEdit ? ' · swipe left to close · hold for more' : ' · hold for more')}
             </div>
           )}
@@ -326,11 +336,11 @@ export default function TicketsPage() {
 
       {selecting && (
         <ActionBar
-          secondary={[{ label: 'Combine', icon: 'checklist', onClick: () => setTogether('combine'), disabled: picked.size < 2 }]}
+          secondary={[{ label: 'Combine', icon: 'checklist', onClick: () => startTogether('combine'), disabled: picked.size < 2 }]}
           primary={{
             label: picked.size < 2 ? 'Tick 2 or more' : `Close together (${picked.size})`,
             icon: 'check-circle',
-            onClick: () => setTogether('close'),
+            onClick: () => startTogether('close'),
             disabled: picked.size < 2,
           }}
         />

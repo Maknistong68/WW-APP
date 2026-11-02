@@ -138,8 +138,8 @@ per screen.
       team's own to-dos.
     - **Tap** opens the area's list (`/today/:area`, `src/pages/AreaPage.tsx`): Overdue, This
       week, Later, with the shortcut to the app's own screen at the end (and **Add** on Tasks).
-      The Tickets list has the ticket log's **Tickets | Internal** tabs (with a count each;
-      `SourceTabs`); hotline and Internal tickets are capped and listed on their own
+      The Tickets list has the ticket log's **D&C | Cases** tabs (with a count each;
+      `SourceTabs`); D&C tickets and the team's own cases are capped and listed on their own
       (`ticketSource`), and the badge counts both.
     - **Hold** (`areaMenu`): Late / This week / Later, the most urgent names (or what the area
       means), the shortcut (Open Tickets, Missing submissions, KPI dashboard, Open Camps, Audit
@@ -194,9 +194,17 @@ per screen.
     by month ›" on a KPI page. That tab also has "Quarterly audits", one bar per quarter.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
-  - Two tabs on top, **Tickets | Internal** (`?tab=internal`, `sourceTab` in
-    `src/lib/ticketFilter.ts`): hotline tickets and the team's Internal ones apart. The Open / 30+d /
-    Closed / All counts follow the tab. A link that names a source (a Dashboard bar) hides the tabs.
+  - Two tabs on top, **D&C | Cases** (`?tab=internal`, `sourceTab` in
+    `src/lib/ticketFilter.ts`): D&C hotline tickets and the team's own **cases** apart. The large
+    title ("Tickets" / "Cases"), the search, the Open / 30+d / Closed / All counts and the footer
+    follow the tab. A link that names a source (a Dashboard bar) hides the tabs.
+  - **Cases** (`src/lib/cases.ts`): the team's own items raised with a contractor. Stored as
+    `source: 'Internal'` (never changed: older builds turn any other value into D&C), numbered by the
+    app `CASE-0001`, `CASE-0002`… (read-only in the sheet; WWCMPL… is typed for D&C tickets), made from
+    the + button's **Case** choice. Every case action says "case" (`noun`). A case and a D&C ticket are
+    never combined (`sameKind`). Only D&C tickets count in the KPIs and every number labelled
+    "tickets": `useAllData` gives `tickets` (D&C) and `cases` apart; cases show only where labelled
+    (Cases tab, Home card, a contractor's "Open cases", the Dashboard source bars, the Excel export).
   - A ticket row: the tile is its age in three characters (`ageLabel`, `src/lib/aging.ts`: "0D"–"6D",
     then weeks "1W"–"14W", and months only from 100 days: "3M", "14M"; no years) in its due colour (green 0–10 days, amber 11–30, red
     over 30); a check once closed, the title is the contractor's short name (`shortName`,

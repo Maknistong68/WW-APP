@@ -19,6 +19,12 @@ describe('Saving a ticket', () => {
     expect(ticketProblem(null, { ...t, issue: '' })).toBe('Pick an issue')
     expect(ticketProblem(null, t)).toBeNull()
   })
+  it('a case takes its own CASE- number; a D&C ticket still needs WWCMPL…', () => {
+    const c = { ...t, source: 'Internal' as const, ticketNo: 'CASE-0003' }
+    expect(ticketProblem(null, c)).toBeNull()
+    expect(ticketProblem(null, { ...c, ticketNo: 'CASE-' })).toMatch(/case number/)
+    expect(ticketProblem(null, { ...t, source: 'System', ticketNo: 'CASE-0003' })).toMatch(/ticket number/)
+  })
   it('an old ticket with gaps still saves (e.g. only the workers changed)', () => {
     expect(ticketProblem(old, old)).toBeNull()
   })

@@ -122,10 +122,12 @@ export default function ContractorDetailPage() {
         : wos.filter((w) => w.active).map((w) => ({ key: w.uuid, contractor: c, workOrder: w, label: `${c.name} · WO ${w.number}` }))
     const results = new Map<string, KpiResult>(subjects.map((s) => [s.key, kpiForSubject(d, s, month)]))
     const tickets = d.tickets.filter((t) => t.contractorUuid === c.uuid)
+    // The team's own cases, listed apart; they don't count in "Open tickets" or the KPIs.
+    const cases = d.cases.filter((t) => t.contractorUuid === c.uuid)
     const audits = d.inspections
       .filter((i) => mentions(i.info?.contractorNames ?? '', [c.name, ...c.aliases]))
       .sort((a, b) => (a.info.reviewDate < b.info.reviewDate ? 1 : -1))
-    return { wos, subjects, results, tickets, auditPct: auditPctFor(c, d.inspections, month), lastAudit: audits[0] }
+    return { wos, subjects, results, tickets, cases, auditPct: auditPctFor(c, d.inspections, month), lastAudit: audits[0] }
   }, [c, d, month])
 
   if (!d.loaded) return null
@@ -147,6 +149,7 @@ export default function ContractorDetailPage() {
   const kpi = chosen ? subjectKpi(chosen, d.kpis, month) : undefined
   const manpower = chosen ? subjectManpower(chosen, d.manpower, month) : undefined
   const open = data.tickets.filter(isOpen).sort((a, b) => a.openedAt.localeCompare(b.openedAt))
+  const openCases = data.cases.filter(isOpen).sort((a, b) => a.openedAt.localeCompare(b.openedAt))
   // ✓ in · ✗ awaited · – not provided (not counted against them)
   const mark = (v: boolean | null, label: string) => (
     <span className={v ? 'yes' : v === false ? 'na' : 'no'} title={v === false ? `${label} not provided` : undefined}>
@@ -375,6 +378,17 @@ export default function ContractorDetailPage() {
         </div>
       ) : (
         <div className="list-foot">None.</div>
+      )}
+
+      {openCases.length > 0 && (
+        <>
+          <div className="section-label">Open cases · {openCases.length}</div>
+          <div className="list">
+            {openCases.map((t) => (
+              <TicketRow key={t.uuid} t={t} wos={d.woByUuid} />
+            ))}
+          </div>
+        </>
       )}
 
       {recentAudits.length > 0 && (

@@ -19,6 +19,7 @@ const d: AllData = {
   woByUuid: new Map(workOrders.map((w) => [w.uuid, w])),
   camps: [],
   tickets: [],
+  cases: [],
   kpis: [
     { contractorUuid: 'a', workOrderUuid: 'w1', month: '2026-09', ...all3 },
     { contractorUuid: 'a', workOrderUuid: 'w1', month: '2026-10', wps: true, manpowerDecl: false, salaryDecl: true },

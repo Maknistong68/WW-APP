@@ -7,6 +7,7 @@ import { localDate } from '../lib/dates'
 import { saveRecord } from '../lib/records'
 import { closingAmount, owedOf, parseSar, sar } from '../lib/money'
 import { ticketLabel, useContractors } from '../lib/useData'
+import { noun } from '../lib/cases'
 import type { Ticket } from '../types'
 
 /**
@@ -25,6 +26,8 @@ export default function CloseTogetherSheet({
   onClose: (done: boolean) => void
 }) {
   const { byUuid } = useContractors()
+  // all cases or all D&C tickets (never mixed: src/lib/groups.ts sameKind)
+  const kind = selected.length ? noun(selected[0]) : 'ticket'
   const [mainUuid, setMainUuid] = useState(() => suggestMain(selected).uuid)
   // existing amounts in the selected groups, as a starting point
   const inGroups = selected
@@ -43,7 +46,7 @@ export default function CloseTogetherSheet({
   const save = async () => {
     const main = selected.find((t) => t.uuid === mainUuid)!
     if (close && selected.some((t) => date < t.openedAt)) {
-      return showToast({ text: 'Closing date is before a ticket was opened' })
+      return showToast({ text: `Closing date is before a ${kind} was opened` })
     }
     // Closing asks for the money (an amount or Nothing owed); combining only keeps it optional.
     let value: number | null
@@ -77,8 +80,8 @@ export default function CloseTogetherSheet({
       haptic('success')
       showToast({
         text: close
-          ? `${updates.length} tickets closed together under ${main.ticketNo}`
-          : `${updates.length} tickets combined under ${main.ticketNo}`,
+          ? `${updates.length} ${kind}s closed together under ${main.ticketNo}`
+          : `${updates.length} ${kind}s combined under ${main.ticketNo}`,
         duration: 5000,
       })
       onClose(true)
@@ -89,7 +92,7 @@ export default function CloseTogetherSheet({
 
   return (
     <Modal
-      title={close ? 'Close together' : 'Combine tickets'}
+      title={close ? 'Close together' : `Combine ${kind}s`}
       onClose={() => onClose(false)}
       header={
         <button className="nav-btn strong" disabled={saving} onClick={() => void save()}>
@@ -98,7 +101,7 @@ export default function CloseTogetherSheet({
       }
     >
       <div className="sheet-body">
-        <div className="section-label">Main ticket · holds the money</div>
+        <div className="section-label">Main {kind} · holds the money</div>
         <div className="list">
           {selected.map((t) => (
             <button key={t.uuid} className="row" aria-pressed={t.uuid === mainUuid} onClick={() => setMainUuid(t.uuid)}>
@@ -116,7 +119,7 @@ export default function CloseTogetherSheet({
           ))}
         </div>
         <div className="list-foot">
-          {selected.length} tickets · {workers} workers. The others will show “Combined with{' '}
+          {selected.length} {kind}s · {workers} workers. The others will show “Combined with{' '}
           {selected.find((t) => t.uuid === mainUuid)?.ticketNo}”.
         </div>
 

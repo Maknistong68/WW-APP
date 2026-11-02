@@ -47,6 +47,9 @@ npm run build   # strict tsc + vite build
   the `/missing/:item` lists: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
 - Long-press menus: `src/components/menus.tsx` (rules in `src/lib/menuSpec.ts`), sheets opened from
   anywhere via `SheetHost`; ticket drill-down filters: `src/lib/ticketFilter.ts`.
+- Tickets are D&C (hotline, WWCMPL…); the team's own items are **cases** (`src/lib/cases.ts`: stored as
+  `source: 'Internal'`, numbered CASE-0001…, tabs D&C | Cases). `useAllData` gives `tickets` (D&C only:
+  KPIs, Dashboard, counts) and `cases` apart.
 - Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
 - Dashboard numbers: `src/lib/dashboard.ts`; charts in `src/components/charts/`.
 - Compare grid (`/compare`, every contractor or work order month by month): `src/lib/compare.ts`,

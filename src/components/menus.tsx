@@ -18,6 +18,7 @@ import { backgroundSync } from '../lib/sync'
 import { isFollowed, kpiSubjects, type KpiSubject } from '../lib/subjects'
 import { kpiTone, ticketTone, type Tone } from '../lib/tone'
 import { ticketLabel } from '../lib/useData'
+import { isCase, noun } from '../lib/cases'
 import type { Camp, Contractor, Inspection, Routine, Ticket, WorkOrder } from '../types'
 
 // One long-press menu per kind of record, the same on every screen. Which
@@ -40,10 +41,10 @@ async function reopenTicket(t: Ticket) {
   const contractors = new Map((await db.contractors.toArray()).map((c) => [c.uuid, c]))
   await saveRecord('tickets', { ...t, status: 'Open', closedAt: '' }, ticketLabel(t, contractors), 'reopen')
   haptic('success')
-  showToast({ text: `${t.ticketNo || 'Ticket'} reopened` })
+  showToast({ text: `${t.ticketNo || (isCase(t) ? 'Case' : 'Ticket')} reopened` })
 }
 
-/** Long-press / ⋯ on a ticket, anywhere. */
+/** Long-press / ⋯ on a ticket or case, anywhere (a case's actions say "case"). */
 export function ticketMenu(
   t: Ticket,
   o: { sub?: string; members?: number; extra?: SheetAction[]; onDeleted?: () => void } = {},
@@ -51,22 +52,23 @@ export function ticketMenu(
   const open = isOpen(t)
   const days = ageDays(t)
   const tone = ticketTone(t)
-  const name = t.ticketNo || 'Ticket'
+  const kind = noun(t)
+  const name = t.ticketNo || (kind === 'case' ? 'Case' : 'Ticket')
   const map: Record<string, SheetAction> = {
-    close: { label: 'Close ticket', icon: 'check-circle', onSelect: () => openSheet({ kind: 'ticketClose', uuid: t.uuid }), edit: true },
+    close: { label: `Close ${kind}`, icon: 'check-circle', onSelect: () => openSheet({ kind: 'ticketClose', uuid: t.uuid }), edit: true },
     closeGroup: {
       label: `Close all ${(o.members ?? 0) + 1} together`,
       icon: 'check-circle',
       onSelect: () => openSheet({ kind: 'ticketClose', uuid: t.uuid }),
       edit: true,
     },
-    reopen: { label: 'Reopen ticket', icon: 'undo', onSelect: () => void reopenTicket(t), edit: true },
+    reopen: { label: `Reopen ${kind}`, icon: 'undo', onSelect: () => void reopenTicket(t), edit: true },
     edit: { label: 'Edit', icon: 'pencil', onSelect: () => openSheet({ kind: 'ticketEdit', uuid: t.uuid }), edit: true },
     contractor: { label: 'Open contractor', icon: 'buildings', onSelect: () => go(`/contractors/${t.contractorUuid}`) },
-    main: { label: 'Open main ticket', icon: 'arrow-right', onSelect: () => go(`/tickets/${t.parentUuid}`) },
+    main: { label: `Open main ${kind}`, icon: 'arrow-right', onSelect: () => go(`/tickets/${t.parentUuid}`) },
     copy: { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
     delete: {
-      label: 'Delete ticket',
+      label: `Delete ${kind}`,
       icon: 'trash',
       danger: true,
       edit: true,

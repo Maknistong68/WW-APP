@@ -11,7 +11,7 @@ Design spec: [`docs/superpowers/specs/2026-10-31-ww-copilot-design.md`](docs/sup
 | Tab | What it's for |
 |---|---|
 | **Today** | Open tickets · over 30 days · missing monthly documents, plus a short "needs you" list |
-| **Tickets** | System + internal tickets, titled by ticket number (WWCMPL…). **＋** to add (number, contractor, work order, money owed, issue, workers). **Swipe left to close.** Aging is automatic. |
+| **Tickets** | D&C tickets (WWCMPL…) and, on the Cases tab, the team's own cases (CASE-0001…, numbered by the app; not counted in the KPIs). **＋** to add (number, contractor, work order, money owed, issue, workers). **Swipe left to close.** Aging is automatic. |
 | **Contractors** | Companies and their **work orders** (each can be activated / deactivated); KPI % per work order, monthly scoring, manpower counts, open tickets, last audit |
 | **Audits** | The Labour Accommodation Audit checklist with Excel + Word reports (unchanged) |
 | **Dashboard** | **Tickets** (trend, by contractor / issue / age, then money: SAR owed and recovered) · **Accommodation** (camps and inspections) · **KPIs** (each KPI on its own page, compare grid, audits, then workers). Export: KPI pack for slides, full Excel, Word |

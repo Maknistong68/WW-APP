@@ -24,6 +24,7 @@ import ActionBar from '../components/ActionBar'
 import { ticketTone } from '../lib/tone'
 import { ticketMenu } from '../components/menus'
 import { useAuthInfo } from '../lib/auth'
+import { isCase, noun, sourceLabel } from '../lib/cases'
 
 function Field({ label, value, onOpen }: { label: string; value: string | number; onOpen?: () => void }) {
   if (value === '' || value === null || value === undefined) return null
@@ -70,23 +71,28 @@ export default function TicketDetailPage() {
   const days = ageDays(t)
   const open = isOpen(t)
   const group = groupOf(t, allTickets ?? [t])
+  // A case (the team's own) says "case" and goes back to the Cases tab; a D&C ticket to D&C.
+  const kind = noun(t)
+  const Kind = kind === 'case' ? 'Case' : 'Ticket'
+  const list = isCase(t) ? '/tickets?tab=internal' : '/tickets'
+  const listLabel = isCase(t) ? 'Cases' : 'Tickets'
   const isMember = !!t.parentUuid && group.main.uuid !== t.uuid
   const isMain = !isMember && group.members.length > 0
   const groupTotal = group.main.amountOwed
   const tone = ticketTone(t)
   const reopen = () =>
     void saveRecord('tickets', { ...t, status: 'Open', closedAt: '' }, ticketLabel(t, byUuid), 'reopen').then(() =>
-      showToast({ text: 'Ticket reopened' }),
+      showToast({ text: `${Kind} reopened` }),
     )
   const more = () =>
-    ticketMenu(t, { members: isMain ? group.members.length : 0, onDeleted: () => navigate('/tickets') })
+    ticketMenu(t, { members: isMain ? group.members.length : 0, onDeleted: () => navigate(list) })
 
   return (
-    <Page title={t.ticketNo || 'Ticket'} back="/tickets" backLabel="Tickets" album>
+    <Page title={t.ticketNo || Kind} back={list} backLabel={listLabel} album>
       <Summary
-        tile={<IconTile icon={open ? 'ticket' : 'check'} tone={tone} size={64} />}
-        title={t.ticketNo || 'Ticket'}
-        sub={[t.issue || 'Ticket', contractorName(byUuid, t.contractorUuid)].filter(Boolean).join(' · ')}
+        tile={<IconTile icon={open ? (isCase(t) ? 'megaphone' : 'ticket') : 'check'} tone={tone} size={64} />}
+        title={t.ticketNo || Kind}
+        sub={[t.issue || Kind, contractorName(byUuid, t.contractorUuid)].filter(Boolean).join(' · ')}
         chips={
           <>
             <StatusChip tone={tone}>{open ? (days > 30 ? 'Overdue' : days > 10 ? 'Due soon' : 'Open') : 'Closed'}</StatusChip>
@@ -119,13 +125,13 @@ export default function TicketDetailPage() {
           label={open ? 'Money still owed' : 'Money recovered'}
           value={
             t.amountOwed
-              ? `${sar(t.amountOwed)}${isMain ? ` (${group.all.length} tickets)` : ''}`
+              ? `${sar(t.amountOwed)}${isMain ? ` (${group.all.length} ${kind}s)` : ''}`
               : t.amountOwed === 0 && !open
                 ? 'None'
                 : ''
           }
         />
-        <Field label="Source" value={t.source} />
+        <Field label="Source" value={sourceLabel(t.source)} />
         <Field label="Violations" value={t.violations} />
         <Field label="Category" value={t.category} />
         <Field label="Severity" value={t.severity} />
@@ -145,7 +151,7 @@ export default function TicketDetailPage() {
               <span className="row-main">
                 <div className="row-title">Part of {group.main.ticketNo}</div>
                 <div className="row-sub">
-                  {group.all.length} tickets{groupTotal ? ` · ${sar(groupTotal)} total` : ''} · money is on the main ticket
+                  {group.all.length} {kind}s{groupTotal ? ` · ${sar(groupTotal)} total` : ''} · money is on the main {kind}
                 </div>
               </span>
               <span className="row-chev">
@@ -170,7 +176,7 @@ export default function TicketDetailPage() {
       {isMain && (
         <>
           <div className="section-label">
-            Combined tickets · {group.all.length} · {group.workers} workers
+            Combined {kind}s · {group.all.length} · {group.workers} workers
             {groupTotal ? ` · ${sar(groupTotal)}` : ''}
           </div>
           <div className="list">
@@ -192,8 +198,8 @@ export default function TicketDetailPage() {
           !canEdit
             ? undefined
             : open
-              ? { icon: 'check-circle', label: isMain ? `Close all ${group.all.length}` : 'Close ticket', onClick: () => setSheet(isMain ? 'closeGroup' : 'close') }
-              : { icon: 'undo', label: 'Reopen ticket', onClick: reopen }
+              ? { icon: 'check-circle', label: isMain ? `Close all ${group.all.length}` : `Close ${kind}`, onClick: () => setSheet(isMain ? 'closeGroup' : 'close') }
+              : { icon: 'undo', label: `Reopen ${kind}`, onClick: reopen }
         }
       />
       {sheet === 'edit' && <TicketSheet ticket={t} onClose={() => setSheet(null)} />}
@@ -203,15 +209,15 @@ export default function TicketDetailPage() {
       )}
       {sheet === 'delete' && (
         <ConfirmSheet
-          title={`Delete ${t.ticketNo || 'this ticket'}?`}
+          title={`Delete ${t.ticketNo || `this ${kind}`}?`}
           message="It stays in the activity log, but disappears from lists and the dashboard."
-          confirmLabel="Delete ticket"
+          confirmLabel={`Delete ${kind}`}
           destructive
           onCancel={() => setSheet(null)}
           onConfirm={() => {
             void removeRecord('tickets', t.uuid, ticketLabel(t, byUuid)).then(() => {
-              showToast({ text: 'Ticket deleted' })
-              navigate('/tickets')
+              showToast({ text: `${Kind} deleted` })
+              navigate(list)
             })
           }}
         />

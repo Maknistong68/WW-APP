@@ -19,6 +19,7 @@ export const MENU_HUE = {
   settings: 'slate',
   signOut: 'slate',
   ticket: 'pink',
+  case: 'plum',
   kpis: 'indigo',
   backup: 'blue',
   restore: 'cyan',
@@ -34,7 +35,7 @@ export type MenuItem = keyof typeof MENU_HUE
 /** The menus, so a test can check each one shows distinct colours. */
 export const MENUS: Record<string, MenuItem[]> = {
   library: ['contractors', 'camps', 'closeout', 'inspections', 'activity', 'users', 'settings'],
-  create: ['ticket', 'kpis', 'inspections', 'camps', 'task'],
+  create: ['ticket', 'case', 'kpis', 'inspections', 'camps', 'task'],
   sideMenu: ['contractors', 'camps', 'closeout', 'inspections', 'activity', 'users', 'settings'],
   settingsData: ['activity', 'backup', 'restore'],
   export: ['exportPack', 'exportExcel', 'exportWord'],

@@ -10,6 +10,7 @@ import { CATEGORIES, CHANNELS, ISSUES, PRIORITIES, SEVERITIES } from '../lib/lis
 import { newContractor, ticketLabel, useContractors } from '../lib/useData'
 import { ticketProblem } from '../lib/ticketCheck'
 import { closingAmount, parseSar, sarInput } from '../lib/money'
+import { isCase, nextCaseNo, noun } from '../lib/cases'
 import { db } from '../db'
 import type { Ticket } from '../types'
 
@@ -40,7 +41,16 @@ function useMainNo(parentUuid: string) {
   return useLiveQuery(async () => (parentUuid ? ((await db.tickets.get(parentUuid))?.ticketNo ?? '') : ''), [parentUuid]) ?? ''
 }
 
-/** Add / edit a ticket. Four things up front; the rest under "More". */
+/** The kind as a title word: "Case" or "Ticket". */
+const Noun = (t: Pick<Ticket, 'source'>) => (isCase(t) ? 'Case' : 'Ticket')
+
+/** Every ticket and case number in use (for the next case number). */
+const usedNumbers = async () => (await db.tickets.orderBy('ticketNo').keys()) as string[]
+
+/**
+ * Add / edit a D&C ticket or one of the team's own cases (the + menu picks which).
+ * Four things up front; the rest under "More". A case's number is given, not typed.
+ */
 export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClose: () => void }) {
   const { all: contractors, byUuid, workOrders } = useContractors()
   const [t, setT] = useState(ticket)
@@ -54,9 +64,12 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
   const addingContractor = t.contractorUuid === NEW
   const cWos = workOrders.filter((w) => w.contractorUuid === t.contractorUuid)
 
+  const kind = Noun(t)
   const sheet = useRef<ModalHandle>(null)
   const save = async () => {
     let rec = { ...t, ticketNo: t.ticketNo.trim().toUpperCase() }
+    // A new case takes the next free number now, so one a teammate synced meanwhile isn't reused.
+    if (isNew && isCase(rec)) rec = { ...rec, ticketNo: nextCaseNo(await usedNumbers()) }
     if (addingContractor) {
       const name = newName.trim()
       if (!name) return showToast({ text: 'Type the new contractor name' })
@@ -79,7 +92,7 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
       if (clash) return showToast({ text: `${rec.ticketNo} already exists` })
     }
     await saveRecord('tickets', rec, ticketLabel(rec, byUuid))
-    showToast({ text: isNew ? 'Ticket added' : 'Ticket saved' })
+    showToast({ text: isNew ? `${kind} added` : `${kind} saved` })
     // slide the sheet away, then close
     if (sheet.current) sheet.current.close()
     else onClose()
@@ -88,7 +101,7 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
   return (
     <Modal
       ref={sheet}
-      title={isNew ? 'New ticket' : 'Edit ticket'}
+      title={isNew ? `New ${noun(t)}` : `Edit ${noun(t)}`}
       onClose={onClose}
       header={
         <button className="nav-btn strong" onClick={() => void save()}>
@@ -99,22 +112,20 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
       <div className="sheet-body">
         <div className="list">
           <label className="row">
-            <span className="row-label">Ticket no.</span>
-            <input
-              value={t.ticketNo}
-              autoCapitalize="characters"
-              autoFocus={isNew}
-              style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}
-              onChange={(e) => set('ticketNo', e.target.value.toUpperCase())}
-            />
+            <span className="row-label">{kind} no.</span>
+            {isCase(t) ? (
+              // given by the app (CASE-0001, CASE-0002…), never typed
+              <input value={t.ticketNo} readOnly aria-readonly style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }} />
+            ) : (
+              <input
+                value={t.ticketNo}
+                autoCapitalize="characters"
+                autoFocus={isNew}
+                style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}
+                onChange={(e) => set('ticketNo', e.target.value.toUpperCase())}
+              />
+            )}
           </label>
-        </div>
-        <div className="segmented" role="tablist" aria-label="Source">
-          {(['System', 'Internal'] as const).map((s) => (
-            <button key={s} className={t.source === s ? 'on' : ''} onClick={() => set('source', s)}>
-              {s}
-            </button>
-          ))}
         </div>
         <div className="list">
           <label className="row">
@@ -158,7 +169,7 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
           {isMember ? (
             <div className="row">
               <span className="row-label">Money</span>
-              <span className="row-trail">on {mainNo || 'the main ticket'}</span>
+              <span className="row-trail">on {mainNo || `the main ${noun(t)}`}</span>
             </div>
           ) : (
             <label className="row">
@@ -322,7 +333,7 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
       'close',
     )
     haptic('success')
-    showToast({ text: 'Ticket closed' })
+    showToast({ text: `${Noun(ticket)} closed` })
     // slide the sheet away, then close
     if (sheet.current) sheet.current.close()
     else onClose()
@@ -331,7 +342,7 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
   return (
     <Modal
       ref={sheet}
-      title="Close ticket"
+      title={`Close ${noun(ticket)}`}
       onClose={onClose}
       header={
         <button className="nav-btn strong" onClick={() => void save()}>
@@ -348,7 +359,7 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
         </div>
         <div className="section-label">Money</div>
         {isMember ? (
-          <div className="list-foot">Money is on the main ticket{mainNo ? ` ${mainNo}` : ''}.</div>
+          <div className="list-foot">Money is on the main {noun(ticket)}{mainNo ? ` ${mainNo}` : ''}.</div>
         ) : (
           <>
             <div className="list">

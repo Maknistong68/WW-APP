@@ -15,6 +15,7 @@ import {
 } from 'docx'
 import { BORDER, NAVY, font, tableHeader } from './excel'
 import { ageDays, agingBucket, isOpen } from '../lib/aging'
+import { sourceLabel } from '../lib/cases'
 import { overdueTickets, periodStats, weeklyTrend } from '../lib/dashboard'
 import { monthLabel } from '../lib/dates'
 import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
@@ -52,7 +53,7 @@ export async function buildMonthlyExcel(d: AllData, month: string): Promise<{ bl
   const name = (uuid: string) => d.byUuid.get(uuid)?.name ?? ''
 
   const ts = wb.addWorksheet('Tickets')
-  ts.addRow([`Tickets — all records (exported ${new Date().toLocaleDateString()})`]).font = font({
+  ts.addRow([`Tickets and cases — all records (exported ${new Date().toLocaleDateString()})`]).font = font({
     size: 14,
     bold: true,
     color: { argb: NAVY },
@@ -61,12 +62,13 @@ export async function buildMonthlyExcel(d: AllData, month: string): Promise<{ bl
   addTable(
     ts,
     ['Ticket no.', 'Source', 'Status', 'Contractor', 'Work order', 'Sub-contractor', 'Issue', 'Category', 'Priority', 'Workers', 'Violations', 'Money owed (SAR)', 'Opened', 'Closed', 'Days', 'Aging', 'Channel', 'Assigned to', 'Contractor action', 'WW action'],
-    [...d.tickets]
+    // Every record, D&C tickets and the team's own cases, told apart in the Source column.
+    [...d.tickets, ...d.cases]
       .sort((a, b) => b.openedAt.localeCompare(a.openedAt))
       .map((t) => {
         const days = ageDays(t)
         return [
-          t.ticketNo, t.source, t.status, name(t.contractorUuid), d.woByUuid.get(t.workOrderUuid)?.number ?? '',
+          t.ticketNo, sourceLabel(t.source), t.status, name(t.contractorUuid), d.woByUuid.get(t.workOrderUuid)?.number ?? '',
           t.subcontractor, t.issue, t.category, `${t.priority} - ${priorityLabel(t.priority)}`, t.workers, t.violations,
           t.amountOwed, t.openedAt, t.closedAt, days,
           isOpen(t) ? agingBucket(days) : '', t.channel, t.assignedTo, t.contractorAction, t.wwAction,

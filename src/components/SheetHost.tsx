@@ -14,6 +14,7 @@ import { removeRecord } from '../lib/records'
 import { ticketLabel } from '../lib/useData'
 import { auditPctFor } from '../lib/kpiData'
 import { emptyKpi, emptyManpower } from '../lib/subjects'
+import { isCase, noun } from '../lib/cases'
 import type { Camp, Contractor, KpiMonth, Manpower, Routine, Ticket } from '../types'
 
 // The edit sheets that menus open (close a ticket, fill in a month, delete…),
@@ -145,15 +146,15 @@ export default function SheetHost() {
       const t = shown.ticket
       return (
         <ConfirmSheet
-          title={`Delete ${t.ticketNo || 'this ticket'}?`}
+          title={`Delete ${t.ticketNo || `this ${noun(t)}`}?`}
           message="It stays in the activity log, but disappears from lists and the dashboard."
-          confirmLabel="Delete ticket"
+          confirmLabel={`Delete ${noun(t)}`}
           destructive
           onCancel={done}
           onConfirm={() => {
             done()
             void removeRecord('tickets', t.uuid, shown.label).then(() => {
-              showToast({ text: `${t.ticketNo || 'Ticket'} deleted` })
+              showToast({ text: `${t.ticketNo || (isCase(t) ? 'Case' : 'Ticket')} deleted` })
               shown.after?.()
             })
           }}

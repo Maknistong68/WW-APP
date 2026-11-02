@@ -18,7 +18,7 @@ import type { Routine } from '../types'
 
 /**
  * One Home card's list (/today/:area): its named rows, Overdue / This week / Later. The Tickets
- * card has two tabs, Tickets | Internal (`?tab=internal`), like the ticket log.
+ * card has two tabs, D&C | Cases (`?tab=internal`), like the ticket log.
  */
 export default function AreaPage() {
   const { area } = useParams()
@@ -83,7 +83,7 @@ export default function AreaPage() {
               ? 'Nothing to do. Tap Add for a new task.'
               : 'Nothing to do.'
             : tabbed && tab === 'internal'
-              ? 'No internal tickets waiting.'
+              ? 'No cases waiting.'
               : 'Nothing to do here.'}
         </div>
       ) : (

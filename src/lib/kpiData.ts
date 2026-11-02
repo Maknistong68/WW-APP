@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
+import { splitTickets } from './cases'
 import { inspectionPct } from './inspectionScore'
 import { KPI_PARTS, computeKpi, kpiStatus, type KpiResult } from './kpi'
 import { mentions } from './names'
@@ -14,17 +15,38 @@ export interface AllData {
   workOrders: WorkOrder[]
   woByUuid: Map<string, WorkOrder>
   camps: Camp[]
+  /** D&C tickets only: these feed the KPIs and every number labelled "tickets". */
   tickets: Ticket[]
+  /** The team's own cases (src/lib/cases.ts), shown only where labelled "Cases". */
+  cases: Ticket[]
   kpis: KpiMonth[]
   manpower: Manpower[]
   weekly: WeeklyCount[]
   inspections: Inspection[]
 }
 
-type Raw = Omit<AllData, 'loaded' | 'byUuid' | 'woByUuid'>
+/** What the database holds: every ticket together, D&C and cases. */
+type Raw = Omit<AllData, 'loaded' | 'byUuid' | 'woByUuid' | 'cases'>
 /** The last result, so a screen opened later shows data on its first frame
  *  (screen transitions snapshot that frame; Back restores scroll into it). */
 let lastRaw: Raw | undefined
+
+const EMPTY: Raw = { contractors: [], workOrders: [], camps: [], tickets: [], kpis: [], manpower: [], weekly: [], inspections: [] }
+
+/** AllData from the stored rows: work orders in number order, tickets split into D&C and cases. */
+export function shapeAllData(raw: Raw, loaded: boolean): AllData {
+  const workOrders = [...raw.workOrders].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }))
+  const { tickets, cases } = splitTickets(raw.tickets)
+  return {
+    ...raw,
+    workOrders,
+    tickets,
+    cases,
+    loaded,
+    byUuid: new Map(raw.contractors.map((c) => [c.uuid, c])),
+    woByUuid: new Map(workOrders.map((w) => [w.uuid, w])),
+  }
+}
 
 /** Everything the Today / Dashboard / Contractors screens read, live. */
 export function useAllData(): AllData {
@@ -42,17 +64,7 @@ export function useAllData(): AllData {
     lastRaw = r
     return r
   }, [], lastRaw)
-  return useMemo(() => {
-    const d = raw ?? { contractors: [], workOrders: [], camps: [], tickets: [], kpis: [], manpower: [], weekly: [], inspections: [] }
-    const workOrders = [...d.workOrders].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }))
-    return {
-      ...d,
-      workOrders,
-      loaded: !!raw,
-      byUuid: new Map(d.contractors.map((c) => [c.uuid, c])),
-      woByUuid: new Map(workOrders.map((w) => [w.uuid, w])),
-    }
-  }, [raw])
+  return useMemo(() => shapeAllData(raw ?? EMPTY, !!raw), [raw])
 }
 
 /** Score of the contractor's latest audit reviewed in the month, if any. */

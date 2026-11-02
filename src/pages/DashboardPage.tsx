@@ -14,7 +14,7 @@ import { campMenu, contractorMenu } from '../components/menus'
 import CompareGrid from '../components/CompareGrid'
 import { compareRows, sortRows } from '../lib/compare'
 import { quarterlyAudits } from '../lib/audits'
-import { ticketLink, type TicketQuery } from '../lib/ticketFilter'
+import { openedIn, ticketLink, type TicketQuery } from '../lib/ticketFilter'
 import { contractorOverall } from '../lib/trends'
 import { isOpen } from '../lib/aging'
 import { useLongPress } from '../lib/useLongPress'
@@ -165,6 +165,7 @@ export default function DashboardPage() {
   const aging = useMemo(() => openAging(d.tickets, today), [d.tickets, today])
   const groupCounts = useMemo(() => memberCounts(d.tickets), [d.tickets])
   const scope = month ? stats.opened : d.tickets
+  const caseScope = useMemo(() => (month ? d.cases.filter((t) => openedIn(t, month)) : d.cases), [d.cases, month])
   const money = useMemo(() => moneyStats(scope), [scope])
   const recovered = useMemo(() => recoveredPerMonth(d.tickets, months12), [d.tickets, months12])
   const closure = useMemo(() => closurePct(d.tickets, kpiMonth), [d.tickets, kpiMonth])
@@ -317,7 +318,7 @@ export default function DashboardPage() {
             />
           </Card>
 
-          <Card title="Open system tickets" sub={`Per week · ${trend.length} weeks`}>
+          <Card title="Open D&C tickets" sub={`Per week · ${trend.length} weeks`}>
             <TrendLine data={trend} unit="open" />
           </Card>
 
@@ -337,13 +338,12 @@ export default function DashboardPage() {
           <Card title="Closure and source" sub={`${month ? monthLabel(month) : 'All tickets'}`}>
             <div className="hero-row" style={{ gridTemplateColumns: '1fr 2fr', marginBottom: 0 }}>
               <Hero value={pct(closure)} label={`Closed · ${short(kpiMonth)}`} tone={toneOf(kpiStatus(closure))} />
+              {/* D&C tickets (every number on this view) next to the team's own cases */}
               <BarList
-                data={ticketsBy(scope, (t) => t.source).map((c) => ({
-                  key: c.key,
-                  label: c.label,
-                  value: c.count,
-                  onClick: () => navigate(tix({ ...opened, src: c.key })),
-                }))}
+                data={[
+                  { key: 'System', label: 'D&C', value: scope.length, onClick: () => navigate(tix({ ...opened, src: 'System' })) },
+                  { key: 'Internal', label: 'Cases', value: caseScope.length, onClick: () => navigate(tix({ ...opened, src: 'Internal' })) },
+                ]}
               />
             </div>
           </Card>

@@ -131,17 +131,17 @@ export function queryChips(q: TicketQuery, names: { contractor: (uuid: string) =
   else if (q.in === 'lateAtEnd') chips.push({ keys: ['in'], label: 'Over 30 days now' })
   if (q.issue) chips.push({ keys: ['issue'], label: q.issue })
   if (q.cat) chips.push({ keys: ['cat'], label: q.cat })
-  if (q.src) chips.push({ keys: ['src'], label: q.src })
+  if (q.src) chips.push({ keys: ['src'], label: q.src === 'Internal' ? 'Cases' : 'D&C' })
   if (q.age) chips.push({ keys: ['age'], label: AGE_LABEL[q.age] })
   if (q.owed) chips.push({ keys: ['owed'], label: OWED_LABEL[q.owed] })
   return chips
 }
 
-/** The ticket log's two tabs: hotline tickets, and Internal ones (raised by the team). */
+/** The ticket log's two tabs, D&C | Cases: D&C hotline tickets, and the team's own cases (src/lib/cases.ts). */
 export type SourceTab = 'tickets' | 'internal'
 
-/** Which tab a ticket sits in: Internal apart, everything else (System, or no source) under Tickets. */
+/** Which tab a record sits in: cases (stored as Internal) apart, everything else (System, or no source) under D&C. */
 export const sourceTab = (t: Pick<Ticket, 'source'>): SourceTab => (t.source === 'Internal' ? 'internal' : 'tickets')
 
-/** The tab in the link (`?tab=internal`); Tickets otherwise. */
+/** The tab in the link (`?tab=internal` = Cases); D&C otherwise. */
 export const parseSourceTab = (params: URLSearchParams): SourceTab => (params.get('tab') === 'internal' ? 'internal' : 'tickets')

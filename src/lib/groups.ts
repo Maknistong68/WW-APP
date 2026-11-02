@@ -1,3 +1,4 @@
+import { isCase } from './cases'
 import type { Ticket } from '../types'
 
 // Related tickets closed in one go: one main ticket holds the money, the
@@ -26,6 +27,9 @@ export function memberCounts(tickets: Ticket[]): Map<string, number> {
   for (const t of tickets) if (t.parentUuid) m.set(t.parentUuid, (m.get(t.parentUuid) ?? 0) + 1)
   return m
 }
+
+/** All D&C tickets or all cases: the two are never combined (or closed together). */
+export const sameKind = (tickets: Ticket[]) => tickets.every((t) => isCase(t) === isCase(tickets[0]))
 
 /** Suggested main ticket: the most workers, then the newest. */
 export function suggestMain(tickets: Ticket[]): Ticket {

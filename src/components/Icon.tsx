@@ -1,4 +1,5 @@
 import {
+  Megaphone,
   Minus,
   Polygon,
   ArrowCounterClockwise,
@@ -96,6 +97,7 @@ const ICONS = {
   'chevron-right': CaretRight,
   x: X,
   minus: Minus,
+  megaphone: Megaphone,
   check: Check,
   'check-circle': CheckCircle,
   'map-pin': MapPin,

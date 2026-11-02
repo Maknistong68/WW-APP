@@ -83,6 +83,7 @@ const data = (kpis: KpiMonth[] = []): AllData => ({
   woByUuid: new Map(workOrders.map((w) => [w.uuid, w])),
   camps: [],
   tickets: [],
+  cases: [],
   kpis,
   manpower: [],
   weekly: [],

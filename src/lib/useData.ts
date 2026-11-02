@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useCachedLiveQuery } from './useCachedQuery'
 import { db, newUuid } from '../db'
 import { localDate } from './dates'
+import { isCase, nextCaseNo } from './cases'
 import { TICKET_PREFIX } from './lists'
 import { sar } from './money'
 import type { Contractor, Routine, Ticket, WorkOrder } from '../types'
@@ -30,6 +31,12 @@ export { TICKET_PREFIX, validTicketNo } from './lists'
 export const contractorName = (map: Map<string, Contractor>, uuid: string) =>
   map.get(uuid)?.name ?? 'No contractor'
 
+/** A new case: the team's own item raised with a contractor, numbered after the ones in use. */
+export function newCase(numbersInUse: string[]): Ticket {
+  return { ...newTicket(), source: 'Internal', ticketNo: nextCaseNo(numbersInUse), channel: 'Welfare Internal' }
+}
+
+/** A new D&C ticket (the hotline number is typed in). */
 export function newTicket(): Ticket {
   return {
     uuid: newUuid(),
@@ -87,9 +94,9 @@ export function ticketSub(t: Ticket, contractors?: Map<string, Contractor>, wos?
     .join(' · ')
 }
 
-/** Activity-log label: the ticket number first. */
+/** Activity-log label: the ticket (or case) number first. */
 export const ticketLabel = (t: Ticket, map: Map<string, Contractor>) =>
-  `${t.ticketNo || 'Ticket'} · ${contractorName(map, t.contractorUuid)}`
+  `${t.ticketNo || (isCase(t) ? 'Case' : 'Ticket')} · ${contractorName(map, t.contractorUuid)}`
 
 /** Display names for record fields in the activity log. */
 export const FIELD_LABELS: Record<string, string> = {

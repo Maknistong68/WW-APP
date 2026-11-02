@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { combineTickets, groupOf, memberCounts, suggestMain, uncombine } from './groups'
+import { combineTickets, groupOf, memberCounts, sameKind, suggestMain, uncombine } from './groups'
 import { moneyStats } from './money'
 import type { Ticket } from '../types'
 
@@ -25,6 +25,12 @@ describe('combined tickets', () => {
   const c = tk('C', { workers: 2, openedAt: '2026-10-05' })
   const all = [a, b, c, tk('D')]
 
+  it('cases and D&C tickets are never combined with each other', () => {
+    const own = tk('CASE-0001', { source: 'Internal' })
+    expect(sameKind([tk('A', { source: 'System' }), tk('B')])).toBe(true)
+    expect(sameKind([own, tk('CASE-0002', { source: 'Internal' })])).toBe(true)
+    expect(sameKind([tk('A', { source: 'System' }), own])).toBe(false)
+  })
   it('suggests the ticket with most workers as main', () => {
     expect(suggestMain([b, c, a]).uuid).toBe('A')
   })

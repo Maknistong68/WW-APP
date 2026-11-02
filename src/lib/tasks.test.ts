@@ -15,6 +15,7 @@ const base = (p: Partial<AllData> = {}): AllData => {
     woByUuid: new Map(workOrders.map((w) => [w.uuid, w])),
     camps: [],
     tickets: [],
+    cases: [],
     kpis: [],
     manpower: [],
     weekly: [],
@@ -101,15 +102,16 @@ describe('Home tasks: tickets, camps, drafts', () => {
     const soon = tasks.find((t) => t.group === 'week' && t.kind === 'ticket')!
     expect([soon.title, soon.detail.startsWith('WWCMPL-07 · Turns 30 days on')]).toEqual(['RPCO', true])
   })
-  it('Internal tickets get their own rows, cap and "more" row, marked for the Internal tab', () => {
+  it('cases get their own rows, cap and "more" row, marked for the Cases tab', () => {
     const hotline = ['01', '02', '03', '04', '05', '06'].map((n, i) => ticket(n, `2026-09-0${i + 1}`))
-    const internal = ['11', '12', '13', '14', '15', '16', '17'].map((n, i) => ({ ...ticket(n, `2026-09-0${i + 1}`), source: 'Internal' }) as Ticket)
-    const { tasks, counts } = buildTasks(base({ tickets: [...hotline, ...internal] }), '2026-11-01')
+    const cases = ['11', '12', '13', '14', '15', '16', '17'].map((n, i) => ({ ...ticket(n, `2026-09-0${i + 1}`), ticketNo: `CASE-00${n}`, source: 'Internal' }) as Ticket)
+    const { tasks, counts } = buildTasks(base({ tickets: hotline, cases }), '2026-11-01')
     const late = (tab: 'tickets' | 'internal') => tasks.filter((t) => t.group === 'overdue' && t.ticketSource === tab)
     expect(late('tickets').map((t) => t.kind)).toEqual(['ticket', 'ticket', 'ticket', 'ticket', 'ticket', 'tickets'])
     expect(late('internal').map((t) => t.kind)).toEqual(['ticket', 'ticket', 'ticket', 'ticket', 'ticket', 'tickets'])
+    expect(late('internal')[0].detail.split(' · ')[0]).toBe('CASE-0011')
     const more = late('internal')[5]
-    expect([more.title, more.dueText, more.to]).toEqual(['More internal tickets over 30 days', '2 more', '/tickets?f=late&tab=internal'])
+    expect([more.title, more.dueText, more.to]).toEqual(['More cases over 30 days', '2 more', '/tickets?f=late&tab=internal'])
     expect(late('tickets')[5].to).toBe('/tickets?f=late')
     expect(counts.overdue).toBe(13)
   })

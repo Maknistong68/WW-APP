@@ -14,6 +14,8 @@ import {
   workforce,
 } from './dashboard'
 import { kpiSubjects, subjectTickets } from './subjects'
+import { kpiForSubject, shapeAllData } from './kpiData'
+import type { KpiResult } from './kpi'
 import type { Camp, Contractor, KpiMonth, Manpower, Ticket, WorkOrder } from '../types'
 
 const tk = (p: Partial<Ticket>): Ticket => ({
@@ -109,6 +111,20 @@ describe('work-order subjects', () => {
     expect(subjectTickets(s1, ts, one)).toHaveLength(2)
     const s2 = kpiSubjects([c], two)[0]
     expect(subjectTickets(s2, ts, two)).toHaveLength(1)
+  })
+  it('the team’s own cases never count in Grievance or Ticket closure: only D&C tickets do', () => {
+    const c = { uuid: 'c', name: 'C', active: true, aliases: [] } as unknown as Contractor
+    const wos = [{ uuid: 'w1', contractorUuid: 'c', number: '1', active: true }] as WorkOrder[]
+    const dnc = tk({ contractorUuid: 'c', workOrderUuid: 'w1', openedAt: '2026-10-01', status: 'Closed', closedAt: '2026-10-04' })
+    const raw = { contractors: [c], workOrders: wos, camps: [], kpis: [], manpower: [], weekly: [], inspections: [] }
+    const before = shapeAllData({ ...raw, tickets: [dnc] }, true)
+    const ownCase = tk({ source: 'Internal', ticketNo: 'CASE-0001', contractorUuid: 'c', workOrderUuid: 'w1', openedAt: '2026-10-01' })
+    const after = shapeAllData({ ...raw, tickets: [dnc, ownCase] }, true)
+    expect([after.tickets.length, after.cases.map((t) => t.ticketNo)]).toEqual([1, ['CASE-0001']])
+    const s = kpiSubjects([c], wos)[0]
+    const pick = (r: KpiResult) => [r.grievance, r.closure]
+    expect(pick(kpiForSubject(after, s, '2026-10'))).toEqual(pick(kpiForSubject(before, s, '2026-10')))
+    expect(pick(kpiForSubject(after, s, '2026-10'))).toEqual([100, 100])
   })
 })
 

@@ -17,7 +17,8 @@ import { CAMP_STATUS_LABEL, campState } from '../lib/camps'
 import { monthOf } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
 import { kpiSubjects, subjectKpi, type KpiSubject } from '../lib/subjects'
-import { newRoutine, newTicket } from '../lib/useData'
+import { newCase, newRoutine, newTicket } from '../lib/useData'
+import { db } from '../db'
 import type { Camp, Routine, Ticket } from '../types'
 
 const CREATE_EVENT = 'ww:create'
@@ -26,8 +27,9 @@ export const openCreate = () => window.dispatchEvent(new Event(CREATE_EVENT))
 
 type Step = 'menu' | 'kpi' | 'inspection'
 
-const CHOICES: { key: 'ticket' | 'kpi' | 'inspection' | 'camp' | 'task'; label: string; sub: string; icon: IconName; hue: Hue }[] = [
-  { key: 'ticket', label: 'Ticket', sub: 'Log a complaint', icon: 'ticket', hue: MENU_HUE.ticket },
+const CHOICES: { key: 'ticket' | 'case' | 'kpi' | 'inspection' | 'camp' | 'task'; label: string; sub: string; icon: IconName; hue: Hue }[] = [
+  { key: 'ticket', label: 'Ticket', sub: 'Log a D&C complaint', icon: 'ticket', hue: MENU_HUE.ticket },
+  { key: 'case', label: 'Case', sub: 'Raise with a contractor', icon: 'megaphone', hue: MENU_HUE.case },
   { key: 'kpi', label: 'Monthly KPIs', sub: 'Score a work order', icon: 'gauge', hue: MENU_HUE.kpis },
   { key: 'inspection', label: 'Inspection', sub: 'Start a camp inspection', icon: 'clipboard', hue: MENU_HUE.inspections },
   { key: 'camp', label: 'Camp', sub: 'Add a camp to track', icon: 'tent', hue: MENU_HUE.camps },
@@ -36,7 +38,7 @@ const CHOICES: { key: 'ticket' | 'kpi' | 'inspection' | 'camp' | 'task'; label: 
 
 const RANK = { never: 0, expired: 1, due: 2, ok: 3 } as const
 
-/** Create sheet (tab bar +): ticket, KPI month, inspection, camp or task. */
+/** Create sheet (tab bar +): ticket, case, KPI month, inspection, camp or task. */
 export default function AddButton() {
   const navigate = useNavigate()
   const { canEdit } = useAuthInfo()
@@ -60,6 +62,13 @@ export default function AddButton() {
     if (key === 'ticket') {
       close()
       setTicket(newTicket())
+    } else if (key === 'case') {
+      close()
+      // numbered after the cases already in use (the sheet takes a fresh one again on save)
+      void db.tickets
+        .orderBy('ticketNo')
+        .keys()
+        .then((nos) => setTicket(newCase(nos as string[])))
     } else if (key === 'camp') {
       close()
       setCamp(newCamp())

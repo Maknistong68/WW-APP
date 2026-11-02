@@ -54,7 +54,7 @@ export interface Task {
   subject?: { contractorUuid: string; workOrderUuid: string; month: string }
   sheet?: 'kpi' | 'manpower'
   ticketUuid?: string
-  /** A ticket row's tab on the Tickets card: hotline or Internal. */
+  /** A ticket row's tab on the Tickets card: D&C (tickets) or Cases (internal). */
   ticketSource?: SourceTab
   campUuid?: string
   inspectionId?: number
@@ -267,14 +267,14 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
     })
   }
 
-  // 2. Tickets: over 30 days (named, then "more"), and turning 30 within a week; hotline and
-  // Internal tickets each on their own (the Tickets card's two tabs).
-  // Named by the contractor's short name; the ticket number leads the line below.
+  // 2. Tickets: over 30 days (named, then "more"), and turning 30 within a week; D&C tickets
+  // and the team's own cases each on their own (the Tickets card's two tabs, D&C | Cases).
+  // Named by the contractor's short name; the ticket / case number leads the line below.
   const whoOf = (uuid: string) => {
     const name = d.byUuid.get(uuid)?.name
     return name ? shortName(name) : 'No contractor'
   }
-  const allOpen = d.tickets.filter((t) => isOpen(t) && !t.parentUuid && t.openedAt)
+  const allOpen = [...d.tickets, ...d.cases].filter((t) => isOpen(t) && !t.parentUuid && t.openedAt)
   for (const tab of ['tickets', 'internal'] as const) {
     const open = allOpen.filter((t) => sourceTab(t) === tab)
     const internal = tab === 'internal'
@@ -305,7 +305,7 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
         key: internal ? 'tickets:late:internal' : 'tickets:late',
         kind: 'tickets',
         group: 'overdue',
-        title: internal ? 'More internal tickets over 30 days' : 'More tickets over 30 days',
+        title: internal ? 'More cases over 30 days' : 'More tickets over 30 days',
         detail: 'Opens the 30+ days list',
         due: addDays(late[cap - 1].openedAt, 30),
         dueText: `${more} more`,

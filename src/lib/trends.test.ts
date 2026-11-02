@@ -21,6 +21,7 @@ const data = (kpis: Partial<KpiMonth>[], p: Partial<AllData> = {}): AllData => (
   woByUuid: new Map(),
   camps: [],
   tickets: [],
+  cases: [],
   kpis: kpis as KpiMonth[],
   manpower: [],
   weekly: [],
