@@ -190,8 +190,8 @@ per screen.
   - Sorted worst first by the latest month, or A–Z. The name column stays pinned while the months
     scroll.
   - The KPI, range, rows and sort live in the link.
-  - Entry points: the Dashboard KPIs tab ("Compare contractors", the 5 worst) and "Compare month
-    by month ›" on a KPI page. That tab also has "Quarterly audits", one bar per quarter.
+  - Entry points: the Dashboard KPIs view (Explore › Compare, the 5 worst) and "Compare month
+    by month ›" on a KPI page. The same Explore card has "Quarterly audits", one bar per quarter.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
   - Two tabs on top, **D&C Tickets | Cases** (`?tab=internal`, `sourceTab` in
@@ -215,11 +215,31 @@ per screen.
     "None"); it won't close without an answer. A combined ticket's money stays on its main ticket.
   - Edit shows the closing date and the actions too. Old imported tickets with gaps (no contractor
     or issue) still save; a field that had a value can't be emptied (`src/lib/ticketCheck.ts`).
-- **Dashboard:** three views as a One UI sub-tab track: **Tickets** (default; ends with the money),
-  **Accommodation** (camps and inspections) and **KPIs** (ends with the workers). Then a month
-  stepper, hero numbers and charts.
-  - The view and month live in the link (`?v=`, `?m=`), so Back keeps them. Old links
-    (`?v=overview|money|workers|camps`) open the view that now holds them (`dashView`).
+- **Dashboard:** three views as a One UI sub-tab track: **Tickets** (default), **Accommodation**
+  and **KPIs**, then the month stepper, then the same three sections on every view
+  (spec: `docs/superpowers/specs/2026-11-02-dashboard-focus-explore-design.md`):
+  - **Focus** (`src/lib/focus.ts`, `src/components/dash/FocusStrip.tsx`): two to four big cards
+    swiped across, "1 of 3" in the heading. Each is one figure: a **ring** (a whole split into
+    parts, e.g. open tickets by age), a **meter** (a score against its target, e.g. closure vs
+    90%) or a **split** (a number over a thin two-part bar, e.g. money recovered / still owed);
+    then one line of meaning and one green link. Tap the card for its list; hold for its pop-up.
+  - **Explore** (`src/lib/explore.ts`, `ExploreCard.tsx`): chips pick one breakdown (Tickets: by
+    contractor, issue, category, D&C vs cases, age, money by contractor, owed by age, largest amounts;
+    KPIs: each KPI, by contractor, workers, quarterly audits, compare; Accommodation: to inspect,
+    scores by camp, by contractor). One picture at a time: ranked thin bars (8 px, top 6 then
+    Other), rows, ticket rows or the compare grid. Tap opens the list; hold opens the pop-up.
+  - **Over time** (`src/lib/overTime.ts`, `OverTimeCard.tsx`): chips pick the series; one line
+    chart with the callout (**Open** a month's tickets, or **Show month**).
+  - **Figures** (`src/components/charts/Ring.tsx`, `Meter.tsx`, `SplitBar.tsx`, `RankBars.tsx`):
+    status colours for parts, meters and status bars, the chart hue for ranked counts, 2 px
+    surface gaps between parts; rings fill clockwise, bars sweep, numbers count up.
+  - **Hold-to-drill pop-up** (`peekMenu` in `src/components/menus.tsx`, data in
+    `src/lib/peek.ts`): the ordinary long-press pop-up with up to 3 key numbers, a sparkline, a
+    split bar of the open tickets by age where it is about tickets, and actions that open the
+    lists. Contractors and camps open their own pop-ups.
+  - The view, month and chips live in the link (`?v=`, `?m=`, `?x=` Explore, `?t=` Over time),
+    so Back keeps them. Old links (`?v=overview|money|workers|camps`) open the view that now
+    holds them (`dashView`).
 - **Drill-down: every number opens what's behind it.**
   - A number that has a list shows a small green ›; a plain number has none.
   - Ticket links carry their filters (`src/lib/ticketFilter.ts`: contractor, month, opened /

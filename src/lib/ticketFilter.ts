@@ -100,7 +100,7 @@ export function filterTickets(tickets: Ticket[], q: TicketQuery, today = localDa
   })
 }
 
-const AGE_LABEL: Record<AgingBucket, string> = {
+export const AGE_LABEL: Record<AgingBucket, string> = {
   '0-10': '0–10 days',
   '11-30': '11–30 days',
   '31-60': '31–60 days',

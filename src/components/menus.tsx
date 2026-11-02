@@ -1,4 +1,6 @@
+import type { IconName } from './Icon'
 import IconTile from './IconTile'
+import SplitBar from './charts/SplitBar'
 import { showActions, type SheetAction, type SheetFact } from './ActionSheet'
 import { go, openSheet } from './SheetHost'
 import { showToast } from './Toast'
@@ -12,6 +14,8 @@ import { haptic } from '../lib/haptics'
 import { kpiStatus, pct, type KpiResult } from '../lib/kpi'
 import { campActions, contractorActions, inspectionActions, routineActions, ticketActions, workOrderActions, type MenuAction } from '../lib/menuSpec'
 import { sarShort } from '../lib/money'
+import type { Peek } from '../lib/peek'
+import type { FocusAction } from '../lib/focus'
 import { ticketLink } from '../lib/ticketFilter'
 import { removeRecord, saveRecord } from '../lib/records'
 import { backgroundSync } from '../lib/sync'
@@ -351,5 +355,21 @@ export function areaMenu(a: AreaDef, s: AreaSummary, o: { month: string; onAddTa
     ],
     note: s.names.length ? `${s.names.join(', ')}${s.more ? ` +${s.more} more` : ''}` : a.help,
     actions,
+  })
+}
+
+/**
+ * Long-press on a Dashboard figure, bar or row: its key numbers, a trend,
+ * the open tickets by age when it is about tickets, and where to go next.
+ */
+export function peekMenu(o: { title: string; sub?: string; icon: IconName; tone: Tone; peek: Peek; actions: FocusAction[] }) {
+  showActions({
+    title: o.title,
+    sub: o.sub,
+    cover: <IconTile icon={o.icon} tone={o.tone} size={52} />,
+    facts: o.peek.facts,
+    spark: o.peek.spark,
+    figure: o.peek.parts ? <SplitBar parts={o.peek.parts} label="Open tickets by age" /> : undefined,
+    actions: o.actions.map((a) => ({ label: a.label, icon: a.icon, onSelect: () => go(a.to) })),
   })
 }

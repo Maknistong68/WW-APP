@@ -1,133 +1,44 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { saveAs } from 'file-saver'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
-import CountUp from '../components/CountUp'
-import { MENU_HUE } from '../lib/hues'
+import ExploreCard from '../components/dash/ExploreCard'
+import FocusStrip from '../components/dash/FocusStrip'
+import OverTimeCard from '../components/dash/OverTimeCard'
+import { campMenu, contractorMenu, peekMenu } from '../components/menus'
 import { showToast } from '../components/Toast'
-import TrendLine from '../components/charts/TrendLine'
-import BarList from '../components/charts/BarList'
-import MonthBars from '../components/charts/MonthBars'
-import { campMenu, contractorMenu } from '../components/menus'
-import CompareGrid from '../components/CompareGrid'
-import { compareRows, sortRows } from '../lib/compare'
-import { quarterlyAudits } from '../lib/audits'
-import { openedIn, ticketLink, type TicketQuery } from '../lib/ticketFilter'
-import { contractorOverall } from '../lib/trends'
 import { isOpen } from '../lib/aging'
-import { useLongPress } from '../lib/useLongPress'
-import { campTone, kpiTone } from '../lib/tone'
-import { TicketRow } from './TicketsPage'
-import {
-  auditAverage,
-  campsSummary,
-  dashView,
-  type DashView,
-  inspectionsPerMonth,
-  lastMonths,
-  missingSubmissions,
-  openAging,
-  periodStats,
-  recoveredPerMonth,
-  ticketsBy,
-  ticketsPerMonth,
-  weeklyTrend,
-  workersPerMonth,
-  workforce,
-} from '../lib/dashboard'
+import { CAMP_STATUS_LABEL, campState } from '../lib/camps'
+import { dashView, lastMonths, type DashView } from '../lib/dashboard'
 import { addMonths, localDate, monthLabel, monthOf } from '../lib/dates'
-import { declarationsDue, dueMonthFor, dueTone } from '../lib/due'
-import { KPI_PARTS, STATUS_LABEL, closurePct, kpiStatus, pct } from '../lib/kpi'
-import { itemStats, kpisForMonth, subjectKpis, useAllData } from '../lib/kpiData'
-import { kpiSubjects } from '../lib/subjects'
-import { CAMP_STATUS_LABEL } from '../lib/camps'
-import { closeoutTotals, closeouts } from '../lib/closeout'
-import { moneyStats, owedOf, sar, sarShort } from '../lib/money'
-import { memberCounts } from '../lib/groups'
+import { exploreChip, exploreData, type ExploreHold } from '../lib/explore'
+import { focusCards, type FocusCard } from '../lib/focus'
+import { MENU_HUE } from '../lib/hues'
+import { kpisForMonth, useAllData } from '../lib/kpiData'
+import { sarShort } from '../lib/money'
+import { OVER_TIME_CHIPS, overTimeChip, overTimeSeries, type OverTimeSeries } from '../lib/overTime'
+import { ticketLink, type TicketQuery } from '../lib/ticketFilter'
+import { campTone } from '../lib/tone'
+import { contractorOverall } from '../lib/trends'
 import { logEvent } from '../db'
+
+// The Dashboard: three views (Tickets · Accommodation · KPIs), a month row,
+// then the same three sections on each: Focus (big cards, swiped across),
+// Explore (one breakdown, chips pick which) and Over time (one line, chips
+// pick the series). Tap a number for its list; hold it for its pop-up.
+// Spec: docs/superpowers/specs/2026-11-02-dashboard-focus-explore-design.md
 
 const VIEWS: { key: DashView; label: string }[] = [
   { key: 'tickets', label: 'Tickets' },
   { key: 'accommodation', label: 'Accommodation' },
   { key: 'kpis', label: 'KPIs' },
 ]
-/** Tabs that can show "All" time; the rest are per month. */
+/** Views that can show "All" time; the rest are per month. */
 const ALL_TIME: DashView[] = ['tickets']
 
 type ExportKind = 'excel' | 'word' | 'pack'
-type Tone = 'good' | 'warn' | 'bad' | ''
-
-const AGE_LABEL: Record<string, string> = {
-  '0-10': '0–10 days',
-  '11-30': '11–30 days',
-  '31-60': '31–60 days',
-  '61-90': '61–90 days',
-  '90+': 'Over 90 days',
-}
-
-/** "3 on track · 1 critical · 9 no data" — zeros left out. */
-const countsText = (s: { good: number; warn: number; bad: number; none: number }) =>
-  [s.good && `${s.good} on track`, s.warn && `${s.warn} at risk`, s.bad && `${s.bad} critical`, s.none && `${s.none} no data`]
-    .filter(Boolean)
-    .join(' · ') || '—'
-
-const toneOf = (status: string): Tone => (status === 'good' || status === 'warn' || status === 'bad' ? status : '')
-
-/**
- * One number with a short label. With `to` (or `onClick`) it opens what's
- * behind it and shows a ›; a ticket number flies into the list's filter chips.
- */
-function Hero({ value, label, tone = '', onClick, to }: { value: ReactNode; label: string; tone?: Tone; onClick?: () => void; to?: string }) {
-  const navigate = useNavigate()
-  const live = !!(onClick || to)
-  const body = (
-    <>
-      <div className={`hero-num${tone ? ` ${tone}` : ''}`}>
-        <CountUp value={value} />
-      </div>
-      <div className="hero-label">
-        {label}
-        {live && <Icon name="chevron-right" size={14} strokeWidth={2.6} className="hero-chev" />}
-      </div>
-    </>
-  )
-  if (!live) return <div className="hero">{body}</div>
-  return (
-    <button
-      className="hero live"
-      onClick={(e) => {
-        if (!to) return onClick?.()
-        if (to.startsWith('/tickets')) e.currentTarget.style.setProperty('view-transition-name', 'drill')
-        navigate(to)
-      }}
-    >
-      {body}
-    </button>
-  )
-}
-
-/** A plain list row (button.row) that also opens a menu when held. */
-function HoldRow({ onOpen, onMore, children }: { onOpen: () => void; onMore: () => void; children: ReactNode }) {
-  const press = useLongPress(onMore)
-  return (
-    <button className="row" onClick={onOpen} {...press}>
-      {children}
-    </button>
-  )
-}
-
-function Card({ title, sub, children }: { title: string; sub?: string; children: ReactNode }) {
-  return (
-    <div className="chart-card">
-      <div className="chart-title">{title}</div>
-      {sub && <div className="chart-sub">{sub}</div>}
-      {children}
-    </div>
-  )
-}
-
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -137,52 +48,39 @@ export default function DashboardPage() {
   const d = useAllData()
   const today = localDate()
   const thisMonth = monthOf()
-  // The view and month live in the link, so Back and drill-downs keep them.
+  // The view, month and chips live in the link, so Back and drill-downs keep them.
   const mParam = params.get('m')
   const picked: string | null = mParam === 'all' ? null : mParam && /^\d{4}-\d{2}$/.test(mParam) ? mParam : thisMonth
-  const setLink = (key: 'v' | 'm', value: string | null) => {
+  const setLink = (key: 'v' | 'm' | 'x' | 't', value: string | null) => {
     const next = new URLSearchParams(params)
     if (value === null) next.delete(key)
     else next.set(key, value)
     setParams(next, { replace: true })
   }
-  const setView = (v: DashView) => setLink('v', v === 'tickets' ? null : v)
+  const setView = (v: DashView) => {
+    const next = new URLSearchParams(params)
+    if (v === 'tickets') next.delete('v')
+    else next.set('v', v)
+    next.delete('x')
+    next.delete('t')
+    setParams(next, { replace: true })
+  }
   const setPicked = (m: string | null) => setLink('m', m === thisMonth ? null : (m ?? 'all'))
   const [exporting, setExporting] = useState(false)
   const allowAll = ALL_TIME.includes(view)
   const month = allowAll ? picked : (picked ?? thisMonth)
   const kpiMonth = picked ?? thisMonth
+  const from = `/dashboard?${params.toString()}`
+  const xChip = exploreChip(view, params.get('x'))
+  const tChip = overTimeChip(view, params.get('t'))
+  const setChip = (key: 'x' | 't', value: string, first: string) => setLink(key, value === first ? null : value)
 
-  // --- tickets & money -------------------------------------------------------
-  /** Link filters for "tickets opened in the picked month" (none for all time). */
-  const opened: TicketQuery = month ? { m: month, in: 'opened' } : {}
-  const tix = (q: TicketQuery) => ticketLink(q, `/dashboard?${params.toString()}`)
-  const stats = useMemo(() => periodStats(d.tickets, month, d.byUuid), [d.tickets, d.byUuid, month])
-  const trend = useMemo(() => weeklyTrend(d.weekly, d.tickets).map((p) => ({ date: p.date, value: p.open })), [d.weekly, d.tickets])
-  const months12 = useMemo(() => lastMonths(kpiMonth, 12), [kpiMonth])
-  const months6 = useMemo(() => lastMonths(kpiMonth, 6), [kpiMonth])
-  const perMonth = useMemo(() => ticketsPerMonth(d.tickets, months12), [d.tickets, months12])
-  const aging = useMemo(() => openAging(d.tickets, today), [d.tickets, today])
-  const groupCounts = useMemo(() => memberCounts(d.tickets), [d.tickets])
-  const scope = month ? stats.opened : d.tickets
-  const caseScope = useMemo(() => (month ? d.cases.filter((t) => openedIn(t, month)) : d.cases), [d.cases, month])
-  const money = useMemo(() => moneyStats(scope), [scope])
-  const recovered = useMemo(() => recoveredPerMonth(d.tickets, months12), [d.tickets, months12])
-  const closure = useMemo(() => closurePct(d.tickets, kpiMonth), [d.tickets, kpiMonth])
-
-  // --- KPIs, workers, camps --------------------------------------------------
-  const subjectList = useMemo(() => kpiSubjects(d.contractors, d.workOrders), [d.contractors, d.workOrders])
-  const subjects = useMemo(() => subjectKpis(d, kpiMonth), [d, kpiMonth])
-  const overall = itemStats(subjects, 'overall')
+  const focus = useMemo(() => focusCards(d, view, { month, kpiMonth, today, from }), [d, view, month, kpiMonth, today, from])
+  const explore = useMemo(() => exploreData(d, view, xChip, { month, kpiMonth, today, from }), [d, view, xChip, month, kpiMonth, today, from])
+  const series = useMemo(() => overTimeSeries(d, view, tChip, kpiMonth, today), [d, view, tChip, kpiMonth, today])
   const kpiMap = useMemo(() => kpisForMonth(d, kpiMonth), [d, kpiMonth])
-  // Compare card: the 5 lowest contractors over 6 months, ending with the month that's due.
-  const miniMonths = useMemo(() => lastMonths(dueMonthFor(kpiMonth, today), 6), [kpiMonth, today])
-  const miniRows = useMemo(
-    () => (view === 'kpis' ? sortRows(compareRows(d, miniMonths, 'overall'), 'worst').slice(0, 5) : []),
-    [d, miniMonths, view],
-  )
-  const quarters = useMemo(() => (view === 'kpis' ? quarterlyAudits(d, subjectList) : []), [d, subjectList, view])
-  /** Hold a contractor (bar or table row): its pop-up with a 6-month trend. */
+
+  /** Hold a contractor anywhere: its pop-up with a 6-month trend. */
   const holdContractor = (uuid: string) => {
     const c = d.byUuid.get(uuid)
     if (!c) return
@@ -194,30 +92,24 @@ export default function DashboardPage() {
       spark: contractorOverall(d, c, lastMonths(kpiMonth, 6)),
     })
   }
-  const byContractor = useMemo(() => {
-    const m = kpiMap
-    return d.contractors
-      .filter((c) => c.active)
-      .map((c) => ({ c, r: m.get(c.uuid)! }))
-      .filter(({ r }) => r && r.overall !== null)
-      .sort((a, b) => (a.r.overall ?? 101) - (b.r.overall ?? 101))
-  }, [d, kpiMap])
-  const kpiTrend = useMemo(
-    () =>
-      months6.map((m) => {
-        const avg = itemStats(subjectKpis(d, m), 'overall').avg
-        return { month: m, values: [avg === null ? null : Math.round(avg)] }
-      }),
-    [d, months6],
-  )
-  const missingDocs = useMemo(() => missingSubmissions(subjectList, d.kpis, kpiMonth), [subjectList, d.kpis, kpiMonth])
-  const docsTone = (missing: number, month: string): Tone => (missing ? (dueTone(declarationsDue(month), today) ?? '') : 'good')
-  const wf = useMemo(() => workforce(subjectList, d.manpower, kpiMonth), [subjectList, d.manpower, kpiMonth])
-  const wfTrend = useMemo(() => workersPerMonth(subjectList, d.manpower, months6), [subjectList, d.manpower, months6])
-  const camps = useMemo(() => campsSummary(d.camps, d.inspections, today), [d.camps, d.inspections, today])
-  const audits = useMemo(() => auditAverage(d.inspections, kpiMonth), [d.inspections, kpiMonth])
-  const inspTrend = useMemo(() => inspectionsPerMonth(d.inspections, months6), [d.inspections, months6])
-  const co = useMemo(() => closeoutTotals(closeouts(subjectList, d.kpis, today)), [subjectList, d.kpis, today])
+  const holdCamp = (uuid: string) => {
+    const camp = d.camps.find((c) => c.uuid === uuid)
+    if (!camp) return
+    const s = campState(camp, d.inspections, today)
+    campMenu(camp, { sub: `${CAMP_STATUS_LABEL[s.status]}${s.daysSince !== null ? ` · last ${s.daysSince}d ago` : ''}`, tone: campTone(s.status) })
+  }
+  const holdFocus = (c: FocusCard) => peekMenu({ title: c.title, sub: c.peek.sub, icon: c.icon, tone: c.tone, peek: c.peek, actions: c.peek.actions })
+  const holdExplore = (h: ExploreHold) => {
+    if (h.kind === 'contractor') holdContractor(h.uuid)
+    else if (h.kind === 'camp') holdCamp(h.uuid)
+    else peekMenu({ title: h.title, sub: h.sub, icon: h.icon, tone: h.tone, peek: h.peek, actions: h.actions })
+  }
+  /** A month tapped on the Over time chart: its tickets, or that month on the Dashboard. */
+  const openMonth = (m: string, open: NonNullable<OverTimeSeries['open']>) => {
+    if (open === 'month') return setPicked(m)
+    const q: TicketQuery = open === 'opened' ? { m, in: 'opened' } : open === 'closed' ? { m, in: 'closed' } : { m, in: 'closed', owed: 'paid' }
+    navigate(ticketLink(q, from))
+  }
 
   const doExport = async (kind: ExportKind) => {
     setExporting(false)
@@ -236,9 +128,7 @@ export default function DashboardPage() {
     }
   }
 
-  const avg = stats.avgDaysToClose
-  const short = (m: string) => monthLabel(m).slice(0, 3)
-  const wfFrom = wf.month && wf.month !== kpiMonth ? ` · ${short(wf.month)}` : ''
+  const exploreWhen = view === 'tickets' && !month ? 'All time' : monthLabel(kpiMonth)
 
   return (
     <Page
@@ -283,371 +173,21 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {view === 'tickets' && (
-        <>
-          <div className="hero-row">
-            <Hero
-              value={stats.openAtEnd}
-              label={`Open${month && month < thisMonth ? ' at month end' : ''}`}
-              to={tix(month ? { m: month, in: 'openAtEnd' } : { in: 'openAtEnd' })}
-            />
-            <Hero value={stats.opened.length} label="Opened" to={tix(opened)} />
-            <Hero value={stats.closed.length} label="Closed" to={tix(month ? { m: month, in: 'closed' } : { f: 'closed' })} />
-          </div>
-          <div className="hero-row">
-            <Hero
-              value={stats.over30AtEnd}
-              label="Over 30 days"
-              tone={stats.over30AtEnd ? 'bad' : ''}
-              to={tix(month ? { m: month, in: 'lateAtEnd' } : { in: 'lateAtEnd' })}
-            />
-            <Hero value={stats.workersOpened.toLocaleString()} label="Workers affected" to={tix(opened)} />
-            <Hero
-              value={avg === null ? '—' : Math.round(avg)}
-              label="Avg days to close"
-              tone={avg === null ? '' : avg <= 10 ? 'good' : avg <= 30 ? 'warn' : 'bad'}
-            />
-          </div>
+      <div className="stagger dash" key={view}>
+        <FocusStrip cards={focus} onHold={holdFocus} format={(c) => (c.key === 'money' ? (v) => `SAR ${sarShort(v)}` : undefined)} />
 
-          <Card title="Opened vs closed" sub={`Per month · 12 months to ${monthLabel(kpiMonth)}`}>
-            <MonthBars
-              data={perMonth}
-              series={['Opened', 'Closed']}
-              onOpen={(m) => navigate(tix({ m, in: 'opened' }))}
-              openLabel="Open"
-            />
-          </Card>
+        <section aria-label="Explore">
+          <h2 className="clist-head">
+            Explore <span className="clist-count">{exploreWhen}</span>
+          </h2>
+          <ExploreCard view={view} chip={xChip} onChip={(k) => setChip('x', k, exploreChip(view, null))} data={explore} d={d} onHold={holdExplore} />
+        </section>
 
-          <Card title="Open D&C tickets" sub={`Per week · ${trend.length} weeks`}>
-            <TrendLine data={trend} unit="open" />
-          </Card>
-
-          <Card title="Open tickets by age" sub={`Today · ${aging.reduce((s, r) => s + r.count, 0)} open`}>
-            <BarList
-              max={5}
-              data={aging.map((r) => ({
-                key: r.bucket,
-                label: AGE_LABEL[r.bucket],
-                value: r.count,
-                detail: `${r.workers} worker${r.workers === 1 ? '' : 's'}`,
-                onClick: () => navigate(tix({ age: r.bucket })),
-              }))}
-            />
-          </Card>
-
-          <Card title="Closure and source" sub={`${month ? monthLabel(month) : 'All tickets'}`}>
-            <div className="hero-row" style={{ gridTemplateColumns: '1fr 2fr', marginBottom: 0 }}>
-              <Hero value={pct(closure)} label={`Closed · ${short(kpiMonth)}`} tone={toneOf(kpiStatus(closure))} />
-              {/* D&C tickets (every number on this view) next to the team's own cases */}
-              <BarList
-                data={[
-                  { key: 'System', label: 'D&C', value: scope.length, onClick: () => navigate(tix({ ...opened, src: 'System' })) },
-                  { key: 'Internal', label: 'Cases', value: caseScope.length, onClick: () => navigate(tix({ ...opened, src: 'Internal' })) },
-                ]}
-              />
-            </div>
-          </Card>
-
-          <Card title="By contractor" sub="Tickets opened · workers">
-            <BarList
-              data={stats.byContractor.map((c) => ({
-                key: c.key,
-                label: c.label,
-                value: c.count,
-                detail: `${c.workers} worker${c.workers === 1 ? '' : 's'}`,
-                onClick: () => navigate(tix({ ...opened, c: c.key === '—' ? 'none' : c.key })),
-                onMore: d.byUuid.has(c.key) ? () => holdContractor(c.key) : undefined,
-              }))}
-            />
-          </Card>
-          <Card title="By issue" sub="Tickets opened · workers">
-            <BarList
-              data={stats.byIssue.map((c) => ({
-                key: c.key,
-                label: c.label,
-                value: c.count,
-                detail: `${c.workers} worker${c.workers === 1 ? '' : 's'}`,
-                onClick: () => navigate(tix({ ...opened, issue: c.key })),
-              }))}
-            />
-          </Card>
-          <Card title="By category" sub="Tickets opened">
-            <BarList
-              data={ticketsBy(scope, (t) => t.category).map((c) => ({
-                key: c.key,
-                label: c.label,
-                value: c.count,
-                onClick: () => navigate(tix({ ...opened, cat: c.key })),
-              }))}
-            />
-          </Card>
-
-          <div className="section-label" id="money">Money</div>
-          <div className="hero-row">
-            <Hero value={sarShort(money.outstanding)} label="SAR still owed" tone={money.outstanding ? 'bad' : ''} to={tix({ ...opened, owed: 'open' })} />
-            <Hero value={sarShort(money.settled)} label="SAR recovered" to={tix({ ...opened, owed: 'paid' })} />
-            <Hero
-              value={sarShort(money.total)}
-              label={`SAR total · ${money.withAmount} ticket${money.withAmount === 1 ? '' : 's'}`}
-              to={tix({ ...opened, owed: 'any' })}
-            />
-          </div>
-          <div className="list-foot" style={{ marginTop: 0 }}>
-            From tickets only · still owed = open · recovered = closed ·{' '}
-            {month ? `tickets opened in ${monthLabel(month)}` : 'all tickets'}
-          </div>
-
-          <Card title="Recovered per month" sub={`SAR on tickets closed · 12 months to ${monthLabel(kpiMonth)}`}>
-            <MonthBars
-              data={recovered}
-              series={['Recovered']}
-              format={sar}
-              axisFormat={sarShort}
-              onOpen={(m) => navigate(tix({ m, in: 'closed', owed: 'paid' }))}
-              openLabel="Open"
-            />
-          </Card>
-
-          <Card title="Still owed by age" sub="Open tickets today · SAR">
-            <BarList
-              max={5}
-              format={sar}
-              data={aging
-                .filter((r) => r.owed > 0)
-                .map((r) => ({
-                  key: r.bucket,
-                  label: AGE_LABEL[r.bucket],
-                  value: r.owed,
-                  detail: `${r.count} ticket${r.count === 1 ? '' : 's'}`,
-                  onClick: () => navigate(tix({ age: r.bucket, owed: 'open' })),
-                }))}
-            />
-          </Card>
-
-          <Card title="Money by contractor" sub="Total SAR · tickets">
-            <BarList
-              format={sar}
-              data={money.byKey((t) => t.contractorUuid).map((m) => ({
-                key: m.key,
-                label: d.byUuid.get(m.key)?.name ?? 'No contractor',
-                value: m.amount,
-                detail: `${m.count} ticket${m.count === 1 ? '' : 's'}`,
-                onClick: () => navigate(tix({ ...opened, owed: 'any', c: m.key === '—' ? 'none' : m.key })),
-                onMore: d.byUuid.has(m.key) ? () => holdContractor(m.key) : undefined,
-              }))}
-            />
-          </Card>
-          <div className="section-label">Largest amounts</div>
-          {money.withAmount === 0 ? (
-            <div className="list-foot">No ticket has a money-owed amount in this period.</div>
-          ) : (
-            <div className="list">
-              {scope
-                .filter((t) => owedOf(t) > 0)
-                .sort((a, b) => owedOf(b) - owedOf(a))
-                .slice(0, 5)
-                .map((t) => (
-                  <TicketRow
-                    key={t.uuid}
-                    t={t}
-                    contractors={d.byUuid}
-                    wos={d.woByUuid}
-                    group={groupCounts.get(t.uuid) ? `${(groupCounts.get(t.uuid) ?? 0) + 1} tickets` : undefined}
-                  />
-                ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {view === 'kpis' && (
-        <>
-          <div className="hero-row">
-            <Hero value={pct(overall.avg)} label="Overall KPI" tone={toneOf(kpiStatus(overall.avg))} to={`/kpis/overall?m=${kpiMonth}`} />
-            <Hero value={overall.bad} label="Critical" tone={overall.bad ? 'bad' : ''} to={`/kpis/overall?m=${kpiMonth}&s=bad`} />
-            <Hero
-              value={`${subjectList.length - missingDocs.length}/${subjectList.length}`}
-              label="Submissions in"
-              tone={docsTone(missingDocs.length, kpiMonth)}
-              onClick={() => navigate(`/missing/submission?m=${kpiMonth}`)}
-            />
-          </div>
-
-          <div className="section-label">Each KPI · {monthLabel(kpiMonth)}</div>
-          <div className="list">
-            <button className="row" onClick={() => navigate(`/kpis/overall?m=${kpiMonth}`)}>
-              <span className={`status-dot ${kpiStatus(overall.avg)}`} />
-              <span className="row-main">
-                <div className="row-title" style={{ fontWeight: 600 }}>
-                  Overall KPI
-                </div>
-                <div className="row-sub">{countsText(overall)}</div>
-              </span>
-              <span className="row-trail">{pct(overall.avg)}</span>
-            </button>
-            {KPI_PARTS.map((p) => {
-              const st = itemStats(subjects, p.key)
-              return (
-                <button key={p.key} className="row" onClick={() => navigate(`/kpis/${p.key}?m=${kpiMonth}`)}>
-                  <span className={`status-dot ${kpiStatus(st.avg)}`} />
-                  <span className="row-main">
-                    <div className="row-title">
-                      {p.label}
-                      {p.auto && <span className="row-sub" style={{ display: 'inline', marginLeft: 6 }}>auto</span>}
-                    </div>
-                    <div className="row-sub">{countsText(st)}</div>
-                  </span>
-                  <span className="row-trail">{pct(st.avg)}</span>
-                  <span className="row-chev">
-                    <Icon name="chevron-right" size={18} />
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-          <div className="list-foot">Averages over {subjects.length} active work orders / contractors.</div>
-
-          <Card title="Compare contractors" sub={`Overall KPI · worst 5 · ${miniMonths.length} months to ${monthLabel(miniMonths[miniMonths.length - 1])}`}>
-            <CompareGrid
-              rows={miniRows}
-              months={miniMonths}
-              onOpenCell={(r, m) => navigate(`/contractors/${r.contractorUuid}?m=${m}`)}
-              onOpenRow={(r) => navigate(`/contractors/${r.contractorUuid}?tab=trends`)}
-              onHoldRow={(r) => holdContractor(r.contractorUuid)}
-              label="Overall KPI, the 5 lowest contractors"
-            />
-            <button className="compare-link" onClick={() => navigate('/compare')}>
-              Open full grid ›
-            </button>
-          </Card>
-
-          <Card title="Quarterly audits" sub="Average score per quarter · tap for each work order">
-            {quarters.length === 0 ? (
-              <div className="note">No quarterly audit scores yet.</div>
-            ) : (
-              <BarList
-                scale={100}
-                other="none"
-                format={(v) => `${v}%`}
-                data={quarters.map((q) => ({
-                  key: q.key,
-                  label: q.label,
-                  value: q.avg,
-                  tone: kpiTone(kpiStatus(q.avg)),
-                  detail: `${STATUS_LABEL[kpiStatus(q.avg)]} · ${q.audited} of ${q.total} audited`,
-                  onClick: () => navigate(`/missing/quarterly?m=${q.lastMonth}`),
-                }))}
-              />
-            )}
-          </Card>
-
-          <Card title="Quarterly audit close-out" sub={`${co.findings} finding${co.findings === 1 ? '' : 's'} logged · ${co.audits} audit${co.audits === 1 ? '' : 's'} still open`}>
-            <div className="hero-row" style={{ marginBottom: 0 }}>
-              <Hero value={co.open} label="Findings open" tone={co.open ? 'warn' : ''} onClick={() => navigate('/closeouts')} />
-              <Hero value={co.overdue} label="Overdue" tone={co.overdue ? 'bad' : ''} onClick={() => navigate('/closeouts')} />
-              <Hero value={pct(co.pct)} label="Closed out" tone={toneOf(kpiStatus(co.pct))} onClick={() => navigate('/closeouts')} />
-            </div>
-          </Card>
-
-          <Card title="Overall KPI trend" sub={`Average · 6 months to ${monthLabel(kpiMonth)}`}>
-            <MonthBars data={kpiTrend} series={['Overall KPI']} format={(v) => `${v}%`} onOpen={setPicked} openLabel="Show month" />
-          </Card>
-
-          <Card title="By contractor" sub={`${monthLabel(kpiMonth)} · overall · worst first`}>
-            {byContractor.length === 0 ? (
-              <div className="note">No KPI data for this month yet.</div>
-            ) : (
-              <KpiTable rows={byContractor} onOpen={(uuid) => navigate(`/contractors/${uuid}?m=${kpiMonth}`)} onMore={holdContractor} />
-            )}
-          </Card>
-
-          <div className="section-label" id="workers">Workers{wfFrom}</div>
-          <div className="hero-row">
-            <Hero value={wf.total ? wf.total.toLocaleString('en-US') : '—'} label={`Total workers${wfFrom}`} to={`/missing/formal?m=${wf.month ?? kpiMonth}`} />
-            <Hero value={wf.illegal} label="Illegal / freelance" tone={wf.illegal ? 'bad' : ''} to={`/missing/formal?m=${wf.month ?? kpiMonth}`} />
-            <Hero value={pct(wf.formalPct)} label="Formal" tone={toneOf(kpiStatus(wf.formalPct))} to={`/missing/formal?m=${wf.month ?? kpiMonth}`} />
-          </div>
-          <div className="hero-row">
-            <Hero value={wf.visaExpiring} label="Visas expiring ≤30 days" tone={wf.visaExpiring ? 'warn' : ''} to={`/missing/formal?m=${wf.month ?? kpiMonth}`} />
-            <Hero value={wf.paidFees} label="Paid recruitment fees" tone={wf.paidFees ? 'bad' : ''} to={`/missing/formal?m=${wf.month ?? kpiMonth}`} />
-            <Hero
-              value={wf.missing}
-              label={`Not declared · ${short(kpiMonth)}`}
-              tone={wf.missing ? 'warn' : 'good'}
-              onClick={() => navigate(`/missing/formal?m=${kpiMonth}`)}
-            />
-          </div>
-
-          <Card title="Workers per month" sub={`Declared · 6 months to ${monthLabel(kpiMonth)}`}>
-            <MonthBars data={wfTrend} series={['Workers']} onOpen={setPicked} openLabel="Show month" />
-          </Card>
-
-          <Card title="Workers by contractor" sub={`${wf.month ? monthLabel(wf.month) : '—'} · workers · illegal`}>
-            <BarList
-              data={wf.byContractor.map((c) => ({
-                key: c.key,
-                label: c.label,
-                value: c.total,
-                detail: `${c.illegal} illegal`,
-                onClick: () => navigate(`/contractors/${c.key}?tab=trends`),
-                onMore: d.byUuid.has(c.key) ? () => holdContractor(c.key) : undefined,
-              }))}
-            />
-          </Card>
-          <div className="list-foot">Counts only — no names, Iqama or passport numbers.</div>
-        </>
-      )}
-
-      {view === 'accommodation' && (
-        <>
-          <div className="hero-row">
-            <Hero value={camps.active} label="Active camps" to="/camps" />
-            <Hero value={camps.ok} label="Up to date" tone={camps.ok ? 'good' : ''} to="/camps?s=ok" />
-            <Hero value={camps.expired + camps.never} label="Expired" tone={camps.expired + camps.never ? 'bad' : ''} to="/camps?s=expired" />
-          </div>
-          <div className="hero-row">
-            <Hero value={camps.due} label="Due soon" tone={camps.due ? 'warn' : ''} to="/camps?s=due" />
-            <Hero value={audits.count} label={`Inspections · ${short(kpiMonth)}`} to="/audits" />
-            <Hero value={pct(audits.avg)} label="Avg audit score" tone={toneOf(kpiStatus(audits.avg))} />
-          </div>
-
-          <Card title="Inspections per month" sub={`6 months to ${monthLabel(kpiMonth)}`}>
-            <MonthBars data={inspTrend} series={['Inspections']} onOpen={setPicked} openLabel="Show month" />
-          </Card>
-
-          <div className="section-label">To inspect · {camps.toVisit.length}</div>
-          {camps.toVisit.length === 0 ? (
-            <div className="list-foot">Every camp is up to date.</div>
-          ) : (
-            <div className="list">
-              {camps.toVisit.map(({ camp, state }) => (
-                <HoldRow
-                  key={camp.uuid}
-                  onOpen={() => navigate(`/camps/${camp.uuid}`)}
-                  onMore={() =>
-                    campMenu(camp, {
-                      sub: `${CAMP_STATUS_LABEL[state.status]}${state.daysSince !== null ? ` · last ${state.daysSince}d ago` : ''}`,
-                      tone: campTone(state.status),
-                    })
-                  }
-                >
-                  <span className={`status-dot ${state.status === 'due' ? 'warn' : 'bad'}`} />
-                  <span className="row-main">
-                    <div className="row-title">{camp.name}</div>
-                    <div className="row-sub">
-                      {CAMP_STATUS_LABEL[state.status]}
-                      {state.daysSince !== null ? ` · last ${state.daysSince}d ago` : ''}
-                    </div>
-                  </span>
-                  <span className="row-chev">
-                    <Icon name="chevron-right" size={18} />
-                  </span>
-                </HoldRow>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+        <section aria-label="Over time">
+          <h2 className="clist-head">Over time</h2>
+          <OverTimeCard chips={OVER_TIME_CHIPS[view]} chip={tChip} onChip={(k) => setChip('t', k, overTimeChip(view, null))} series={series} onOpen={openMonth} />
+        </section>
+      </div>
 
       {exporting && (
         <Modal title={`Export ${monthLabel(kpiMonth)}`} onClose={() => setExporting(false)}>
@@ -685,41 +225,5 @@ export default function DashboardPage() {
         </Modal>
       )}
     </Page>
-  )
-}
-
-type KpiRowData = { c: { uuid: string; name: string }; r: { overall: number | null; status: ReturnType<typeof kpiStatus> } }
-
-/** One contractor in the KPI table: tap opens it (with the month), hold for its pop-up. */
-function KpiTableRow({ c, r, onOpen, onMore }: KpiRowData & { onOpen: () => void; onMore?: () => void }) {
-  const press = useLongPress(onMore)
-  return (
-    <tr
-      tabIndex={0}
-      role="button"
-      onClick={onOpen}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen())}
-      style={{ cursor: 'pointer' }}
-      {...press}
-    >
-      <td>{c.name}</td>
-      <td className="num">{pct(r.overall)}</td>
-      <td className="st">
-        <span className={`status-dot ${r.status}`} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-        {STATUS_LABEL[r.status]}
-      </td>
-    </tr>
-  )
-}
-
-function KpiTable({ rows, onOpen, onMore }: { rows: KpiRowData[]; onOpen: (uuid: string) => void; onMore?: (uuid: string) => void }) {
-  return (
-    <table className="kpi-table">
-      <tbody>
-        {rows.map(({ c, r }) => (
-          <KpiTableRow key={c.uuid} c={c} r={r} onOpen={() => onOpen(c.uuid)} onMore={onMore ? () => onMore(c.uuid) : undefined} />
-        ))}
-      </tbody>
-    </table>
   )
 }

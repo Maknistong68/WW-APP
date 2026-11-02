@@ -30,8 +30,10 @@ export interface ActionSheetSpec {
   note?: string
   /** A small preview: up to 3 key numbers. */
   facts?: SheetFact[]
+  /** A small figure under the numbers (e.g. a split bar with its legend). */
+  figure?: ReactNode
   /** A small preview: a trend line (e.g. the last 6 months' KPI). */
-  spark?: { values: (number | null)[]; label: string; tone?: Tone; guide?: number }
+  spark?: { values: (number | null)[]; label: string; tone?: Tone; guide?: number; domain?: [number, number] }
   /** The item it was opened from; defaults to the one just held (src/lib/anchor.ts). */
   anchor?: Box
   actions: SheetAction[]
@@ -68,7 +70,7 @@ export default function ActionSheetHost({ canEdit }: { canEdit: boolean }) {
     listener = (s) => {
       // nothing a viewer may do and nothing to preview: don't open an empty menu
       const visible = s?.actions.filter((a) => canEditNow.current || !a.edit) ?? []
-      if (s && !visible.length && !s.facts?.length && !s.spark && !s.note) return
+      if (s && !visible.length && !s.facts?.length && !s.spark && !s.figure && !s.note) return
       returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       setClosing(false)
       setPlace(null)
@@ -140,7 +142,7 @@ export default function ActionSheetHost({ canEdit }: { canEdit: boolean }) {
         <div className="as-peek">
           {spec.spark && (
             <div className="as-fact as-spark">
-              <Sparkline values={spec.spark.values} label={spec.spark.label} tone={spec.spark.tone} guide={spec.spark.guide} width={96} height={34} />
+              <Sparkline values={spec.spark.values} label={spec.spark.label} tone={spec.spark.tone} guide={spec.spark.guide} domain={spec.spark.domain} width={96} height={34} />
             </div>
           )}
           {spec.facts?.slice(0, 3).map((f) => (
@@ -151,6 +153,7 @@ export default function ActionSheetHost({ canEdit }: { canEdit: boolean }) {
           ))}
         </div>
       )}
+      {spec.figure && <div className="as-figure">{spec.figure}</div>}
       {spec.note && <p className="as-note">{spec.note}</p>}
       <div className="as-list">
         {actions.map((a, i) => (

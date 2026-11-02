@@ -51,7 +51,10 @@ npm run build   # strict tsc + vite build
   `source: 'Internal'`, numbered CASE-0001…, tabs D&C Tickets | Cases). `useAllData` gives `tickets` (D&C only:
   KPIs, Dashboard, counts) and `cases` apart.
 - Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
-- Dashboard numbers: `src/lib/dashboard.ts`; charts in `src/components/charts/`.
+- Dashboard numbers: `src/lib/dashboard.ts`; its three sections: Focus cards `src/lib/focus.ts`,
+  Explore chips `src/lib/explore.ts`, Over time series `src/lib/overTime.ts`, hold-to-drill pop-up data
+  `src/lib/peek.ts` (`peekMenu` in `menus.tsx`); section components `src/components/dash/`, figures
+  (`Ring`, `Meter`, `SplitBar`, `RankBars`, `TrendLine`) in `src/components/charts/`, styles `src/styles/dash.css`.
 - Compare grid (`/compare`, every contractor or work order month by month): `src/lib/compare.ts`,
   `src/components/CompareGrid.tsx`. Audit history (quarterly scores + camp inspections):
   `src/lib/audits.ts`; inspection scores are memoised in `src/lib/inspectionScore.ts`.

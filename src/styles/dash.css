@@ -1,0 +1,119 @@
+/* ---- Dashboard: Focus · Explore · Over time ----------------------------------
+   Three sections, the same on every view. Focus is a swipe strip of big cards
+   (a ring, a meter or a split); Explore and Over time are one card each with
+   chips. Hold anything for its pop-up (src/components/menus.tsx peekMenu). */
+
+/* Focus strip (the Home "Start here" strip, with figures) */
+.focus .clist-head { justify-content: space-between; }
+.focus-pos { font-weight: 600; color: var(--faint); font-variant-numeric: tabular-nums; }
+.focus-track {
+  display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  margin: 0 calc(-1 * var(--gutter)) 18px; padding: 0 var(--gutter) 2px; scroll-padding: 0 var(--gutter); scrollbar-width: none;
+}
+.focus-track::-webkit-scrollbar { display: none; }
+.fcard {
+  flex: none; width: min(320px, calc(100% - 44px)); scroll-snap-align: start;
+  display: flex; flex-direction: column; align-items: stretch; padding: 18px; min-width: 0;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r-card);
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+  -webkit-touch-callout: none; user-select: none;
+  transition: transform var(--dur-med) var(--ease-80);
+}
+.fcard:active, .fcard.holding { transform: scale(0.97); transition-duration: var(--dur-press); }
+.fcard-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.fcard-title { font-size: 17px; font-weight: 700; }
+.fcard-fig { display: block; }
+.fcard-fig.ring-fig { display: flex; align-items: center; gap: 16px; }
+.fcard-num { display: block; margin-bottom: 10px; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+.fcard-num.bad { color: var(--bad); }
+.fcard-num.warn { color: var(--warn); }
+.fcard-num.good { color: var(--good); }
+.fcard-num.info { color: var(--info); }
+.fcard-line { display: block; margin-top: 12px; font-size: 14px; line-height: 1.35; color: var(--muted); }
+.fcard-link { display: inline-flex; align-items: center; gap: 2px; margin-top: 10px; color: var(--brand); font-size: 15px; font-weight: 600; }
+
+/* Ring: a whole split into parts, the number in the middle; fills clockwise on entry */
+.ring { position: relative; flex: none; width: 120px; height: 120px; }
+.ring-svg { display: block; width: 100%; height: 100%; }
+.ring-arc.good { stroke: var(--good); }
+.ring-arc.warn { stroke: var(--warn); }
+.ring-arc.bad { stroke: var(--bad); }
+.ring-arc.none { stroke: var(--none); }
+.ring-arc.info { stroke: var(--info); }
+.ring-track { stroke: var(--none-tint); }
+.ring-cover { stroke: var(--card); stroke-dasharray: calc(var(--c) * 1px) calc(var(--c) * 1px); animation: ringReveal var(--dur-chart) var(--ease-90) both; }
+@keyframes ringReveal { from { stroke-dashoffset: 0; } to { stroke-dashoffset: calc(var(--c) * -1px); } }
+.ring-centre { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.ring-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.ring-label { margin-top: 3px; font-size: 12px; font-weight: 500; color: var(--muted); }
+.ring-legend { display: grid; flex: 1; gap: 8px; min-width: 0; font-size: 14px; }
+.ring-legend > span, .split-legend > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ring-legend b, .split-legend b { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sw { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 3px; background: var(--none); }
+.sw.good { background: var(--good); }
+.sw.warn { background: var(--warn); }
+.sw.bad { background: var(--bad); }
+.sw.info { background: var(--info); }
+
+/* Meter: the fill in the status colour on a lighter step of it, a tick at the target */
+.meter-track { position: relative; height: 10px; border-radius: 999px; background: var(--none-tint); }
+.meter.good .meter-track { background: var(--good-tint); }
+.meter.warn .meter-track { background: var(--warn-tint); }
+.meter.bad .meter-track { background: var(--bad-tint); }
+.meter.info .meter-track { background: var(--info-tint); }
+.meter-fill { height: 100%; border-radius: 999px; background: var(--none); transform-origin: 0 50%; animation: growX var(--dur-chart) var(--ease-90) both; }
+.meter.good .meter-fill { background: var(--good); }
+.meter.warn .meter-fill { background: var(--warn); }
+.meter.bad .meter-fill { background: var(--bad); }
+.meter.info .meter-fill { background: var(--info); }
+.meter-tick { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
+.meter-scale { position: relative; display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meter-target { position: absolute; top: 0; transform: translateX(-100%); padding-right: 6px; font-weight: 600; color: var(--text); white-space: nowrap; }
+
+/* Split bar: a thin two-part (or more) bar with its legend */
+.split-bar { display: flex; gap: 2px; height: 8px; }
+.split-part { display: block; min-width: 4px; border-radius: 999px; background: var(--none); transform-origin: 0 50%; animation: growX var(--dur-chart) var(--ease-90) both; }
+.split-part.good { background: var(--good); }
+.split-part.warn { background: var(--warn); }
+.split-part.bad { background: var(--bad); }
+.split-part.info { background: var(--info); }
+.split-part.none { background: var(--none-tint); }
+.split-legend { display: grid; gap: 6px; margin-top: 10px; font-size: 14px; }
+
+/* Ranked thin bars: name and value above, the 8 px bar below */
+.rank { display: flex; flex-direction: column; gap: 12px; }
+.rank-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center;
+  width: 100%; margin: -6px -8px; padding: 6px 8px; box-sizing: content-box; border: 0; border-radius: 14px;
+  background: none; color: inherit; font: inherit; text-align: left; -webkit-touch-callout: none; user-select: none;
+  transition: transform var(--dur-med) var(--ease-80), background-color var(--dur-fast) var(--ease-80);
+}
+button.rank-row { cursor: pointer; }
+button.rank-row:active, .rank-row.holding { transform: scale(0.98); background-color: var(--press); transition-duration: var(--dur-press); }
+.rank-label { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-tag { margin-left: 6px; font-size: 13px; font-style: normal; color: var(--muted); }
+.rank-value { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rank-value b { font-weight: 700; color: var(--text); }
+.rank-track { grid-column: 1 / -1; display: block; height: 8px; border-radius: 999px; background: var(--bg); overflow: hidden; }
+.rank-fill { display: block; height: 100%; min-width: 4px; border-radius: 999px; background: var(--chart); transform-origin: 0 50%; animation: growX var(--dur-chart) var(--ease-90) both; }
+.rank-fill.good { background: var(--good); }
+.rank-fill.warn { background: var(--warn); }
+.rank-fill.bad { background: var(--bad); }
+.rank-fill.none { background: var(--none); }
+
+/* Chips in a card, and rows in the Explore card */
+.segmented.chips { margin: -2px -18px 12px; padding: 2px 18px; }
+.segmented.chips button { min-height: 38px; padding: 0 14px; font-size: 14px; }
+.xcard .chart-sub { margin-bottom: 12px; }
+.xlist { margin: 0 -18px -14px; border: 0; border-radius: 0; background: none; }
+.xrow-tag { display: inline; margin-left: 6px; font-size: 14px; font-weight: 400; color: var(--muted); }
+
+/* The pop-up's figure (a split bar with its legend) */
+.as-figure { margin: -4px 0 12px; padding: 10px 12px; border-radius: 16px; background: var(--card-on-sheet); }
+.as-pop .as-figure { margin: -2px 0 10px; padding: 8px 10px; border-radius: 14px; }
+.as-figure .split-legend { gap: 4px; margin-top: 8px; font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-cover { display: none; }
+  .meter-fill, .split-part, .rank-fill { animation: none; }
+}

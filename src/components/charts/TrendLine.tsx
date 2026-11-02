@@ -37,9 +37,14 @@ export default function TrendLine({
   toneOf,
   onOpen,
   openLabel = 'Open',
+  format = (v) => String(v),
+  axisFormat = (v) => format(Math.round(v)),
 }: {
   data: TrendDatum[]
   unit: string
+  /** How a value is written in the callout and end label (e.g. SAR). */
+  format?: (v: number) => string
+  axisFormat?: (v: number) => string
   /** Monthly points are labelled "Oct 2026"; weekly ones by their date. */
   mode?: 'week' | 'month'
   /** A fixed top for the axis (e.g. 100 for percentages). */
@@ -118,7 +123,7 @@ export default function TrendLine({
         width={w}
         height={H}
         role="img"
-        aria-label={`${unit}, latest ${lastValue}`}
+        aria-label={`${unit || 'value'}, latest ${format(lastValue)}`}
         style={{ touchAction: 'pan-y' }}
         onPointerMove={(e) => {
           if (scrubbing.current) select(indexAt(e))
@@ -139,7 +144,7 @@ export default function TrendLine({
           <g key={t}>
             <line className="grid" x1={PAD.left} x2={w - PAD.right} y1={y(t)} y2={y(t)} />
             <text className="axis-text" x={PAD.left - 6} y={y(t) + 4} textAnchor="end">
-              {Math.round(t)}
+              {axisFormat(t)}
             </text>
           </g>
         ))}
@@ -174,7 +179,7 @@ export default function TrendLine({
         {!toneOf && <circle className="dot" cx={x(lastI)} cy={y(lastValue)} r={4} />}
         {!guides?.length && (
           <text className="end-label" x={x(lastI) + 7} y={y(lastValue) + 4}>
-            {lastValue}
+            {axisFormat(lastValue)}
           </text>
         )}
         {shown !== null && (
@@ -190,7 +195,7 @@ export default function TrendLine({
           className={`chart-tip${actionable ? ' actionable' : ''}`}
           style={{ left: Math.min(Math.max(x(shown), Math.min(w / 2, actionable ? 110 : 70)), w - Math.min(w / 2, actionable ? 110 : 70)), top: 0 }}
         >
-          {when(data[shown].date)} · {shownValue === null ? 'no data' : `${shownValue} ${unit}`}
+          {when(data[shown].date)} · {shownValue === null ? 'no data' : `${format(shownValue)}${unit ? ` ${unit}` : ''}`}
           {actionable && (
             <button className="chart-open" onClick={() => onOpen!(sel!)}>
               {openLabel} ›
