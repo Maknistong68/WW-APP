@@ -244,7 +244,7 @@ export async function createBackup(): Promise<{ blob: Blob; fileName: string }> 
   logEvent(null, 'Backup saved', `${inspections.length} inspections, ${photos.length} photos`)
   return {
     blob: new Blob([JSON.stringify(payload)], { type: 'application/json' }),
-    fileName: `WW-App-Backup_${date}.json`,
+    fileName: `WW-Copilot-Backup_${date}.json`,
   }
 }
 

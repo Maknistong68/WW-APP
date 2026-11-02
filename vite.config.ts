@@ -15,7 +15,7 @@ export default defineConfig({
     VitePWA({
       // 'prompt': a new version waits for a safe moment (src/lib/appUpdate.ts)
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png'],
       workbox: {
         // jpeg/jpg must be included: buildWord fetches the bundled logo at
         // export time, so leaving it out of the precache breaks offline export.
@@ -23,19 +23,22 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
       manifest: {
-        name: 'Worker Welfare Inspections',
-        short_name: 'WW Inspect',
-        description:
-          'Offline-first worker welfare inspection & audit checklists with photo observations and Excel/Word export.',
+        // The same id the app had (start_url resolved), so installed copies update instead of duplicating.
+        id: '/',
+        name: 'WW Co-pilot',
+        short_name: 'WW Co-pilot',
+        description: 'Worker Welfare tickets, KPIs, camps and audits. Works offline.',
+        lang: 'en',
         theme_color: '#F3F4F6',
         background_color: '#F3F4F6',
         display: 'standalone',
         orientation: 'portrait',
         start_url: './',
+        scope: './',
         icons: [
-          { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
     }),

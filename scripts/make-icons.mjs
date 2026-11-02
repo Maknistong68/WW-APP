@@ -1,6 +1,7 @@
-// Generates the PWA icons (green rounded square with a yellow checkmark,
-// matching the app's green/yellow identity)
-// without any image-library dependency by writing PNG chunks directly.
+// Generates the WW Co-pilot icons: a One UI squircle with a brand-green
+// gradient and a white "WW" monogram drawn as one rounded zigzag stroke.
+// No image library: PNG chunks are written directly; each pixel is
+// supersampled 4×4 for smooth edges. Run with `npm run icons`.
 import { deflateSync } from 'node:zlib'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -51,39 +52,90 @@ function png(size, pixelAt) {
   ])
 }
 
+
 const distToSegment = (px, py, ax, ay, bx, by) => {
   const dx = bx - ax, dy = by - ay
   const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
 }
 
-function makeIcon(size, { padded }) {
-  const green = [20, 108, 67]
-  const bg = [242, 246, 243]
-  // maskable icons need the artwork inside the 80% safe zone
-  const inset = padded ? size * 0.04 : 0
-  const radius = size * 0.24
-  const stroke = size * 0.09
-  // checkmark geometry (relative to icon square)
-  const a = [0.28, 0.52], mid = [0.44, 0.68], b = [0.74, 0.34]
-  return png(size, (x, y) => {
-    const lo = inset, hi = size - 1 - inset
-    // rounded-square coverage test
-    const cx = Math.max(lo + radius, Math.min(hi - radius, x))
-    const cy = Math.max(lo + radius, Math.min(hi - radius, y))
-    const insideSquare =
-      x >= lo && x <= hi && y >= lo && y <= hi && Math.hypot(x - cx, y - cy) <= radius
-    if (!insideSquare) return padded ? [...bg, 255] : [0, 0, 0, 0]
-    const d = Math.min(
-      distToSegment(x / size, y / size, a[0], a[1], mid[0], mid[1]),
-      distToSegment(x / size, y / size, mid[0], mid[1], b[0], b[1]),
-    ) * size
-    if (d <= stroke / 2) return [245, 197, 24, 255]
-    return [...green, 255]
+// Brand green, lighter at the top (matches --accent #0f7a45 in tokens.css).
+const TOP = [24, 150, 88]
+const BOTTOM = [12, 104, 60]
+const WHITE = [255, 255, 255]
+
+// "WW" as one zigzag across the middle, in a unit square (0..1).
+const W_PATH = [
+  [0.19, 0.335], [0.27, 0.665], [0.345, 0.43], [0.42, 0.665], [0.5, 0.335],
+  [0.58, 0.665], [0.655, 0.43], [0.73, 0.665], [0.81, 0.335],
+]
+const STROKE = 0.044 // half width of the stroke, as a share of the glyph box
+
+/** Distance from (x, y) to the WW zigzag scaled by `k` around the centre. */
+function glyphDist(x, y, k) {
+  const u = 0.5 + (x - 0.5) / k
+  const v = 0.5 + (y - 0.5) / k
+  let d = Infinity
+  for (let i = 1; i < W_PATH.length; i++) {
+    const [ax, ay] = W_PATH[i - 1]
+    const [bx, by] = W_PATH[i]
+    d = Math.min(d, distToSegment(u, v, ax, ay, bx, by))
+  }
+  return d * k
+}
+
+/** One UI squircle (superellipse, n = 5) filling `inset`..1-`inset`. */
+function inSquircle(x, y, inset) {
+  const r = 0.5 - inset
+  const nx = Math.abs(x - 0.5) / r
+  const ny = Math.abs(y - 0.5) / r
+  return nx ** 5 + ny ** 5 <= 1
+}
+
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t))
+
+/**
+ * shape 'squircle': transparent outside the squircle (browsers, desktops).
+ * shape 'full': the whole square is painted (iOS and maskable icons, which the
+ * system crops itself). `k` scales the glyph (smaller for maskable's safe zone).
+ */
+function makeIcon(size, { shape, inset = 0, k = 1 }) {
+  const S = 4 // supersampling per axis
+  return png(size, (px, py) => {
+    let cover = 0
+    let ink = 0
+    for (let sy = 0; sy < S; sy++) {
+      for (let sx = 0; sx < S; sx++) {
+        const x = (px + (sx + 0.5) / S) / size
+        const y = (py + (sy + 0.5) / S) / size
+        if (shape === 'squircle' && !inSquircle(x, y, inset)) continue
+        cover++
+        if (glyphDist(x, y, k) <= STROKE * k) ink++
+      }
+    }
+    if (cover === 0) return [0, 0, 0, 0]
+    const bg = mix(TOP, BOTTOM, py / size)
+    const [r, g, b] = mix(bg, WHITE, ink / cover)
+    return [r, g, b, Math.round((255 * cover) / (S * S))]
   })
 }
 
-writeFileSync(join(outDir, 'pwa-192.png'), makeIcon(192, { padded: true }))
-writeFileSync(join(outDir, 'pwa-512.png'), makeIcon(512, { padded: true }))
-writeFileSync(join(outDir, 'apple-touch-icon.png'), makeIcon(180, { padded: false }))
+writeFileSync(join(outDir, 'pwa-192.png'), makeIcon(192, { shape: 'squircle', inset: 0.04 }))
+writeFileSync(join(outDir, 'pwa-512.png'), makeIcon(512, { shape: 'squircle', inset: 0.04 }))
+writeFileSync(join(outDir, 'favicon-32.png'), makeIcon(32, { shape: 'squircle', inset: 0 }))
+// Android crops maskable icons to a circle or squircle: keep the glyph inside the middle 80%.
+writeFileSync(join(outDir, 'maskable-512.png'), makeIcon(512, { shape: 'full', k: 0.82 }))
+// iOS draws its own rounded corners and shows transparency as black: fully opaque.
+writeFileSync(join(outDir, 'apple-touch-icon.png'), makeIcon(180, { shape: 'full', k: 0.92 }))
+
+const svgPath = W_PATH.map(([x, y], i) => `${i ? 'L' : 'M'}${(x * 64).toFixed(1)} ${(y * 64).toFixed(1)}`).join(' ')
+writeFileSync(
+  join(outDir, 'favicon.svg'),
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb(${TOP})"/><stop offset="1" stop-color="rgb(${BOTTOM})"/></linearGradient></defs>
+  <path d="M32 0C6 0 0 6 0 32s6 32 32 32 32-6 32-32S58 0 32 0Z" fill="url(#g)"/>
+  <path d="${svgPath}" fill="none" stroke="#fff" stroke-width="${(STROKE * 2 * 64).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+`,
+)
 console.log('icons written to', outDir)
