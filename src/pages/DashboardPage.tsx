@@ -10,10 +10,6 @@ import { showToast } from '../components/Toast'
 import TrendLine from '../components/charts/TrendLine'
 import BarList from '../components/charts/BarList'
 import MonthBars from '../components/charts/MonthBars'
-import ItemRow from '../components/ItemRow'
-import CardList from '../components/CardList'
-import IconTile from '../components/IconTile'
-import { showActions } from '../components/ActionSheet'
 import { campMenu, contractorMenu } from '../components/menus'
 import CompareGrid from '../components/CompareGrid'
 import { compareRows, sortRows } from '../lib/compare'
@@ -27,6 +23,8 @@ import { TicketRow, ticketSub } from './TicketsPage'
 import {
   auditAverage,
   campsSummary,
+  dashView,
+  type DashView,
   inspectionsPerMonth,
   lastMonths,
   missingSubmissions,
@@ -46,22 +44,17 @@ import { itemStats, kpisForMonth, subjectKpis, useAllData } from '../lib/kpiData
 import { kpiSubjects } from '../lib/subjects'
 import { CAMP_STATUS_LABEL } from '../lib/camps'
 import { closeoutTotals, closeouts } from '../lib/closeout'
-import { moneyStats, sar, sarShort } from '../lib/money'
+import { moneyStats, owedOf, sar, sarShort } from '../lib/money'
 import { memberCounts } from '../lib/groups'
 import { logEvent } from '../db'
-import { buildAttention } from '../lib/attention'
 
-type View = 'overview' | 'tickets' | 'money' | 'kpis' | 'workers' | 'camps'
-const VIEWS: { key: View; label: string }[] = [
-  { key: 'overview', label: 'Overview' },
+const VIEWS: { key: DashView; label: string }[] = [
   { key: 'tickets', label: 'Tickets' },
-  { key: 'money', label: 'Money' },
+  { key: 'accommodation', label: 'Accommodation' },
   { key: 'kpis', label: 'KPIs' },
-  { key: 'workers', label: 'Workers' },
-  { key: 'camps', label: 'Camps' },
 ]
 /** Tabs that can show "All" time; the rest are per month. */
-const ALL_TIME: View[] = ['tickets', 'money']
+const ALL_TIME: DashView[] = ['tickets']
 
 type ExportKind = 'excel' | 'word' | 'pack'
 type Tone = 'good' | 'warn' | 'bad' | ''
@@ -139,7 +132,8 @@ function Card({ title, sub, children }: { title: string; sub?: string; children:
 export default function DashboardPage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const view = (params.get('v') as View) || 'overview'
+  // Old links (?v=overview, money, workers, camps) open the view that now holds them.
+  const view = dashView(params.get('v'))
   const d = useAllData()
   const today = localDate()
   const thisMonth = monthOf()
@@ -152,7 +146,7 @@ export default function DashboardPage() {
     else next.set(key, value)
     setParams(next, { replace: true })
   }
-  const setView = (v: View) => setLink('v', v === 'overview' ? null : v)
+  const setView = (v: DashView) => setLink('v', v === 'tickets' ? null : v)
   const setPicked = (m: string | null) => setLink('m', m === thisMonth ? null : (m ?? 'all'))
   const [exporting, setExporting] = useState(false)
   const allowAll = ALL_TIME.includes(view)
@@ -172,7 +166,6 @@ export default function DashboardPage() {
   const groupCounts = useMemo(() => memberCounts(d.tickets), [d.tickets])
   const scope = month ? stats.opened : d.tickets
   const money = useMemo(() => moneyStats(scope), [scope])
-  const moneyNow = useMemo(() => moneyStats(d.tickets), [d.tickets])
   const recovered = useMemo(() => recoveredPerMonth(d.tickets, months12), [d.tickets, months12])
   const closure = useMemo(() => closurePct(d.tickets, kpiMonth), [d.tickets, kpiMonth])
 
@@ -217,9 +210,6 @@ export default function DashboardPage() {
     [d, months6],
   )
   const missingDocs = useMemo(() => missingSubmissions(subjectList, d.kpis, kpiMonth), [subjectList, d.kpis, kpiMonth])
-  // Declarations coming due: the current month isn't due yet, so the Overview chases last month.
-  const docsMonth = dueMonthFor(kpiMonth, today)
-  const docsDue = useMemo(() => missingSubmissions(subjectList, d.kpis, docsMonth), [subjectList, d.kpis, docsMonth])
   const docsTone = (missing: number, month: string): Tone => (missing ? (dueTone(declarationsDue(month), today) ?? '') : 'good')
   const wf = useMemo(() => workforce(subjectList, d.manpower, kpiMonth), [subjectList, d.manpower, kpiMonth])
   const wfTrend = useMemo(() => workersPerMonth(subjectList, d.manpower, months6), [subjectList, d.manpower, months6])
@@ -227,9 +217,6 @@ export default function DashboardPage() {
   const audits = useMemo(() => auditAverage(d.inspections, kpiMonth), [d.inspections, kpiMonth])
   const inspTrend = useMemo(() => inspectionsPerMonth(d.inspections, months6), [d.inspections, months6])
   const co = useMemo(() => closeoutTotals(closeouts(subjectList, d.kpis, today)), [subjectList, d.kpis, today])
-
-  // --- what needs attention (overview) --------------------------------------
-  const attention = useMemo(() => buildAttention(d, kpiMonth, today), [d, kpiMonth, today])
 
   const doExport = async (kind: ExportKind) => {
     setExporting(false)
@@ -295,91 +282,6 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {view === 'overview' && (
-        <>
-          <div className="hero-row">
-            <Hero
-              value={stats.openAtEnd}
-              label={stats.over30AtEnd ? `Open · ${stats.over30AtEnd} over 30d` : 'Open tickets'}
-              tone={stats.over30AtEnd ? 'bad' : ''}
-              onClick={() => setView('tickets')}
-            />
-            <Hero
-              value={sarShort(moneyNow.outstanding)}
-              label="SAR still owed"
-              tone={moneyNow.outstanding ? 'bad' : ''}
-              onClick={() => setView('money')}
-            />
-            <Hero value={pct(overall.avg)} label="Overall KPI" tone={toneOf(kpiStatus(overall.avg))} onClick={() => setView('kpis')} />
-          </div>
-          <div className="hero-row">
-            <Hero
-              value={wf.total ? wf.total.toLocaleString('en-US') : '—'}
-              label={`Workers${wfFrom}`}
-              onClick={() => setView('workers')}
-            />
-            <Hero
-              value={camps.expired + camps.never + camps.due}
-              label="Camps to inspect"
-              tone={camps.expired + camps.never ? 'bad' : camps.due ? 'warn' : ''}
-              onClick={() => setView('camps')}
-            />
-            <Hero
-              value={docsDue.length}
-              label={`Missing submissions · ${monthLabel(docsMonth).slice(0, 3)}`}
-              tone={docsTone(docsDue.length, docsMonth)}
-              onClick={() => navigate(`/missing/submission?m=${docsMonth}`)}
-            />
-          </div>
-
-          {attention.length === 0 ? (
-            <CardList title="Needs attention">
-              <div className="list-foot" style={{ margin: '4px 18px 16px' }}>Nothing urgent.</div>
-            </CardList>
-          ) : (
-            <CardList title="Needs attention" count={attention.length}>
-              {attention.map((a) => (
-                <ItemRow
-                  key={a.key}
-                  wrap
-                  tile={<IconTile icon={a.tone === 'bad' ? 'alert' : 'clock'} tone={a.tone} size={52} />}
-                  title={a.text}
-                  sub={a.tone === 'bad' ? 'Overdue' : 'Due soon'}
-                  onOpen={() => navigate(a.to)}
-                  onMore={() =>
-                    showActions({
-                      title: a.text,
-                      sub: a.tone === 'bad' ? 'Needs attention now' : 'Coming up',
-                      actions: [
-                        { label: 'Open', icon: 'arrow-right', onSelect: () => navigate(a.to) },
-                        {
-                          label: 'Copy as text',
-                          icon: 'copy',
-                          onSelect: () =>
-                            void navigator.clipboard?.writeText(`${a.text} (${monthLabel(kpiMonth)})`).then(() => showToast({ text: 'Copied' })),
-                        },
-                      ],
-                    })
-                  }
-                />
-              ))}
-            </CardList>
-          )}
-
-          <Card title="Open system tickets" sub={`Per week · ${trend.length} weeks`}>
-            <TrendLine data={trend} unit="open" />
-          </Card>
-
-          <Card title="Lowest KPI" sub={`${monthLabel(kpiMonth)} · overall · worst first`}>
-            {byContractor.length === 0 ? (
-              <div className="note">No KPI data for this month yet.</div>
-            ) : (
-              <KpiTable rows={byContractor.slice(0, 5)} onOpen={(uuid) => navigate(`/contractors/${uuid}?m=${kpiMonth}`)} onMore={holdContractor} />
-            )}
-          </Card>
-        </>
-      )}
-
       {view === 'tickets' && (
         <>
           <div className="hero-row">
@@ -413,6 +315,10 @@ export default function DashboardPage() {
               onOpen={(m) => navigate(tix({ m, in: 'opened' }))}
               openLabel="Open"
             />
+          </Card>
+
+          <Card title="Open system tickets" sub={`Per week · ${trend.length} weeks`}>
+            <TrendLine data={trend} unit="open" />
           </Card>
 
           <Card title="Open tickets by age" sub={`Today · ${aging.reduce((s, r) => s + r.count, 0)} open`}>
@@ -475,11 +381,8 @@ export default function DashboardPage() {
               }))}
             />
           </Card>
-        </>
-      )}
 
-      {view === 'money' && (
-        <>
+          <div className="section-label" id="money">Money</div>
           <div className="hero-row">
             <Hero value={sarShort(money.outstanding)} label="SAR still owed" tone={money.outstanding ? 'bad' : ''} to={tix({ ...opened, owed: 'open' })} />
             <Hero value={sarShort(money.settled)} label="SAR recovered" to={tix({ ...opened, owed: 'paid' })} />
@@ -534,27 +437,15 @@ export default function DashboardPage() {
               }))}
             />
           </Card>
-          <Card title="Money by issue" sub="Total SAR · tickets">
-            <BarList
-              format={sar}
-              data={money.byKey((t) => t.issue).map((m) => ({
-                key: m.key,
-                label: m.key,
-                value: m.amount,
-                detail: `${m.count} ticket${m.count === 1 ? '' : 's'}`,
-                onClick: () => navigate(tix({ ...opened, owed: 'any', issue: m.key })),
-              }))}
-            />
-          </Card>
           <div className="section-label">Largest amounts</div>
           {money.withAmount === 0 ? (
             <div className="list-foot">No ticket has a money-owed amount in this period.</div>
           ) : (
             <div className="list">
               {scope
-                .filter((t) => (t.amountOwed ?? 0) > 0)
-                .sort((a, b) => (b.amountOwed ?? 0) - (a.amountOwed ?? 0))
-                .slice(0, 10)
+                .filter((t) => owedOf(t) > 0)
+                .sort((a, b) => owedOf(b) - owedOf(a))
+                .slice(0, 5)
                 .map((t) => (
                   <TicketRow
                     key={t.uuid}
@@ -668,11 +559,8 @@ export default function DashboardPage() {
               <KpiTable rows={byContractor} onOpen={(uuid) => navigate(`/contractors/${uuid}?m=${kpiMonth}`)} onMore={holdContractor} />
             )}
           </Card>
-        </>
-      )}
 
-      {view === 'workers' && (
-        <>
+          <div className="section-label" id="workers">Workers{wfFrom}</div>
           <div className="hero-row">
             <Hero value={wf.total ? wf.total.toLocaleString('en-US') : '—'} label={`Total workers${wfFrom}`} to={`/missing/formal?m=${wf.month ?? kpiMonth}`} />
             <Hero value={wf.illegal} label="Illegal / freelance" tone={wf.illegal ? 'bad' : ''} to={`/missing/formal?m=${wf.month ?? kpiMonth}`} />
@@ -693,7 +581,7 @@ export default function DashboardPage() {
             <MonthBars data={wfTrend} series={['Workers']} onOpen={setPicked} openLabel="Show month" />
           </Card>
 
-          <Card title="By contractor" sub={`${wf.month ? monthLabel(wf.month) : '—'} · workers · illegal`}>
+          <Card title="Workers by contractor" sub={`${wf.month ? monthLabel(wf.month) : '—'} · workers · illegal`}>
             <BarList
               data={wf.byContractor.map((c) => ({
                 key: c.key,
@@ -709,7 +597,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      {view === 'camps' && (
+      {view === 'accommodation' && (
         <>
           <div className="hero-row">
             <Hero value={camps.active} label="Active camps" to="/camps" />

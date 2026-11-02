@@ -14,7 +14,7 @@ Design spec: [`docs/superpowers/specs/2026-10-31-ww-copilot-design.md`](docs/sup
 | **Tickets** | System + internal tickets, titled by ticket number (WWCMPL…). **＋** to add (number, contractor, work order, money owed, issue, workers). **Swipe left to close.** Aging is automatic. |
 | **Contractors** | Companies and their **work orders** (each can be activated / deactivated); KPI % per work order, monthly scoring, manpower counts, open tickets, last audit |
 | **Audits** | The Labour Accommodation Audit checklist with Excel + Word reports (unchanged) |
-| **Dashboard** | **Overview** (trend, by contractor, by issue) · **Money** (SAR owed, by contractor / issue) · **KPIs** (each KPI on its own page). Export: KPI pack for slides, full Excel, Word |
+| **Dashboard** | **Tickets** (trend, by contractor / issue / age, then money: SAR owed and recovered) · **Accommodation** (camps and inspections) · **KPIs** (each KPI on its own page, compare grid, audits, then workers). Export: KPI pack for slides, full Excel, Word |
 
 ⚙ Settings: one-time **history import**, **activity log**, backup/restore, Supabase sync.
 

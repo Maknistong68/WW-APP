@@ -3,6 +3,7 @@ import {
   campsSummary,
   lastMonths,
   missingSubmissions,
+  dashView,
   openAging,
   openOn,
   overdueTickets,
@@ -130,6 +131,11 @@ describe('dashboard series', () => {
     )
     expect(rows.map((r) => r.count)).toEqual([1, 0, 0, 0, 1])
     expect([rows[0].owed, rows[4].workers]).toEqual([100, 3])
+  })
+  it('old dashboard links open the view that now holds them', () => {
+    for (const v of [null, 'overview', 'money', 'tickets', 'junk']) expect(dashView(v)).toBe('tickets')
+    for (const v of ['kpis', 'workers']) expect(dashView(v)).toBe('kpis')
+    for (const v of ['camps', 'accommodation']) expect(dashView(v)).toBe('accommodation')
   })
   it('a broken amount (NaN) never spoils the money charts', () => {
     const bad = [

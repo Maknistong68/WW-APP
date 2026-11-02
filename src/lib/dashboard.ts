@@ -7,6 +7,19 @@ import { owedOf } from './money'
 import { subjectKpi, subjectManpower, type KpiSubject } from './subjects'
 import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Ticket, WeeklyCount } from '../types'
 
+/** The Dashboard's three views. */
+export type DashView = 'tickets' | 'accommodation' | 'kpis'
+
+/**
+ * The view a link's ?v= opens. Old views open the view that now holds them
+ * (Money → Tickets, Workers → KPIs, Camps → Accommodation), never a blank page.
+ */
+export function dashView(v: string | null): DashView {
+  if (v === 'kpis' || v === 'workers') return 'kpis'
+  if (v === 'accommodation' || v === 'camps') return 'accommodation'
+  return 'tickets'
+}
+
 // Month rules shared with the Tickets list filters (src/lib/ticketFilter.ts),
 // so a number and the list it opens always agree.
 import { closedIn, lateOn, openOn, openedIn } from './ticketFilter'

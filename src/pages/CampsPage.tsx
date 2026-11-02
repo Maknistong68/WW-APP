@@ -70,7 +70,7 @@ export default function CampsPage() {
   return (
     <Page
       title="Camps"
-      back={only ? '/dashboard?v=camps' : '/library'}
+      back={only ? '/dashboard?v=accommodation' : '/library'}
       backLabel={only ? 'Dashboard' : 'Library'}
     >
       <label className="ios-search">
