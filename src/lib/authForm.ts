@@ -19,3 +19,39 @@ export function nameProblem(raw: string): string | null {
   if (n.length > 60) return 'Name: at most 60 letters'
   return null
 }
+
+/** What was typed in "Username or email": an @ inside means an email. */
+export function parseLogin(raw: string): { kind: 'email' | 'username'; value: string } {
+  const v = raw.trim()
+  if (/^[^@\s]+@[^@\s]+$/.test(v)) return { kind: 'email', value: v.toLowerCase() }
+  return { kind: 'username', value: normUsername(v) }
+}
+
+export function passwordProblem(pw: string): string | null {
+  if (!pw) return 'Type a password'
+  if (pw.length < 8) return 'Use at least 8 characters'
+  return null
+}
+
+export function emailProblem(raw: string): string | null {
+  const e = raw.trim()
+  if (!e) return 'Type your email'
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return 'Check the email'
+  return null
+}
+
+/** The first thing to fix on Create account, top to bottom. */
+export function signUpProblem(f: { name: string; username: string; email: string; password: string }): string | null {
+  return nameProblem(f.name) ?? usernameProblem(f.username) ?? emailProblem(f.email) ?? passwordProblem(f.password)
+}
+
+/** Supabase Auth's messages, in plain words. */
+export function authProblemText(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (/failed to fetch|network|load failed/i.test(msg)) return 'No internet. Try again when you’re online.'
+  if (/rate limit|too many/i.test(msg)) return 'Too many tries. Wait a few minutes, then try again.'
+  if (/already registered|already been registered|already exists/i.test(msg)) return 'This email already has an account. Sign in instead.'
+  if (/invalid login credentials/i.test(msg)) return 'Wrong username, email or password.'
+  if (/email not confirmed/i.test(msg)) return 'Confirm your email first: open the link we sent you.'
+  return msg
+}
