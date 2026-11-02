@@ -65,4 +65,10 @@ npm run build   # strict tsc + vite build
   `src/three/` (`Zones.tsx` draws the city); page `src/pages/City3DPage.tsx`. Only Admins edit the map
   (`canEditLayout`); the Zones tool reshapes the zones. Every site is barricaded; worker figures follow the
   month's manpower count.
+- Saving: sheets use `useSave` (`src/lib/useSave.ts`, pure core `saveRun.ts`): a returned sentence is shown
+  under the sheet title (`Modal` `alert`), a thrown error is explained by `saveError.ts` (red toast, Reload when
+  the app was updated) and logged. Writes outside sheets use `attempt` / `tryWrite` (`src/lib/safeWrite.ts`).
+  Nothing fails silently: `main.tsx` catches unhandled errors; problems also go to a localStorage copy
+  (`localLog.ts`) shown in Settings › Sync log (Copy log). `db.ts` closes on `versionchange`. App updates wait
+  while a panel is open (`appUpdate.ts`, `editing.ts`, `registerType: 'prompt'`).
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).

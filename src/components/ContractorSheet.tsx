@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react'
+import { useSave } from '../lib/useSave'
+import SaveButton from './SaveButton'
 import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { saveRecord } from '../lib/records'
@@ -19,36 +21,36 @@ export default function ContractorSheet({
   const isNew = !contractor.updatedAt
 
   const sheet = useRef<ModalHandle>(null)
-  const save = async () => {
-    const name = c.name.trim()
-    if (!name) {
-      showToast({ text: 'Name is required' })
-      return
-    }
-    const rec: Contractor = {
-      ...c,
-      name,
-      aliases: aliases
-        .split(',')
-        .map((a) => a.trim())
-        .filter((a) => a && a.toLowerCase() !== name.toLowerCase()),
-    }
-    const saved = await saveRecord('contractors', rec, name)
-    onSaved?.(saved)
-    // slide the sheet away, then close
-    if (sheet.current) sheet.current.close()
-    else onClose()
-  }
+  const { saving, alert, run } = useSave(contractor.name ? `Contractor ${contractor.name}` : 'New contractor')
+  const save = () =>
+    run(async () => {
+      const name = c.name.trim()
+      if (!name) return 'Name is required'
+      const rec: Contractor = {
+        ...c,
+        name,
+        aliases: aliases
+          .split(',')
+          .map((a) => a.trim())
+          .filter((a) => a && a.toLowerCase() !== name.toLowerCase()),
+      }
+      const saved = await saveRecord('contractors', rec, name)
+      onSaved?.(saved)
+      // slide the sheet away, then close
+      if (sheet.current) sheet.current.close()
+      else onClose()
+    })
 
   return (
     <Modal
       ref={sheet}
       title={isNew ? 'New contractor' : 'Edit contractor'}
       onClose={onClose}
+      alert={alert}
       header={
-        <button className="nav-btn strong" onClick={() => void save()}>
+        <SaveButton saving={saving} onClick={() => void save()}>
           Save
-        </button>
+        </SaveButton>
       }
     >
       <div className="sheet-body">
@@ -96,29 +98,32 @@ export function WorkOrderSheet({
   const [w, setW] = useState(workOrder)
   const isNew = !workOrder.updatedAt
   const sheet = useRef<ModalHandle>(null)
-  const save = async () => {
-    const number = w.number.trim()
-    if (!number) return showToast({ text: 'Work order number is required' })
-    const dup = await db.workOrders
-      .where('contractorUuid')
-      .equals(contractor.uuid)
-      .filter((x) => x.uuid !== w.uuid && x.number.trim() === number)
-      .count()
-    if (dup) return showToast({ text: `WO ${number} already exists for ${contractor.name}` })
-    await saveRecord('workOrders', { ...w, number, label: w.label.trim() }, `${contractor.name} · WO ${number}`)
-    showToast({ text: isNew ? 'Work order added' : 'Work order saved' })
-    if (sheet.current) sheet.current.close()
-    else onClose()
-  }
+  const { saving, alert, run } = useSave(`Work order ${contractor.name}`)
+  const save = () =>
+    run(async () => {
+      const number = w.number.trim()
+      if (!number) return 'Work order number is required'
+      const dup = await db.workOrders
+        .where('contractorUuid')
+        .equals(contractor.uuid)
+        .filter((x) => x.uuid !== w.uuid && x.number.trim() === number)
+        .count()
+      if (dup) return `WO ${number} already exists for ${contractor.name}`
+      await saveRecord('workOrders', { ...w, number, label: w.label.trim() }, `${contractor.name} · WO ${number}`)
+      showToast({ text: isNew ? 'Work order added' : 'Work order saved' })
+      if (sheet.current) sheet.current.close()
+      else onClose()
+    })
   return (
     <Modal
       ref={sheet}
       title={isNew ? 'New work order' : `WO ${workOrder.number}`}
       onClose={onClose}
+      alert={alert}
       header={
-        <button className="nav-btn strong" onClick={() => void save()}>
+        <SaveButton saving={saving} onClick={() => void save()}>
           Save
-        </button>
+        </SaveButton>
       }
     >
       <div className="sheet-body">

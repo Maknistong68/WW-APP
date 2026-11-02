@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ticketProblem } from './ticketCheck'
+import { ticketDateHint, ticketProblem } from './ticketCheck'
 
 const t = {
   ticketNo: 'WWCMPL-1101',
@@ -36,5 +36,31 @@ describe('Saving a ticket', () => {
     expect(ticketProblem(t, { ...t, closedAt: '2026-09-01' })).toBe('Closing date is before the opening date')
     expect(ticketProblem(t, { ...t, closedAt: '' })).toBe('Add the closing date')
     expect(ticketProblem(t, { ...t, status: 'Open', closedAt: '' })).toBeNull()
+  })
+  it('an old ticket with bad dates still saves when the dates are not touched', () => {
+    // imported with a placeholder opening date after the real closing date
+    const backwards = { ...t, openedAt: '2024-12-16', closedAt: '2024-10-07' }
+    expect(ticketProblem(backwards, { ...backwards, issue: 'Overtime' })).toBeNull()
+    // closed with no closing date
+    const undated = { ...t, closedAt: '' }
+    expect(ticketProblem(undated, { ...undated, issue: 'Overtime' })).toBeNull()
+  })
+  it('touching the dates of such a ticket checks them again', () => {
+    const backwards = { ...t, openedAt: '2024-12-16', closedAt: '2024-10-07' }
+    expect(ticketProblem(backwards, { ...backwards, closedAt: '2024-10-08' })).toBe('Closing date is before the opening date')
+    expect(ticketProblem(backwards, { ...backwards, openedAt: '2024-10-01' })).toBeNull()
+    const open = { ...t, status: 'Open' as const, closedAt: '' }
+    expect(ticketProblem(open, { ...open, status: 'Closed' })).toBe('Add the closing date')
+  })
+})
+
+describe('A hint about dates that look wrong', () => {
+  it('closed before it was opened, or closed with no date', () => {
+    expect(ticketDateHint({ ...t, openedAt: '2024-12-16', closedAt: '2024-10-07' })).toBe('Check the dates: closed before it was opened')
+    expect(ticketDateHint({ ...t, closedAt: '' })).toBe('No closing date')
+  })
+  it('nothing for good dates or open tickets', () => {
+    expect(ticketDateHint(t)).toBeNull()
+    expect(ticketDateHint({ ...t, status: 'Open', closedAt: '' })).toBeNull()
   })
 })

@@ -7,6 +7,8 @@ export interface ToastMessage {
   actionLabel?: string
   onAction?: () => void
   duration?: number
+  /** 'bad': something failed. Shown with a warning icon and read out at once. */
+  tone?: 'bad'
 }
 
 type Listener = (t: ToastMessage) => void
@@ -57,7 +59,12 @@ export default function ToastHost() {
   if (!toast) return null
   return (
     // a new message replays the enter animation
-    <div key={toast.seq} className={`toast${closing ? ' closing' : ''}`} role="status">
+    <div
+      key={toast.seq}
+      className={`toast${toast.tone === 'bad' ? ' bad' : ''}${closing ? ' closing' : ''}`}
+      role={toast.tone === 'bad' ? 'alert' : 'status'}
+    >
+      {toast.tone === 'bad' && <Icon name="alert" size={20} className="toast-icon" />}
       <span className="toast-text">{toast.text}</span>
       {toast.actionLabel && (
         <button

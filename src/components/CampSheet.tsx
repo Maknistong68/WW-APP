@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react'
+import { useSave } from '../lib/useSave'
+import SaveButton from './SaveButton'
 import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { saveRecord } from '../lib/records'
@@ -13,25 +15,28 @@ export default function CampSheet({ camp, onClose }: { camp: Camp; onClose: () =
   const wos = workOrders.filter((w) => w.contractorUuid === c.contractorUuid)
 
   const sheet = useRef<ModalHandle>(null)
-  const save = async () => {
-    const name = c.name.trim()
-    if (!name) return showToast({ text: 'Camp name is required' })
-    await saveRecord('camps', { ...c, name, location: c.location.trim(), cycleDays: c.cycleDays || 90 }, name)
-    showToast({ text: isNew ? 'Camp added' : 'Camp saved' })
-    // slide the sheet away, then close
-    if (sheet.current) sheet.current.close()
-    else onClose()
-  }
+  const { saving, alert, run } = useSave(camp.name ? `Camp ${camp.name}` : 'New camp')
+  const save = () =>
+    run(async () => {
+      const name = c.name.trim()
+      if (!name) return 'Camp name is required'
+      await saveRecord('camps', { ...c, name, location: c.location.trim(), cycleDays: c.cycleDays || 90 }, name)
+      showToast({ text: isNew ? 'Camp added' : 'Camp saved' })
+      // slide the sheet away, then close
+      if (sheet.current) sheet.current.close()
+      else onClose()
+    })
 
   return (
     <Modal
       ref={sheet}
       title={isNew ? 'New camp' : 'Edit camp'}
       onClose={onClose}
+      alert={alert}
       header={
-        <button className="nav-btn strong" onClick={() => void save()}>
+        <SaveButton saving={saving} onClick={() => void save()}>
           Save
-        </button>
+        </SaveButton>
       }
     >
       <div className="sheet-body">

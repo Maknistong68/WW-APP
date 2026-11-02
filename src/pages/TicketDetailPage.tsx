@@ -11,6 +11,7 @@ import { ageDays, isOpen } from '../lib/aging'
 import { shortDate } from '../lib/dates'
 import { priorityLabel } from '../lib/lists'
 import { removeRecord, saveRecord } from '../lib/records'
+import { tryWrite } from '../lib/safeWrite'
 import { contractorName, ticketLabel, useContractors, woName } from '../lib/useData'
 import { sar, sarShort } from '../lib/money'
 import { groupOf, uncombine } from '../lib/groups'
@@ -81,8 +82,8 @@ export default function TicketDetailPage() {
   const groupTotal = group.main.amountOwed
   const tone = ticketTone(t)
   const reopen = () =>
-    void saveRecord('tickets', { ...t, status: 'Open', closedAt: '' }, ticketLabel(t, byUuid), 'reopen').then(() =>
-      showToast({ text: `${Kind} reopened` }),
+    void tryWrite(`Reopen ${t.ticketNo}`, () => saveRecord('tickets', { ...t, status: 'Open', closedAt: '' }, ticketLabel(t, byUuid), 'reopen')).then(
+      (ok) => ok && showToast({ text: `${Kind} reopened` }),
     )
   const more = () =>
     ticketMenu(t, { members: isMain ? group.members.length : 0, onDeleted: () => navigate(list) })
@@ -162,8 +163,8 @@ export default function TicketDetailPage() {
             <button
               className="row tint"
               onClick={() =>
-                void saveRecord('tickets', uncombine(t, group.main.ticketNo), ticketLabel(t, byUuid)).then(() =>
-                  showToast({ text: `${t.ticketNo} is no longer combined` }),
+                void tryWrite(`Uncombine ${t.ticketNo}`, () => saveRecord('tickets', uncombine(t, group.main.ticketNo), ticketLabel(t, byUuid))).then(
+                  (ok) => ok && showToast({ text: `${t.ticketNo} is no longer combined` }),
                 )
               }
             >

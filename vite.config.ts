@@ -4,12 +4,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // base './' + hash routing keeps the app deployable on any static host
 // (Vercel, Netlify, GitHub Pages) without server configuration.
+// Which build is running (shown in Settings › Sync log): the commit on Vercel, else the build time.
+const BUILD = (process.env.VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 7) || new Date().toISOString().slice(0, 16).replace('T', ' ')
+
 export default defineConfig({
+  define: { __APP_BUILD__: JSON.stringify(BUILD) },
   base: './',
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': a new version waits for a safe moment (src/lib/appUpdate.ts)
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       workbox: {
         // jpeg/jpg must be included: buildWord fetches the bundled logo at

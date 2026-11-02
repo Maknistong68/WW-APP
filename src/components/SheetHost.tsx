@@ -11,6 +11,7 @@ import RoutineSheet from './RoutineSheet'
 import { showToast } from './Toast'
 import { groupOf } from '../lib/groups'
 import { removeRecord } from '../lib/records'
+import { tryWrite } from '../lib/safeWrite'
 import { ticketLabel } from '../lib/useData'
 import { auditPctFor } from '../lib/kpiData'
 import { emptyKpi, emptyManpower } from '../lib/subjects'
@@ -153,7 +154,8 @@ export default function SheetHost() {
           onCancel={done}
           onConfirm={() => {
             done()
-            void removeRecord('tickets', t.uuid, shown.label).then(() => {
+            void tryWrite(`Delete ${t.ticketNo}`, () => removeRecord('tickets', t.uuid, shown.label)).then((ok) => {
+              if (!ok) return
               showToast({ text: `${t.ticketNo || (isCase(t) ? 'Case' : 'Ticket')} deleted` })
               shown.after?.()
             })

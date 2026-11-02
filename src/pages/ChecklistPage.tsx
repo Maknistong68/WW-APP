@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useParams } from 'react-router-dom'
 import { saveAs } from 'file-saver'
 import { compressPhoto, db, logEvent, newUuid } from '../db'
+import { tryWrite } from '../lib/safeWrite'
 import { isAnswered, isFlagged, scoreInspection } from '../lib/score'
 import { getTemplate, getWalkthrough, countItems } from '../templates'
 import {
@@ -146,7 +147,7 @@ export default function ChecklistPage() {
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       pendingSave.current = null
-      void writeInspection(next)
+      void tryWrite('Inspection', () => writeInspection(next))
     }, 400)
   }
 
@@ -155,7 +156,7 @@ export default function ChecklistPage() {
     if (!pending) return
     pendingSave.current = null
     clearTimeout(saveTimer.current)
-    void writeInspection(pending)
+    void tryWrite('Inspection', () => writeInspection(pending))
   }
 
   // Photo captions are debounced the same way: a per-keystroke DB write would
@@ -171,10 +172,12 @@ export default function ChecklistPage() {
     if (!pending) return
     pendingCaption.current = null
     clearTimeout(captionTimer.current)
-    void db.photos.update(pending.photoId, {
-      caption: pending.caption,
-      updatedAt: new Date().toISOString(),
-    })
+    void tryWrite('Photo caption', () =>
+      db.photos.update(pending.photoId, {
+        caption: pending.caption,
+        updatedAt: new Date().toISOString(),
+      }),
+    )
   }
 
   // Flush (not discard) pending saves when leaving the page or when the app

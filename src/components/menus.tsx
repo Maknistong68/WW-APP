@@ -18,6 +18,7 @@ import type { Peek } from '../lib/peek'
 import type { FocusAction } from '../lib/focus'
 import { ticketLink } from '../lib/ticketFilter'
 import { removeRecord, saveRecord } from '../lib/records'
+import { attempt, tryWrite } from '../lib/safeWrite'
 import { backgroundSync } from '../lib/sync'
 import { isFollowed, kpiSubjects, type KpiSubject } from '../lib/subjects'
 import { kpiTone, ticketTone, type Tone } from '../lib/tone'
@@ -66,7 +67,7 @@ export function ticketMenu(
       onSelect: () => openSheet({ kind: 'ticketClose', uuid: t.uuid }),
       edit: true,
     },
-    reopen: { label: `Reopen ${kind}`, icon: 'undo', onSelect: () => void reopenTicket(t), edit: true },
+    reopen: { label: `Reopen ${kind}`, icon: 'undo', onSelect: () => void tryWrite(`Reopen ${t.ticketNo}`, () => reopenTicket(t)), edit: true },
     edit: { label: 'Edit', icon: 'pencil', onSelect: () => openSheet({ kind: 'ticketEdit', uuid: t.uuid }), edit: true },
     contractor: { label: 'Open contractor', icon: 'buildings', onSelect: () => go(`/contractors/${t.contractorUuid}`) },
     main: { label: `Open main ${kind}`, icon: 'arrow-right', onSelect: () => go(`/tickets/${t.parentUuid}`) },
@@ -114,13 +115,15 @@ export function contractorMenu(
   const known = (o.spark ?? []).filter((v): v is number => v !== null)
   const last = known.length ? known[known.length - 1] : null
   const setActive = (active: boolean) =>
-    void saveRecord('contractors', { ...c, active }, c.name).then(() => {
+    void tryWrite(c.name, () => saveRecord('contractors', { ...c, active }, c.name)).then((ok) => {
+      if (!ok) return
       haptic('success')
       const stillOff = active && !isFollowed({ ...c, active }, o.workOrders)
       showToast({ text: stillOff ? `${c.name} turned on · turn on a work order to score it` : `${c.name} turned ${active ? 'on' : 'off'}` })
     })
   const woOn = (w: WorkOrder) =>
-    void saveRecord('workOrders', { ...w, active: true }, `${c.name} · WO ${w.number}`).then(() => {
+    void tryWrite(`WO ${w.number}`, () => saveRecord('workOrders', { ...w, active: true }, `${c.name} · WO ${w.number}`)).then((ok) => {
+      if (!ok) return
       haptic('success')
       showToast({ text: `WO ${w.number} turned on` })
     })
@@ -171,7 +174,8 @@ export function workOrderMenu(s: KpiSubject & { workOrder: NonNullable<KpiSubjec
   const month = o.month ?? fillMonth()
   const wo = s.workOrder
   const toggle = (active: boolean) =>
-    void saveRecord('workOrders', { ...wo, active }, s.label).then(() => {
+    void tryWrite(`WO ${wo.number}`, () => saveRecord('workOrders', { ...wo, active }, s.label)).then((ok) => {
+      if (!ok) return
       haptic('success')
       showToast({ text: `WO ${wo.number} turned ${active ? 'on' : 'off'}` })
     })
@@ -244,7 +248,7 @@ export function inspectionMenu(ins: Inspection, o: { title: string; sub: string;
       icon: 'copy',
       edit: true,
       onSelect: () =>
-        void duplicateInspection(id).then((newId) => {
+        void attempt('Repeat inspection', () => duplicateInspection(id)).then((newId) => {
           if (!newId) return
           showToast({ text: 'New inspection started with the same details' })
           go(`/inspection/${newId}`)
@@ -262,7 +266,7 @@ export function inspectionMenu(ins: Inspection, o: { title: string; sub: string;
           message: 'This permanently deletes the inspection and all its photos. Save a backup first if you might need it again.',
           confirmLabel: 'Delete inspection',
           destructive: true,
-          onConfirm: () => void deleteInspection(id).then(() => showToast({ text: 'Inspection deleted' })),
+          onConfirm: () => void tryWrite('Delete inspection', () => deleteInspection(id)).then((ok) => ok && showToast({ text: 'Inspection deleted' })),
         }),
     },
   }
@@ -278,7 +282,10 @@ export function inspectionMenu(ins: Inspection, o: { title: string; sub: string;
  * Tick off a routine task for one date (or skip it), with Undo. Reads the task
  * fresh so a teammate's change isn't overwritten, then syncs so the team sees it.
  */
-export async function markRoutine(r: Routine, due: string, skip = false) {
+export const markRoutine = (r: Routine, due: string, skip = false) =>
+  tryWrite(`Task ${r.title || ''}`.trim(), () => markRoutineNow(r, due, skip))
+
+async function markRoutineNow(r: Routine, due: string, skip: boolean) {
   const cur = await db.routines.get(r.uuid)
   if (!cur) return
   const prev = cur.doneThrough
@@ -289,9 +296,11 @@ export async function markRoutine(r: Routine, due: string, skip = false) {
     text: skip ? `${title} skipped` : `${title} done`,
     actionLabel: 'Undo',
     onAction: () =>
-      void db.routines.get(r.uuid).then((now) => {
+      void tryWrite(`Undo ${title}`, async () => {
+        const now = await db.routines.get(r.uuid)
         if (!now) return
-        void saveRecord('routines', { ...now, doneThrough: prev }, `${title} · ${dayMonth(due)}`, 'reopen').then(() => backgroundSync())
+        await saveRecord('routines', { ...now, doneThrough: prev }, `${title} · ${dayMonth(due)}`, 'reopen')
+        backgroundSync()
       }),
   })
 }
@@ -316,7 +325,8 @@ export function routineMenu(r: Routine, o: { due: string; sub: string; tone: Ton
           confirmLabel: 'Delete task',
           destructive: true,
           onConfirm: () =>
-            void removeRecord('routines', r.uuid, title).then(() => {
+            void tryWrite(`Delete ${title}`, () => removeRecord('routines', r.uuid, title)).then((ok) => {
+              if (!ok) return
               showToast({ text: 'Task deleted' })
               backgroundSync()
             }),

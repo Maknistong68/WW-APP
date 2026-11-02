@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useSave } from '../lib/useSave'
+import SaveButton from './SaveButton'
 import Modal from './Modal'
 import { showToast } from './Toast'
 import { haptic } from '../lib/haptics'
@@ -40,30 +42,24 @@ export default function CloseTogetherSheet({
   const [date, setDate] = useState(localDate())
   const [contractorAction, setContractorAction] = useState('')
   const [wwAction, setWwAction] = useState('')
-  const [saving, setSaving] = useState(false)
   const workers = selected.reduce((s, t) => s + (t.workers || 0), 0)
 
-  const save = async () => {
-    const main = selected.find((t) => t.uuid === mainUuid)!
-    if (close && selected.some((t) => date < t.openedAt)) {
-      return showToast({ text: `Closing date is before a ${kind} was opened` })
-    }
-    // Closing asks for the money (an amount or Nothing owed); combining only keeps it optional.
-    let value: number | null
-    if (close) {
-      const r = closingAmount(amount, none)
-      if ('error' in r) {
-        haptic('warn')
-        return showToast({ text: r.error })
+  const { saving, alert, run } = useSave(close ? `Close ${selected.length} together` : `Combine ${selected.length}`)
+  const save = () =>
+    run(async () => {
+      const main = selected.find((t) => t.uuid === mainUuid)!
+      if (close && selected.some((t) => date < t.openedAt)) return `Closing date is before a ${kind} was opened`
+      // Closing asks for the money (an amount or Nothing owed); combining only keeps it optional.
+      let value: number | null
+      if (close) {
+        const r = closingAmount(amount, none)
+        if ('error' in r) return r.error
+        value = r.amount
+      } else {
+        const v = parseSar(amount)
+        if (v === undefined) return 'Check the amount'
+        value = v
       }
-      value = r.amount
-    } else {
-      const v = parseSar(amount)
-      if (v === undefined) return showToast({ text: 'Check the amount' })
-      value = v
-    }
-    setSaving(true)
-    try {
       const updates = combineTickets(selected, all, {
         mainUuid,
         amount: value,
@@ -85,19 +81,17 @@ export default function CloseTogetherSheet({
         duration: 5000,
       })
       onClose(true)
-    } finally {
-      setSaving(false)
-    }
-  }
+    })
 
   return (
     <Modal
       title={close ? 'Close together' : `Combine ${kind}s`}
       onClose={() => onClose(false)}
+      alert={alert}
       header={
-        <button className="nav-btn strong" disabled={saving} onClick={() => void save()}>
+        <SaveButton saving={saving} onClick={() => void save()}>
           {close ? 'Close all' : 'Combine'}
-        </button>
+        </SaveButton>
       }
     >
       <div className="sheet-body">

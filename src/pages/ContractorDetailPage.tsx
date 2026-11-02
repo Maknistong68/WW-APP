@@ -13,6 +13,7 @@ import { DECLARATIONS, KPI_PARTS, STATUS_LABEL, declState, pct, type KpiResult }
 import { auditPctFor, kpiForSubject, rollup, useAllData } from '../lib/kpiData'
 import { mentions } from '../lib/names'
 import { saveRecord } from '../lib/records'
+import { tryWrite } from '../lib/safeWrite'
 import { isFollowed, subjectKpi, subjectManpower, type KpiSubject } from '../lib/subjects'
 import { newWorkOrder } from '../lib/useData'
 import type { WorkOrder } from '../types'
@@ -164,8 +165,8 @@ export default function ContractorDetailPage() {
   const followed = isFollowed(c, d.workOrders)
   const toggleWo = (w: WorkOrder) => {
     const lastOn = w.active && c.active && data.wos.filter((x) => x.active).length === 1
-    void saveRecord('workOrders', { ...w, active: !w.active }, `${c.name} · WO ${w.number}`).then(() =>
-      showToast({ text: lastOn ? `WO ${w.number} turned off · ${c.name} moves to Inactive` : `WO ${w.number} turned ${w.active ? 'off' : 'on'}` }),
+    void tryWrite(`WO ${w.number}`, () => saveRecord('workOrders', { ...w, active: !w.active }, `${c.name} · WO ${w.number}`)).then((ok) =>
+      ok && showToast({ text: lastOn ? `WO ${w.number} turned off · ${c.name} moves to Inactive` : `WO ${w.number} turned ${w.active ? 'off' : 'on'}` }),
     )
   }
 

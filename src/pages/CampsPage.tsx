@@ -15,6 +15,7 @@ import { DEFAULT_CYCLE_DAYS, campState, campsFromAudits, type CampStatus } from 
 import { shortDate } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
 import { nowIso, saveRecord } from '../lib/records'
+import { tryWrite } from '../lib/safeWrite'
 import type { Camp } from '../types'
 
 export const ago = (days: number) => (days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`)
@@ -52,9 +53,9 @@ export default function CampsPage() {
     if (!d.loaded || seeded.current || !canEdit) return
     seeded.current = true
     const fresh = campsFromAudits(d.inspections, d.camps, d.contractors, newUuid, nowIso())
-    void (async () => {
+    void tryWrite('Camps from audits', async () => {
       for (const c of fresh) await saveRecord('camps', c, c.name)
-    })()
+    })
   }, [d, canEdit])
 
   const rows = useMemo(() => {

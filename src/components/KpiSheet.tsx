@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react'
+import { useSave } from '../lib/useSave'
+import SaveButton from './SaveButton'
 import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { haptic } from '../lib/haptics'
@@ -92,27 +94,30 @@ export default function KpiSheet({
   const offShown = k.offboardingPct ?? (off === null ? null : Math.round(off))
 
   const sheet = useRef<ModalHandle>(null)
-  const save = async () => {
-    if (audit && (k.auditClosed ?? 0) > (k.auditFindings ?? 0)) {
-      return showToast({ text: 'Closed out can’t be more than the findings' })
-    }
-    await saveRecord('kpiMonths', audit ? k : withoutAudit(k), `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
-    haptic('success')
-    showToast({ text: 'KPIs saved' })
-    // slide the sheet away, then close
-    if (sheet.current) sheet.current.close()
-    else onClose()
-  }
+  const { saving, alert, run } = useSave(`${subjectLabel} KPIs`)
+  const save = () =>
+    run(async () => {
+      if (audit && (k.auditClosed ?? 0) > (k.auditFindings ?? 0)) {
+        return 'Closed out can’t be more than the findings'
+      }
+      await saveRecord('kpiMonths', audit ? k : withoutAudit(k), `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
+      haptic('success')
+      showToast({ text: 'KPIs saved' })
+      // slide the sheet away, then close
+      if (sheet.current) sheet.current.close()
+      else onClose()
+    })
 
   return (
     <Modal
       ref={sheet}
       title={`${monthLabel(k.month)} · ${subjectLabel.replace(`${contractor.name} · `, '')}`}
       onClose={onClose}
+      alert={alert}
       header={
-        <button className="nav-btn strong" onClick={() => void save()}>
+        <SaveButton saving={saving} onClick={() => void save()}>
           Save
-        </button>
+        </SaveButton>
       }
     >
       <div className="sheet-body">
@@ -201,24 +206,27 @@ export function ManpowerSheet({
     </label>
   )
   const sheet = useRef<ModalHandle>(null)
-  const save = async () => {
-    const over = (['illegalOrFreelance', 'visaExpiring30d', 'paidRecruitmentFees'] as const).some((f) => m[f] > m.totalWorkers)
-    if (over) return showToast({ text: 'Counts can’t be more than total workers' })
-    await saveRecord('manpower', m, `${subjectLabel} · ${monthLabel(m.month)} manpower`)
-    haptic('success')
-    showToast({ text: 'Manpower saved' })
-    if (sheet.current) sheet.current.close()
-    else onClose()
-  }
+  const { saving, alert, run } = useSave(`${subjectLabel} manpower`)
+  const save = () =>
+    run(async () => {
+      const over = (['illegalOrFreelance', 'visaExpiring30d', 'paidRecruitmentFees'] as const).some((f) => m[f] > m.totalWorkers)
+      if (over) return 'Counts can’t be more than total workers'
+      await saveRecord('manpower', m, `${subjectLabel} · ${monthLabel(m.month)} manpower`)
+      haptic('success')
+      showToast({ text: 'Manpower saved' })
+      if (sheet.current) sheet.current.close()
+      else onClose()
+    })
   return (
     <Modal
       ref={sheet}
       title={`${monthLabel(m.month)} manpower · ${subjectLabel}`}
       onClose={onClose}
+      alert={alert}
       header={
-        <button className="nav-btn strong" onClick={() => void save()}>
+        <SaveButton saving={saving} onClick={() => void save()}>
           Save
-        </button>
+        </SaveButton>
       }
     >
       <div className="sheet-body">

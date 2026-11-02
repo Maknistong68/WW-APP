@@ -7,6 +7,9 @@ import { getTemplate } from '../templates'
 import Icon from '../components/Icon'
 import ActionBar from '../components/ActionBar'
 import { showToast } from '../components/Toast'
+import { describeSaveError } from '../lib/saveError'
+import { reloadApp } from '../lib/useSave'
+import { beginEdit } from '../lib/editing'
 import type { Camp, GeneralInfo, Inspection } from '../types'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -114,6 +117,8 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
   })
   const [loaded, setLoaded] = useState(mode === 'new')
   const [saving, setSaving] = useState(false)
+  // an app update waits while this form is open
+  useEffect(() => beginEdit(), [])
   const [locating, setLocating] = useState(false)
 
   useEffect(() => {
@@ -241,10 +246,9 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
       logEvent(newId, 'Inspection created', `${template.name} · ${info.contractorNames}`)
       navigate(`/inspection/${newId}`, { replace: true })
     } catch (err) {
-      showToast({
-        text: `Could not save: ${err instanceof Error ? err.message : String(err)}`,
-        duration: 8000,
-      })
+      const d = describeSaveError(err)
+      logEvent(null, 'Save failed', `Inspection details: ${d.detail}`)
+      showToast({ text: d.text, tone: 'bad', duration: 8000, ...(d.reload ? { actionLabel: 'Reload', onAction: reloadApp } : {}) })
     } finally {
       setSaving(false)
     }

@@ -1,10 +1,13 @@
 import { useRef, useState } from 'react'
+import { useSave } from '../lib/useSave'
+import SaveButton from './SaveButton'
 import Modal, { type ModalHandle } from './Modal'
 import { openSheet } from './SheetHost'
 import { showToast } from './Toast'
 import { haptic } from '../lib/haptics'
 import { dayMonth, localDate } from '../lib/dates'
 import { removeRecord, saveRecord } from '../lib/records'
+import { tryWrite } from '../lib/safeWrite'
 import { freshDoneThrough, repeatText } from '../lib/routines'
 import { backgroundSync } from '../lib/sync'
 import type { Routine, RoutineRepeat } from '../types'
@@ -24,19 +27,21 @@ export default function RoutineSheet({ routine, onClose }: { routine: Routine; o
   const valid = /^\d{4}-\d{2}-\d{2}$/.test(r.start)
   const day = valid ? Number(r.start.slice(8, 10)) : 0
 
-  const save = async () => {
-    const title = r.title.trim()
-    if (!title) return showToast({ text: 'Name the task' })
-    if (!valid) return showToast({ text: 'Pick a date' })
-    // A new task, or a new schedule, starts fresh: never late on day one.
-    const rescheduled = isNew || r.start !== routine.start || r.repeat !== routine.repeat
-    const rec = { ...r, title, notes: r.notes.trim(), doneThrough: rescheduled ? freshDoneThrough(r.repeat, localDate()) : r.doneThrough }
-    await saveRecord('routines', rec, title)
-    backgroundSync()
-    showToast({ text: isNew ? 'Task added' : 'Task saved' })
-    if (sheet.current) sheet.current.close()
-    else onClose()
-  }
+  const { saving, alert, run } = useSave(routine.title ? `Task ${routine.title}` : 'New task')
+  const save = () =>
+    run(async () => {
+      const title = r.title.trim()
+      if (!title) return 'Name the task'
+      if (!valid) return 'Pick a date'
+      // A new task, or a new schedule, starts fresh: never late on day one.
+      const rescheduled = isNew || r.start !== routine.start || r.repeat !== routine.repeat
+      const rec = { ...r, title, notes: r.notes.trim(), doneThrough: rescheduled ? freshDoneThrough(r.repeat, localDate()) : r.doneThrough }
+      await saveRecord('routines', rec, title)
+      backgroundSync()
+      showToast({ text: isNew ? 'Task added' : 'Task saved' })
+      if (sheet.current) sheet.current.close()
+      else onClose()
+    })
 
   const remove = () =>
     openSheet({
@@ -46,7 +51,8 @@ export default function RoutineSheet({ routine, onClose }: { routine: Routine; o
       confirmLabel: 'Delete task',
       destructive: true,
       onConfirm: () =>
-        void removeRecord('routines', routine.uuid, routine.title || 'Task').then(() => {
+        void tryWrite(`Delete ${routine.title || 'task'}`, () => removeRecord('routines', routine.uuid, routine.title || 'Task')).then((ok) => {
+          if (!ok) return
           showToast({ text: 'Task deleted' })
           backgroundSync()
         }),
@@ -65,10 +71,11 @@ export default function RoutineSheet({ routine, onClose }: { routine: Routine; o
       ref={sheet}
       title={isNew ? 'New task' : 'Edit task'}
       onClose={onClose}
+      alert={alert}
       header={
-        <button className="nav-btn strong" onClick={() => void save()}>
+        <SaveButton saving={saving} onClick={() => void save()}>
           {isNew ? 'Add' : 'Save'}
-        </button>
+        </SaveButton>
       }
     >
       <div className="sheet-body">

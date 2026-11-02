@@ -19,6 +19,8 @@ import { useThemeMode } from '../lib/theme'
 import PasswordInput from '../components/PasswordInput'
 import { RECOVERY_KEY, authErrorText, sendPasswordReset, signInWithPassword, signUpWithPassword } from '../lib/auth'
 import { showToast } from '../components/Toast'
+import { logText, mergeLogs } from '../lib/logCopy'
+import { readLocalLog } from '../lib/localLog'
 import { canInstall, isIos, isStandalone, onInstallChange, promptInstall } from '../lib/installPrompt'
 
 
@@ -74,7 +76,16 @@ export default function SettingsPage() {
     }
   }
 
-  const logs = useLiveQuery(() => db.logs.orderBy('time').reverse().limit(100).toArray())
+  const dbLogs = useLiveQuery(() => db.logs.orderBy('time').reverse().limit(100).toArray())
+  const logs = mergeLogs(dbLogs, readLocalLog()).slice(0, 100)
+  const versionLine = `Version ${__APP_BUILD__} · ${isStandalone() ? 'installed app' : 'browser tab'} · ${navigator.userAgent}`
+  const copyLog = () => {
+    const text = logText(versionLine, logs)
+    void navigator.clipboard
+      ?.writeText(text)
+      .then(() => showToast({ text: 'Log copied. Paste it in a message.' }))
+      .catch(() => showToast({ text: 'Could not copy. Take a screenshot instead.' }))
+  }
 
   useEffect(() => onInstallChange(() => setInstallable(canInstall())), [])
 
@@ -202,7 +213,7 @@ export default function SettingsPage() {
       const down = r.pulled + r.photosDown
       if (r.failed > 0) {
         showToast({
-          text: `Synced with ${r.failed} error${r.failed === 1 ? '' : 's'} — see activity log`,
+          text: `Synced with ${r.failed} error${r.failed === 1 ? '' : 's'} — see Sync log below`,
           duration: 8000,
         })
       } else {
@@ -413,13 +424,21 @@ export default function SettingsPage() {
         </div>
 
         <div className="section-label">Sync &amp; system log</div>
+        <div className="list-foot" style={{ marginTop: 0, overflowWrap: 'anywhere' }}>
+          Version {__APP_BUILD__} · {isStandalone() ? 'installed app' : 'browser tab'}
+        </div>
+        {logs.length > 0 && (
+          <button className="btn block" style={{ marginBottom: 12 }} onClick={copyLog}>
+            <Icon name="copy" size={18} /> Copy log
+          </button>
+        )}
         <div className="card" style={{ padding: 0 }}>
-          {!logs || logs.length === 0 ? (
+          {logs.length === 0 ? (
             <div className="empty">Nothing logged yet. Actions like edits, exports, backups and syncs appear here.</div>
           ) : (
             <>
               {logs.map((l) => (
-                <div key={l.id} className="log-row">
+                <div key={`${l.time}|${l.event}|${l.detail}`} className="log-row">
                   <div className="log-time">{fmtTime(l.time)}</div>
                   <div>
                     <b>{l.event}</b>

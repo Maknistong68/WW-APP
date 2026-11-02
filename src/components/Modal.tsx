@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import Icon from './Icon'
 import { EXIT_MS, reducedMotion } from '../lib/motion'
+import { beginEdit } from '../lib/editing'
 
 export interface ModalHandle {
   /** Animate out, then run `then` (default: onClose). */
@@ -23,8 +24,10 @@ const Modal = forwardRef<
     header?: ReactNode
     /** 'dialog': no header row; the children carry the title and buttons. */
     variant?: 'sheet' | 'dialog'
+    /** Why the last save didn't go through. Shown under the title, outside the scrolling body, so it's always in view. */
+    alert?: string | null
   }
->(function Modal({ title, onClose, children, header, variant = 'sheet' }, ref) {
+>(function Modal({ title, onClose, children, header, variant = 'sheet', alert }, ref) {
   const sheetRef = useRef<HTMLDivElement>(null)
   const previousFocus = useRef<Element | null>(null)
   const [closing, setClosing] = useState(false)
@@ -45,6 +48,9 @@ const Modal = forwardRef<
     pending.current = { timer, done }
   }, [])
   useImperativeHandle(ref, () => ({ close }), [close])
+
+  // An app update waits while a panel is open (see lib/appUpdate.ts).
+  useEffect(() => beginEdit(), [])
 
   useEffect(() => {
     previousFocus.current = document.activeElement
@@ -110,6 +116,12 @@ const Modal = forwardRef<
             <button className="icon-btn" aria-label="Close" onClick={() => close()}>
               <Icon name="x" size={22} />
             </button>
+          </div>
+        )}
+        {alert && (
+          <div className="sheet-alert" role="alert">
+            <Icon name="alert" size={18} />
+            <span>{alert}</span>
           </div>
         )}
         {children}

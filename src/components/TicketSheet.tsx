@@ -8,7 +8,9 @@ import { saveRecord } from '../lib/records'
 import { localDate } from '../lib/dates'
 import { CATEGORIES, CHANNELS, ISSUES, PRIORITIES, SEVERITIES } from '../lib/lists'
 import { newContractor, ticketLabel, useContractors } from '../lib/useData'
-import { ticketProblem } from '../lib/ticketCheck'
+import { ticketDateHint, ticketProblem } from '../lib/ticketCheck'
+import { useSave } from '../lib/useSave'
+import SaveButton from './SaveButton'
 import { closingAmount, parseSar, sarInput } from '../lib/money'
 import { isCase, nextCaseNo, noun } from '../lib/cases'
 import { db } from '../db'
@@ -66,47 +68,50 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
 
   const kind = Noun(t)
   const sheet = useRef<ModalHandle>(null)
-  const save = async () => {
-    let rec = { ...t, ticketNo: t.ticketNo.trim().toUpperCase() }
-    // A new case takes the next free number now, so one a teammate synced meanwhile isn't reused.
-    if (isNew && isCase(rec)) rec = { ...rec, ticketNo: nextCaseNo(await usedNumbers()) }
-    if (addingContractor) {
-      const name = newName.trim()
-      if (!name) return showToast({ text: 'Type the new contractor name' })
-      const c = await saveRecord('contractors', newContractor(name), name)
-      byUuid.set(c.uuid, c)
-      rec = { ...rec, contractorUuid: c.uuid }
-    }
-    rec = { ...rec, contractorAction: rec.contractorAction.trim(), wwAction: rec.wwAction.trim() }
-    if (!isMember) {
-      // a combined ticket's money stays on its main ticket
-      const amount = parseSar(money)
-      if (amount === undefined) return showToast({ text: 'Check the amount' })
-      rec = { ...rec, amountOwed: amount }
-    }
-    // Old imported tickets may lack a contractor or issue: they still save.
-    const problem = ticketProblem(isNew ? null : ticket, rec)
-    if (problem) return showToast({ text: problem })
-    if (rec.ticketNo !== ticket.ticketNo || isNew) {
-      const clash = await db.tickets.where('ticketNo').equals(rec.ticketNo).filter((x) => x.uuid !== rec.uuid).count()
-      if (clash) return showToast({ text: `${rec.ticketNo} already exists` })
-    }
-    await saveRecord('tickets', rec, ticketLabel(rec, byUuid))
-    showToast({ text: isNew ? `${kind} added` : `${kind} saved` })
-    // slide the sheet away, then close
-    if (sheet.current) sheet.current.close()
-    else onClose()
-  }
+  const { saving, alert, run } = useSave(isNew ? `New ${noun(t)}` : `Edit ${ticket.ticketNo || noun(t)}`)
+  const save = () =>
+    run(async () => {
+      let rec = { ...t, ticketNo: t.ticketNo.trim().toUpperCase() }
+      // A new case takes the next free number now, so one a teammate synced meanwhile isn't reused.
+      if (isNew && isCase(rec)) rec = { ...rec, ticketNo: nextCaseNo(await usedNumbers()) }
+      if (addingContractor && !newName.trim()) return 'Type the new contractor name'
+      rec = { ...rec, contractorAction: rec.contractorAction.trim(), wwAction: rec.wwAction.trim() }
+      if (!isMember) {
+        // a combined ticket's money stays on its main ticket
+        const amount = parseSar(money)
+        if (amount === undefined) return 'Check the amount'
+        rec = { ...rec, amountOwed: amount }
+      }
+      // Old imported tickets may lack a contractor, issue or good dates: they still save.
+      const problem = ticketProblem(isNew ? null : ticket, addingContractor ? { ...rec, contractorUuid: NEW } : rec)
+      if (problem) return problem
+      if (rec.ticketNo !== ticket.ticketNo || isNew) {
+        const clash = await db.tickets.where('ticketNo').equals(rec.ticketNo).filter((x) => x.uuid !== rec.uuid).count()
+        if (clash) return `${rec.ticketNo} already exists`
+      }
+      if (addingContractor) {
+        const name = newName.trim()
+        const c = await saveRecord('contractors', newContractor(name), name)
+        byUuid.set(c.uuid, c)
+        rec = { ...rec, contractorUuid: c.uuid }
+      }
+      await saveRecord('tickets', rec, ticketLabel(rec, byUuid))
+      showToast({ text: isNew ? `${kind} added` : `${kind} saved` })
+      // slide the sheet away, then close
+      if (sheet.current) sheet.current.close()
+      else onClose()
+    })
 
   return (
     <Modal
       ref={sheet}
       title={isNew ? `New ${noun(t)}` : `Edit ${noun(t)}`}
       onClose={onClose}
+      alert={alert}
       header={
-        <button className="nav-btn strong" onClick={() => void save()}>
+        <SaveButton saving={saving} onClick={() => void save()}>
           {isNew ? 'Add' : 'Save'}
-        </button>
+        </SaveButton>
       }
     >
       <div className="sheet-body">
@@ -200,12 +205,15 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
         {!isNew && (
           <>
             {t.status === 'Closed' && (
-              <div className="list" style={{ marginTop: 14 }}>
-                <label className="row">
-                  <span className="row-label">Closed on</span>
-                  <input type="date" value={t.closedAt} onChange={(e) => set('closedAt', e.target.value)} />
-                </label>
-              </div>
+              <>
+                <div className="list" style={{ marginTop: 14 }}>
+                  <label className="row">
+                    <span className="row-label">Closed on</span>
+                    <input type="date" value={t.closedAt} onChange={(e) => set('closedAt', e.target.value)} />
+                  </label>
+                </div>
+                {ticketDateHint(t) && <div className="list-foot warn-text">{ticketDateHint(t)}. Opened {t.openedAt || '—'}.</div>}
+              </>
             )}
             <div className="section-label">Contractor action</div>
             <div className="list">
@@ -315,39 +323,40 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
   const [none, setNone] = useState(ticket.amountOwed === 0)
 
   const sheet = useRef<ModalHandle>(null)
-  const save = async () => {
-    if (date < ticket.openedAt) return showToast({ text: 'Closing date is before the opening date' })
-    let amountOwed = ticket.amountOwed
-    if (!isMember) {
-      const r = closingAmount(money, none)
-      if ('error' in r) {
-        haptic('warn')
-        return showToast({ text: r.error })
+  const { saving, alert, run } = useSave(`Close ${ticket.ticketNo || noun(ticket)}`)
+  const save = () =>
+    run(async () => {
+      if (!date) return 'Add the closing date'
+      if (date < ticket.openedAt) return 'Closing date is before the opening date'
+      let amountOwed = ticket.amountOwed
+      if (!isMember) {
+        const r = closingAmount(money, none)
+        if ('error' in r) return r.error
+        amountOwed = r.amount
       }
-      amountOwed = r.amount
-    }
-    await saveRecord(
-      'tickets',
-      { ...ticket, status: 'Closed', closedAt: date, amountOwed, wwAction: action.trim(), contractorAction: contractorAction.trim() },
-      ticketLabel(ticket, byUuid),
-      'close',
-    )
-    haptic('success')
-    showToast({ text: `${Noun(ticket)} closed` })
-    // slide the sheet away, then close
-    if (sheet.current) sheet.current.close()
-    else onClose()
-  }
+      await saveRecord(
+        'tickets',
+        { ...ticket, status: 'Closed', closedAt: date, amountOwed, wwAction: action.trim(), contractorAction: contractorAction.trim() },
+        ticketLabel(ticket, byUuid),
+        'close',
+      )
+      haptic('success')
+      showToast({ text: `${Noun(ticket)} closed` })
+      // slide the sheet away, then close
+      if (sheet.current) sheet.current.close()
+      else onClose()
+    })
 
   return (
     <Modal
       ref={sheet}
       title={`Close ${noun(ticket)}`}
       onClose={onClose}
+      alert={alert}
       header={
-        <button className="nav-btn strong" onClick={() => void save()}>
+        <SaveButton saving={saving} onClick={() => void save()}>
           Close
-        </button>
+        </SaveButton>
       }
     >
       <div className="sheet-body">

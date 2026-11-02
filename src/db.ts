@@ -17,6 +17,7 @@ import type {
   Routine,
 } from './types'
 import { NORMALIZE } from './lib/normalize'
+import { writeLocalLog } from './lib/localLog'
 
 export const newUuid = (): string => {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
@@ -97,6 +98,28 @@ class WWDatabase extends Dexie {
 
 export const db = new WWDatabase()
 
+/** Tell the app about a storage problem (main.tsx shows it as a toast). */
+function storageNotice(text: string, reload: boolean) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('ww-notice', { detail: { text, reload } }))
+}
+
+// A newer version of the app opened the database (another tab, or the
+// installed app after an update). This copy's schema is now out of date:
+// close for good instead of reopening at the old version, which would make
+// every later save fail with a VersionError that nobody sees.
+db.on('versionchange', () => {
+  db.close({ disableAutoOpen: true })
+  writeLocalLog({ time: new Date().toISOString(), event: 'Database closed', detail: 'A newer version of the app opened it' })
+  storageNotice('The app was updated. Reload to keep saving.', true)
+  return false
+})
+// This copy is the newer one, but an older copy elsewhere keeps the database open.
+db.on('blocked', () => {
+  writeLocalLog({ time: new Date().toISOString(), event: 'Database update blocked', detail: 'Another copy of the app is open' })
+  storageNotice('Close other WW Co-pilot tabs or windows to finish the update.', false)
+})
+
 /** Audit milestones that also go into the co-pilot activity log. */
 const AUDIT_ACTIVITY: Record<string, ActivityEntry['action']> = {
   'Inspection created': 'add',
@@ -105,9 +128,13 @@ const AUDIT_ACTIVITY: Record<string, ActivityEntry['action']> = {
   'Inspection reopened': 'reopen',
 }
 
+/** Problems also go to a small copy in localStorage, readable even when the database is what broke. */
+const PROBLEM = /fail|stopped|slow|error|blocked|closed/i
+
 /** Append an entry to the technical log (fire-and-forget). */
 export function logEvent(inspectionId: number | null, event: string, detail = ''): void {
   const time = new Date().toISOString()
+  if (PROBLEM.test(event)) writeLocalLog({ time, event, detail })
   void db.logs.add({ inspectionId, time, event, detail }).catch(() => {})
   const action = AUDIT_ACTIVITY[event]
   if (inspectionId === null || !action) return

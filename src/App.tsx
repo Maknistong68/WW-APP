@@ -76,7 +76,7 @@ function AppShell() {
     const announce = (r: SyncResult) => {
       if (r.failed > 0) {
         showToast({
-          text: `Cloud sync: ${r.failed} item${r.failed === 1 ? '' : 's'} failed — see activity log`,
+          text: `Cloud sync: ${r.failed} item${r.failed === 1 ? '' : 's'} failed — see Settings › Sync log`,
           duration: 6000,
         })
         return

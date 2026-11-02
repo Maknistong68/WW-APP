@@ -9,7 +9,9 @@ type Fields = Pick<Ticket, 'ticketNo' | 'contractorUuid' | 'issue' | 'status' | 
  * number, contractor and issue. An existing one is only held to the fields it
  * had: old imported tickets with gaps can still be edited (e.g. just the
  * workers), but a field that had a value can't be emptied. A D&C ticket's
- * number starts WWCMPL; a case's is CASE-0001 and so on.
+ * number starts WWCMPL; a case's is CASE-0001 and so on. The dates are held
+ * the same way: a closed ticket imported with a missing or backwards closing
+ * date still saves, until someone touches its status or dates.
  */
 export function ticketProblem(before: Fields | null, after: Fields): string | null {
   const isNew = !before
@@ -20,9 +22,26 @@ export function ticketProblem(before: Fields | null, after: Fields): string | nu
   }
   if (had('contractorUuid') && !after.contractorUuid) return 'Pick a contractor'
   if (had('issue') && !after.issue) return 'Pick an issue'
-  if (after.status === 'Closed') {
-    if (!after.closedAt) return 'Add the closing date'
-    if (after.openedAt && after.closedAt < after.openedAt) return 'Closing date is before the opening date'
-  }
+  const datesTouched =
+    isNew ||
+    before.status !== after.status ||
+    before.openedAt !== after.openedAt ||
+    before.closedAt !== after.closedAt ||
+    !dateProblem(before)
+  if (datesTouched) return dateProblem(after)
   return null
+}
+
+function dateProblem(t: Fields): string | null {
+  if (t.status !== 'Closed') return null
+  if (!t.closedAt) return 'Add the closing date'
+  if (t.openedAt && t.closedAt < t.openedAt) return 'Closing date is before the opening date'
+  return null
+}
+
+/** A gentle note under the dates of a ticket whose dates look wrong (old imports). */
+export function ticketDateHint(t: Fields): string | null {
+  const p = dateProblem(t)
+  if (!p) return null
+  return p === 'Add the closing date' ? 'No closing date' : 'Check the dates: closed before it was opened'
 }
