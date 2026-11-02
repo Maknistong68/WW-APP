@@ -4,6 +4,7 @@ import { closeouts } from './closeout'
 import { workforce } from './dashboard'
 import { addDays, addMonths, dayMonth, daysDiff, localDate, monthLabel, monthOf, monthRange } from './dates'
 import { declarationsDue, dueTone, kpisDue, lastEndedMonth } from './due'
+import { declNotProvided, declWaiting } from './kpi'
 import { kpisForMonth, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, woOf, type KpiSubject } from './subjects'
 import { SUBJECT_ITEMS, quarterMonths, type SubjectItemKey } from './todo'
@@ -110,11 +111,6 @@ const groupFor = (due: string, today: string): TaskGroup => {
 const toneFor = (g: TaskGroup): Tone => (g === 'overdue' ? 'bad' : g === 'week' ? 'warn' : g === 'done' ? 'good' : 'info')
 const chipFor = (g: TaskGroup, due: string, today: string) => (g === 'overdue' ? `${daysDiff(due, today)}d late` : `due ${dayMonth(due)}`)
 
-const DECL_FIELDS = [
-  ['wps', 'WPS'],
-  ['manpowerDecl', 'Manpower'],
-  ['salaryDecl', 'Salary'],
-] as const
 const KPI_ITEMS: { key: SubjectItemKey; name: string }[] = [
   { key: 'accommodation', name: 'Accommodation' },
   { key: 'onboarding', name: 'Onboarding' },
@@ -142,7 +138,9 @@ function subjectRows(d: AllData, subjects: KpiSubject[], m: string, today: strin
   const kpiDue = kpisDue(m)
   for (const sub of subjects) {
     const k = subjectKpi(sub, d.kpis, m)
-    const declMissing = DECL_FIELDS.filter(([f]) => !k?.[f]).map(([, name]) => name)
+    // Declarations the contractor can't provide are not chased.
+    const declMissing = declWaiting(k).map((x) => x.short)
+    const notProvided = declNotProvided(k).map((x) => x.short)
     const kpiMissing = KPI_ITEMS.filter((i) => !SUBJECT_ITEMS[i.key].done(d, sub, m))
     entered += (declMissing.length ? 0 : 1) + (KPI_ITEMS.length - kpiMissing.length)
     const subject = { contractorUuid: sub.contractor.uuid, workOrderUuid: woOf(sub), month: m }
@@ -192,7 +190,7 @@ function subjectRows(d: AllData, subjects: KpiSubject[], m: string, today: strin
         kind: 'done',
         group: 'done',
         title: sub.label,
-        detail: `${shortMonth(m)} all in`,
+        detail: `${shortMonth(m)} all in${notProvided.length ? ` · ${notProvided.join(', ')} not provided` : ''}`,
         due: null,
         dueText: 'Done',
         tone: 'good',

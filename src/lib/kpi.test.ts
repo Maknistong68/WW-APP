@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attendedPct, closurePct, computeKpi, formalPct, grievancePct, grievanceTier, kpiStatus, meetingAttended, offboardingScore, setOffboarding, submissionPct } from './kpi'
+import { attendedPct, closurePct, computeKpi, declState, declWaiting, setDecl, formalPct, grievancePct, grievanceTier, kpiStatus, meetingAttended, offboardingScore, setOffboarding, submissionPct } from './kpi'
 import type { KpiMonth, Ticket } from '../types'
 
 const tk = (openedAt: string, closedAt = ''): Ticket => ({
@@ -103,6 +103,21 @@ describe('KPI rules', () => {
     expect(offboardingScore(setOffboarding(old, null))).toBeNull()
     // a month with no older data gains no extra fields
     expect(Object.keys(setOffboarding(kpi({ offboarded: undefined, offboardTotal: undefined }), 80))).not.toContain('legacy')
+  })
+  it('a declaration is in, not provided (the contractor can’t give it) or still awaited', () => {
+    const k0 = kpi({ wps: false, manpowerDecl: false, salaryDecl: false })
+    expect(declWaiting(k0).map((d) => d.key)).toEqual(['wps', 'manpowerDecl', 'salaryDecl'])
+    const k1 = setDecl(setDecl(k0, 'salaryDecl', false), 'wps', true)
+    expect([declState(k1, 'wps'), declState(k1, 'manpowerDecl'), declState(k1, 'salaryDecl')]).toEqual([true, null, false])
+    expect(declWaiting(k1).map((d) => d.key)).toEqual(['manpowerDecl'])
+    // not provided still scores as not submitted
+    expect(submissionPct(k1)).toBe(50)
+    expect(submissionPct(setDecl(k1, 'manpowerDecl', false))).toBe(50)
+    // changing the answer moves it out of the not-provided list; clearing leaves no empty list behind
+    expect(setDecl(k1, 'salaryDecl', true).notProvided).toBeUndefined()
+    expect(setDecl(k1, 'salaryDecl', null).notProvided).toBeUndefined()
+    expect(setDecl(k1, 'wps', false)).toMatchObject({ wps: false, notProvided: ['wps', 'salaryDecl'] })
+    expect(declWaiting(undefined)).toHaveLength(3)
   })
   it('meeting attendance is yes / no: stored as 100 / 0, blank until answered', () => {
     expect([true, false, null].map(attendedPct)).toEqual([100, 0, null])

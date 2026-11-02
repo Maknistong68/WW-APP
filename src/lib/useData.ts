@@ -138,6 +138,7 @@ export const FIELD_LABELS: Record<string, string> = {
   wps: 'WPS',
   manpowerDecl: 'Manpower declaration',
   salaryDecl: 'Salary declaration',
+  notProvided: 'Not provided',
   accommodationPct: 'Accommodation %',
   onboardingPct: 'Onboarding %',
   offboardingPct: 'Offboarding %',

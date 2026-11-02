@@ -1,5 +1,5 @@
 import { addMonths, monthLabel } from './dates'
-import { meetingAttended, offboardingScore, submissionsComplete } from './kpi'
+import { declNotProvided, declWaiting, meetingAttended, offboardingScore } from './kpi'
 import { auditPctFor, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectManpower, type KpiSubject } from './subjects'
 import { closeoutState } from './closeout'
@@ -34,11 +34,15 @@ export const SUBJECT_ITEMS: Record<SubjectItemKey, SubjectItem> = {
   submission: {
     title: 'Monthly submission',
     sheet: 'kpi',
-    done: (d, s, m) => submissionsComplete(kpiOf(d, s, m)),
+    // Done once nothing is awaited: each one in, or marked not provided.
+    done: (d, s, m) => declWaiting(kpiOf(d, s, m)).length === 0,
     value: (d, s, m) => {
       const k = kpiOf(d, s, m)
-      const missing = [!k?.wps && 'WPS', !k?.manpowerDecl && 'Manpower', !k?.salaryDecl && 'Salary'].filter(Boolean)
-      return missing.length === 3 ? '' : missing.length ? `Missing ${missing.join(', ')}` : 'All 3 in'
+      const waiting = declWaiting(k).map((x) => x.short)
+      const notProvided = declNotProvided(k).map((x) => x.short)
+      if (waiting.length === 3) return ''
+      const parts = [waiting.length && `Missing ${waiting.join(', ')}`, notProvided.length && `${notProvided.join(', ')} not provided`]
+      return parts.filter(Boolean).join(' · ') || 'All 3 in'
     },
   },
   accommodation: {

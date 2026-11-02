@@ -330,15 +330,20 @@ export interface Ticket extends RecordBase {
   notes: string
 }
 
+export type DeclField = 'wps' | 'manpowerDecl' | 'salaryDecl'
+
 export interface KpiMonth extends RecordBase {
   contractorUuid: string
   /** '' = scored at contractor level (contractor without work orders). */
   workOrderUuid: string
   /** YYYY-MM */
   month: string
+  /** Declarations received. */
   wps: boolean
   manpowerDecl: boolean
   salaryDecl: boolean
+  /** Declarations the contractor said they can't provide: no longer chased, still scored as missing. */
+  notProvided?: DeclField[]
   /** 0–100, null = not scored */
   accommodationPct: number | null
   onboardingPct: number | null

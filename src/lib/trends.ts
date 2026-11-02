@@ -1,7 +1,7 @@
 import { lastMonths } from './dashboard'
 import { addMonths, daysBetween, localDate, monthRange } from './dates'
 import { lastEndedMonth } from './due'
-import { KPI_PARTS } from './kpi'
+import { KPI_PARTS, declNotProvided, declWaiting } from './kpi'
 import { kpiForSubject, rollup, type AllData, type KpiItemKey } from './kpiData'
 import type { KpiSubject } from './subjects'
 import { owedOf } from './money'
@@ -148,14 +148,15 @@ export function itemInputs(d: AllData, c: Contractor, key: KpiItemKey, month: st
   }
   if (key === 'submission') {
     const missing = new Set<string>()
+    const notProvided = new Set<string>()
     for (const s of pick(d, c, wo)) {
       const k = d.kpis.find((x) => x.contractorUuid === c.uuid && (x.workOrderUuid || '') === (s.workOrder?.uuid ?? '') && x.month === month)
       if (!k) continue
-      if (!k.wps) missing.add('WPS')
-      if (!k.manpowerDecl) missing.add('Manpower')
-      if (!k.salaryDecl) missing.add('Salary')
+      for (const x of declWaiting(k)) missing.add(x.short)
+      for (const x of declNotProvided(k)) notProvided.add(x.short)
     }
-    return missing.size ? `${[...missing].join(', ')} missing` : 'WPS, manpower, salary in'
+    const parts = [missing.size && `${[...missing].join(', ')} missing`, notProvided.size && `${[...notProvided].join(', ')} not provided`]
+    return parts.filter(Boolean).join(' · ') || 'WPS, manpower, salary in'
   }
   return ''
 }

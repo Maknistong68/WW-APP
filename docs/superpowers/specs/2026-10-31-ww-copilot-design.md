@@ -53,6 +53,9 @@ accommodationPct, onboardingPct, offboardingPct, meetingPct,
 quarterlyAuditPct?, updatedAt`
 - Onboarding and offboarding are one typed score each. Older months stored
   offboarding as `offboarded` / `offboardTotal` counts; those still score.
+- Each declaration (WPS, manpower, salary) is answered Yes / No / blank.
+  No = the contractor can't provide it (`notProvided`): it is no longer chased
+  on Home or the missing list, but still scores as not submitted.
 - Meeting attendance is answered Yes / No, stored as `meetingPct` 100 / 0
   (blank until answered).
 - The quarterly audit (score + close-out) is optional each month: the KPI sheet

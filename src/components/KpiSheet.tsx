@@ -5,7 +5,7 @@ import { haptic } from '../lib/haptics'
 import { saveRecord } from '../lib/records'
 import { monthLabel, shortDate } from '../lib/dates'
 import { CLOSEOUT_DAYS, closeoutState, closeoutText, defaultDue, hasAudit, withoutAudit } from '../lib/closeout'
-import { attendedPct, meetingAttended, offboardingScore, setOffboarding } from '../lib/kpi'
+import { DECLARATIONS, attendedPct, declState, meetingAttended, offboardingScore, setDecl, setOffboarding } from '../lib/kpi'
 import type { Contractor, KpiMonth, Manpower } from '../types'
 
 const num = (v: string): number | null => {
@@ -118,10 +118,11 @@ export default function KpiSheet({
       <div className="sheet-body">
         <div className="section-label">Submitted</div>
         <div className="list">
-          <Toggle label="WPS certificate" on={k.wps} onChange={(v) => set('wps', v)} />
-          <Toggle label="Manpower declaration" on={k.manpowerDecl} onChange={(v) => set('manpowerDecl', v)} />
-          <Toggle label="Salary declaration" on={k.salaryDecl} onChange={(v) => set('salaryDecl', v)} />
+          {DECLARATIONS.map((x) => (
+            <YesNoRow key={x.key} label={x.label} value={declState(k, x.key)} onChange={(v) => setK((p) => setDecl(p, x.key, v))} />
+          ))}
         </div>
+        <div className="list-foot">No = they can’t provide it. It isn’t chased, but scores as missing.</div>
         <div className="section-label">Scores</div>
         <div className="list">
           <PctRow label="Accommodation" value={k.accommodationPct} onChange={(v) => set('accommodationPct', v)} />

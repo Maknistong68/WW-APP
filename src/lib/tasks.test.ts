@@ -73,6 +73,14 @@ describe('Home tasks: declarations and KPIs', () => {
     expect(counts.done).toBe(1)
     expect(progress).toEqual({ month: '2026-10', done: 6, total: 12 })
   })
+  it('a declaration the contractor can’t provide is no longer chased, and the month can still be done', () => {
+    const notProvided = { contractorUuid: 'c1', workOrderUuid: 'w2', month: '2026-10', wps: false, manpowerDecl: true, salaryDecl: true, notProvided: ['wps'] }
+    const kpis = [allIn('w1', '2026-10').kpis[0], { ...allIn('w2', '2026-10').kpis[0], ...notProvided }] as KpiMonth[]
+    const manpower = [...allIn('w1', '2026-10').manpower, ...allIn('w2', '2026-10').manpower]
+    const { tasks } = buildTasks(base({ kpis, manpower }), '2026-11-20')
+    expect(tasks.filter((t) => t.kind === 'declarations')).toEqual([])
+    expect(tasks.find((t) => t.title === 'RPCO · WO 1134')?.detail).toBe('Oct all in · WPS not provided')
+  })
   it('imported months before October 2026 never appear', () => {
     const kpis = [{ contractorUuid: 'c1', workOrderUuid: 'w1', month: '2026-08', wps: false }] as KpiMonth[]
     const { tasks } = buildTasks(base({ kpis }), '2026-11-20')

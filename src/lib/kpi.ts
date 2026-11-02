@@ -1,5 +1,5 @@
 import { daysBetween, monthRange } from './dates'
-import type { KpiMonth, Manpower, Ticket } from '../types'
+import type { DeclField, KpiMonth, Manpower, Ticket } from '../types'
 
 // Every KPI rule in one place (spec §5). All values are 0–100, null = blank
 // (no data), and blanks are left out of the overall average.
@@ -33,7 +33,33 @@ export const KPI_PARTS: { key: Exclude<keyof KpiResult, 'overall' | 'status'>; l
   { key: 'quarterly', label: 'Quarterly audit' },
 ]
 
-/** WPS + manpower + salary declarations: all 3 = 100, none = 0, else 50. */
+export const DECLARATIONS: { key: DeclField; label: string; short: string }[] = [
+  { key: 'wps', label: 'WPS certificate', short: 'WPS' },
+  { key: 'manpowerDecl', label: 'Manpower declaration', short: 'Manpower' },
+  { key: 'salaryDecl', label: 'Salary declaration', short: 'Salary' },
+]
+
+/** One declaration: in (true), not provided — the contractor can't give it (false), or still awaited (null). */
+export function declState(k: KpiMonth | undefined, f: DeclField): boolean | null {
+  if (k?.[f]) return true
+  return k?.notProvided?.includes(f) ? false : null
+}
+
+/** Answer one declaration; "not provided" keeps the list in form order and drops it when empty. */
+export function setDecl(k: KpiMonth, f: DeclField, v: boolean | null): KpiMonth {
+  const out: KpiMonth = { ...k, [f]: v === true }
+  const list = DECLARATIONS.map((d) => d.key).filter((x) => (x === f ? v === false : k.notProvided?.includes(x)))
+  if (list.length) out.notProvided = list
+  else delete out.notProvided
+  return out
+}
+
+/** Declarations still awaited (neither in nor marked not provided). */
+export const declWaiting = (k: KpiMonth | undefined) => DECLARATIONS.filter((d) => declState(k, d.key) === null)
+/** Declarations marked not provided. */
+export const declNotProvided = (k: KpiMonth | undefined) => DECLARATIONS.filter((d) => declState(k, d.key) === false)
+
+/** WPS + manpower + salary declarations: all 3 = 100, none = 0, else 50 (not provided = not in). */
 export function submissionPct(k: Pick<KpiMonth, 'wps' | 'manpowerDecl' | 'salaryDecl'>): number {
   const yes = [k.wps, k.manpowerDecl, k.salaryDecl].filter(Boolean).length
   return yes === 3 ? 100 : yes === 0 ? 0 : 50
