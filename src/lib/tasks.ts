@@ -586,6 +586,17 @@ export function areaStatus(s: AreaSummary): { n: number | null; word: string; to
   return { n: null, word: 'All done', tone: 'good' }
 }
 
+/**
+ * A Home icon tile: the badge holds the most urgent count (late, else this
+ * week); the line under the name says what it is, or the next date.
+ */
+export function areaTile(s: AreaSummary): { badge: number | null; sub: string; tone: Tone } {
+  if (s.late) return { badge: s.late, sub: 'Late', tone: 'bad' }
+  if (s.week) return { badge: s.week, sub: 'This week', tone: 'warn' }
+  if (s.later) return { badge: null, sub: s.next ? dayMonth(s.next) : `${s.later} later`, tone: 'none' }
+  return { badge: null, sub: 'Done', tone: 'good' }
+}
+
 /** The same as one line of text, e.g. "3 late" (the pop-up's subtitle). */
 export function areaLine(s: AreaSummary): { text: string; tone: Tone } {
   const st = areaStatus(s)

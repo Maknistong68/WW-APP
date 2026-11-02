@@ -117,27 +117,35 @@ per screen.
   screen is the target (so its scroll returns), otherwise it opens the target as a "back" move.
 
 ## Screens
-- **Today (Home):** three counters, then six cards built from one named task list
-  (`src/lib/tasks.ts`).
-  - Three counters (Overdue / This week / Done) work as filters: tapped, Home shows that group's
-    named rows from every card.
-  - **Cards**, two side by side, kept plain (`AREAS`, `src/components/AreaCard.tsx`): **Tickets ·
-    Submission · KPIs · Accommodation · Audits · Tasks**. Each has a line icon in its menu hue
-    (`MENU_HUE`, menu `home`; no gradient tile), the name, and one status line with the most urgent
-    count big (`areaStatus`): "**3** late" (red), "**2** this week" (amber), "Next 15 Nov" (grey) or
-    "✓ All done" (green).
+- **Today (Home):** titled by the time of day ("Good morning", `greeting`), with the date under it.
+  Its sections, all built from one named task list (`src/lib/tasks.ts`), come in each person's own
+  order: **Edit Home** at the bottom lists them with ↑ / ↓ to move each one on its own (a moved row
+  glides to its place), Reset order and Done. The order is kept on the phone (`ww.homeOrder`,
+  `src/lib/homeLayout.ts`).
+  - **Start here** (`src/components/StartHere.tsx`): every late or this-week job as a card, side by
+    side, swiped across; the heading says which card you're on ("2 of 7"). A card (`TaskCard`) has
+    the task's tile, its status chip, the name, what it is, and one green button that does it
+    (Close ticket, Fill in, Start inspection, Mark done; viewers get Open). Tap the top to open the
+    record; hold for more. A finished card shows its check and fades.
+  - **All areas**: the six areas as One UI app icons, three across (`AREAS`,
+    `src/components/AreaCard.tsx`): **Tickets · Submission · KPIs · Accommodation · Audits · Tasks**.
+    Each is a gradient tile in its menu hue (`MENU_HUE`, menu `home`) with a badge (`areaTile`): the
+    late count (red), else this week's (amber), or a green check when all is done. Under the name:
+    "Late", "This week", the next date ("15 Nov") or "Done".
     - Tickets: over 30 days or turning 30 this week. Submission: WPS / manpower / salary
       declarations and older months. KPIs: scores and worker counts. Accommodation: camp
       inspections due and draft inspections. Audits: quarterly audits and close-outs. Tasks: the
       team's own to-dos.
-    - **Tap** opens the card's list (`/today/:area`, `src/pages/AreaPage.tsx`): Overdue, This
+    - **Tap** opens the area's list (`/today/:area`, `src/pages/AreaPage.tsx`): Overdue, This
       week, Later, with the shortcut to the app's own screen at the end (and **Add** on Tasks).
-      The Tickets card's list has the ticket log's **Tickets | Internal** tabs (with a count each;
+      The Tickets list has the ticket log's **Tickets | Internal** tabs (with a count each;
       `SourceTabs`); hotline and Internal tickets are capped and listed on their own
-      (`ticketSource`), and the card's number counts both.
-    - **Hold** (`areaMenu`): Late / This week / Later, the most urgent names (or what the card
+      (`ticketSource`), and the badge counts both.
+    - **Hold** (`areaMenu`): Late / This week / Later, the most urgent names (or what the area
       means), the shortcut (Open Tickets, Missing submissions, KPI dashboard, Open Camps, Audit
       close-outs) and Add task.
+  - **Watch** (no deadline) and **Month progress** (how much of the month is entered) are sections
+    too.
   - Rows (`src/components/TaskRow.tsx`): urgent ones are named one by one, e.g. "RPCO · WO 882 ·
     Oct: WPS, Salary missing · 1d late". A ticket row, like the ticket log, is named by the
     contractor's short name, with "WWCMPL… · Open 42 days · 3 workers" below. Later ones are grouped
@@ -147,11 +155,10 @@ per screen.
   - Gaps are chased from October 2026 (`TASKS_FROM`), for up to 3 ended months.
   - **Editors:** tap or swipe left to do it (Fill in / Close / Start). **Viewers:** tap opens the
     record. Everyone can hold for more.
-  - A finished row turns into a drawn check and slides away, with a success buzz; Done bumps.
-  - With nothing overdue or due this week, "All caught up" shows its check (with a burst once a
-    day).
-  - A Watch card (KPI below 70%, illegal workers, visas, recruitment fees) and the month's progress
-    sit under the cards.
+  - A finished row turns into a drawn check and slides away, with a success buzz.
+  - With nothing overdue or due this week, Start here shows "All caught up" with its check (with a
+    burst once a day).
+  - Watch lists KPI below 70%, illegal workers, visas and recruitment fees.
   - **Tasks** (+ → Task, `src/lib/routines.ts`): the team's own to-dos, Once / Daily / Weekly /
     Monthly, shared with everyone (Editors add and tick off; Viewers see them).
     - Weekly repeats on the start date's weekday, monthly on its day (the last day in shorter

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AREAS, areaLine, areaStatus, areaSummaries, buildTasks, completedSince, taskMonths, tasksIn, type Task } from './tasks'
+import { AREAS, areaLine, areaStatus, areaSummaries, areaTile, buildTasks, completedSince, taskMonths, tasksIn, type Task } from './tasks'
 import type { AllData } from './kpiData'
 import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Routine, Ticket, WorkOrder } from '../types'
 
@@ -211,6 +211,14 @@ describe('Home cards: the six areas', () => {
     expect(areaStatus(sum(0, 2, 1))).toEqual({ n: 2, word: 'this week', tone: 'warn' })
     expect(areaStatus(sum(0, 0, 4, '2026-12-15'))).toEqual({ n: null, word: 'Next 15 Dec', tone: 'none' })
     expect(areaStatus(sum(0, 0, 0))).toEqual({ n: null, word: 'All done', tone: 'good' })
+  })
+  it('a Home icon tile: a badge with the urgent count, or the next date under the name', () => {
+    const sum = (late: number, week: number, later: number, next: string | null = null) => ({ late, week, later, next, names: [], more: 0 })
+    expect(areaTile(sum(15, 1, 0))).toEqual({ badge: 15, sub: 'Late', tone: 'bad' })
+    expect(areaTile(sum(0, 2, 1))).toEqual({ badge: 2, sub: 'This week', tone: 'warn' })
+    expect(areaTile(sum(0, 0, 4, '2026-11-15'))).toEqual({ badge: null, sub: '15 Nov', tone: 'none' })
+    expect(areaTile(sum(0, 0, 1))).toEqual({ badge: null, sub: '1 later', tone: 'none' })
+    expect(areaTile(sum(0, 0, 0))).toEqual({ badge: null, sub: 'Done', tone: 'good' })
   })
   it('an empty list gives every card zeros', () => {
     const all = areaSummaries([])

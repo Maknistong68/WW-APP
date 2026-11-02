@@ -17,9 +17,12 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
   Writes are enforced by RLS `private.can_edit()`; viewers sync pull-only and the UI hides edit
   controls via `useAuthInfo().canEdit`. An admin cannot change their own role.
 - No Import and no bulk KPI entry: the history is already in Supabase. New data comes from the
-  one + button (`src/components/AddButton.tsx`); Home is three counters and six cards (Tickets,
-  Submission, KPIs, Accommodation, Audits, Tasks); a card opens its named task list (overdue / this
-  week / later) whose rows open the right form or record, and holding a card gives a quick look.
+  one + button (`src/components/AddButton.tsx`). Home ("Good morning") is sections each person
+  orders with Edit Home (kept on the phone): Start here (every late or this-week job as a swipeable
+  card with its button), All areas (six app icons: Tickets, Submission, KPIs, Accommodation, Audits,
+  Tasks, with a count badge or the next date), Watch and Month progress. An area opens its named
+  task list (overdue / this week / later) whose rows open the right form or record, and holding an
+  area gives a quick look.
 - Short, simple UI wording. "Field tool" design in Samsung One UI 9 style: light by default
   (true-black dark follows the phone), colour = status (menu icons use fixed hues from
   `src/lib/hues.ts`), One UI app-icon tiles, expandable app bars, rounded grouped cards, a
@@ -36,8 +39,10 @@ npm run build   # strict tsc + vite build
 ## Where things are
 - Data model: `src/types.ts`; every write goes through `src/lib/records.ts` (activity log).
 - KPI rules: `src/lib/kpi.ts`; per-work-order subjects: `src/lib/subjects.ts`, `src/lib/kpiData.ts`.
-- Home task list: `src/lib/tasks.ts` (cards: `AREAS`, `areaSummaries`; rows `src/components/TaskRow.tsx`;
-  a card's list `src/pages/AreaPage.tsx`, `/today/:area`; due rules in `src/lib/due.ts`; the team's own routine tasks in
+- Home: `src/pages/TodoPage.tsx`; section order and Edit Home `src/lib/homeLayout.ts`,
+  `src/components/HomeEditor.tsx`; Start here `src/components/StartHere.tsx` (cards: `TaskCard`).
+- Home task list: `src/lib/tasks.ts` (areas: `AREAS`, `areaSummaries`, `areaTile`, icons
+  `src/components/AreaCard.tsx`; rows `src/components/TaskRow.tsx`; an area's list `src/pages/AreaPage.tsx`, `/today/:area`; due rules in `src/lib/due.ts`; the team's own routine tasks in
   `src/lib/routines.ts`, table `routines`, sheet `src/components/RoutineSheet.tsx`); the per-work-order checks and
   the `/missing/:item` lists: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
 - Long-press menus: `src/components/menus.tsx` (rules in `src/lib/menuSpec.ts`), sheets opened from

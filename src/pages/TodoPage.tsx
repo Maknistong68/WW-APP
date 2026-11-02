@@ -1,31 +1,32 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
 import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
-import StatCard from '../components/StatCard'
-import DoneCheck from '../components/DoneCheck'
 import RoutineSheet from '../components/RoutineSheet'
 import AreaCard from '../components/AreaCard'
-import { TaskGroups, useFinished } from '../components/TaskRow'
+import StartHere from '../components/StartHere'
+import HomeEditor from '../components/HomeEditor'
+import { useFinished } from '../components/TaskRow'
 import { areaMenu } from '../components/menus'
 import { useAuthInfo } from '../lib/auth'
-import { dayMonth, localDate } from '../lib/dates'
-import { declarationsDue, dueTone, kpisDue, lastEndedMonth } from '../lib/due'
+import { localDate } from '../lib/dates'
+import { lastEndedMonth } from '../lib/due'
 import { haptic } from '../lib/haptics'
+import { DEFAULT_ORDER, greeting, loadOrder, moveSection, saveOrder, type HomeSection } from '../lib/homeLayout'
 import { useAllData } from '../lib/kpiData'
 import { useCachedLiveQuery } from '../lib/useCachedQuery'
 import { newRoutine } from '../lib/useData'
 import { db } from '../db'
-import { AREAS, areaSummaries, buildTasks, type TaskGroup } from '../lib/tasks'
+import { AREAS, areaSummaries, buildTasks } from '../lib/tasks'
 import type { Routine } from '../types'
 
-// Home: the date strip, three counters (Overdue / This week / Done) and six
-// plain cards, two side by side: Tickets, Submission, KPIs, Accommodation, Audits
-// and Tasks. A card says its most urgent thing ("3 late"); tap opens its list
-// (/today/:area), hold for a quick look. A counter tapped shows that group's
-// named rows from every card.
+// Home ("Good morning"): sections in each person's own order (Edit Home).
+// - Start here: every late or this-week job as a card with its button, side by side.
+// - All areas: the six areas as app icons with a badge for what's urgent, or the next date.
+//   Tap opens the area's list (/today/:area); hold for a quick look.
+// - Watch: things with no deadline. Month progress: how much is entered.
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -45,131 +46,111 @@ export default function TodoPage() {
   const navigate = useNavigate()
   const { canEdit } = useAuthInfo()
   const today = localDate()
-  const [only, setOnly] = useState<TaskGroup | null>(null)
   const [adding, setAdding] = useState<Routine | null>(null)
+  const [order, setOrder] = useState<HomeSection[]>(loadOrder)
+  const [editing, setEditing] = useState(false)
   // Routine tasks the team added (+ → Task); shown once both have loaded.
   const routines = useCachedLiveQuery('routines', () => db.routines.toArray())
   const list = useMemo(() => (d.loaded && routines ? buildTasks(d, today, { routines }) : null), [d, today, routines])
   const areas = useMemo(() => (list ? areaSummaries(list.tasks) : null), [list])
-  // Finished since the last look: check, slide away, buzz, bump Done.
-  const { leaving, bump } = useFinished(list?.tasks ?? null, list?.counts.done ?? 0)
-
-  const clear = list ? list.counts.overdue + list.counts.week === 0 : false
+  const urgent = useMemo(() => (list ? list.tasks.filter((t) => t.group === 'overdue' || t.group === 'week') : []), [list])
+  // Finished since the last look: check, fade, buzz.
+  const { leaving } = useFinished(list?.tasks ?? null)
   const [burst] = useState(() => burstToday(today))
-  const toggle = (g: TaskGroup) => {
-    haptic('tick')
-    setOnly((o) => (o === g ? null : g))
-  }
-  const date = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
-
-  // The month being chased: when its declarations and KPIs are due.
+  const now = new Date()
+  const date = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
   const month = list?.progress?.month
-  const strip = month
-    ? (() => {
-        const decl = declarationsDue(month)
-        const declLate = dueTone(decl, today) === 'bad' && list!.tasks.some((t) => t.kind === 'declarations' && t.group === 'overdue')
-        const name = MONTH_NAMES[Number(month.slice(5, 7)) - 1]
-        return {
-          tone: declLate ? 'bad' : 'info',
-          text: declLate
-            ? `${name} declarations overdue · KPIs due ${dayMonth(kpisDue(month))}`
-            : `${name}: declarations due ${dayMonth(decl)} · KPIs due ${dayMonth(kpisDue(month))}`,
-        }
-      })()
-    : null
 
-  const shown = only && list ? list.tasks.filter((t) => t.group === only) : []
+  const move = (key: HomeSection, by: -1 | 1) => {
+    haptic('tick')
+    setOrder((o) => {
+      const next = moveSection(o, key, by)
+      saveOrder(next)
+      return next
+    })
+  }
+  const reset = () => {
+    haptic('tick')
+    setOrder(DEFAULT_ORDER)
+    saveOrder(DEFAULT_ORDER)
+  }
 
-  return (
-    <Page title="Today" subtitle={date}>
-      {strip && <div className={`due-strip ${strip.tone}`}>{strip.text}</div>}
-
-      <div className="stats">
-        <StatCard icon="alert" tone="bad" value={list ? list.counts.overdue : '–'} label="Overdue" active={only === 'overdue'} onClick={() => toggle('overdue')} />
-        <StatCard icon="clock" tone="warn" value={list ? list.counts.week : '–'} label="This week" active={only === 'week'} onClick={() => toggle('week')} />
-        <StatCard icon="check-circle" tone="good" value={list ? list.counts.done : '–'} label="Done" active={only === 'done'} bump={bump} onClick={() => toggle('done')} />
-      </div>
-
-      {!list || !areas ? (
-        <div className="acards">
-          {AREAS.map((a) => (
-            <div key={a.key} className="skeleton" style={{ height: 112 }} />
-          ))}
-        </div>
-      ) : only ? (
-        // A counter tapped: that group's named rows, from every card.
-        <div className="tasks">
-          {shown.length || leaving.some((t) => t.group === only) ? (
-            <TaskGroups tasks={list.tasks} groups={[only]} leaving={leaving} d={d} canEdit={canEdit} />
-          ) : (
-            <div className="empty-state" style={{ marginTop: 24 }}>
-              <Icon name="check-circle" size={44} />
-              <b>Nothing here</b>
-              {only === 'overdue' ? 'Nothing is late.' : only === 'week' ? 'Nothing due this week.' : 'Nothing done yet this month.'}
-            </div>
-          )}
-          <div className="list-foot" style={{ textAlign: 'center', marginTop: 20 }}>
-            {canEdit ? 'Tap or swipe left to do it · hold for more' : 'Tap to open · hold for more'}
-          </div>
-        </div>
-      ) : (
-        <div className="tasks">
-          {clear && (
-            <div className="caught-up">
-              <DoneCheck size={64} burst={burst} label="All caught up" />
-              <div>
-                <b>All caught up</b>
-                <span>Nothing overdue or due this week.</span>
-              </div>
-            </div>
-          )}
-
-          <div className="acards stagger">
-            {AREAS.map((a) => (
-              <AreaCard
-                key={a.key}
-                a={a}
-                s={areas[a.key]}
-                onOpen={() => navigate(`/today/${a.key}`)}
-                onMore={() =>
-                  areaMenu(a, areas[a.key], {
-                    month: month ?? lastEndedMonth(today),
-                    onAddTask: a.key === 'tasks' && canEdit ? () => setAdding(newRoutine()) : undefined,
-                  })
-                }
-              />
-            ))}
-          </div>
-
-          {list.watch.length > 0 && (
-            <CardList title="Watch · no deadline">
-              {list.watch.map((w) => (
-                <ItemRow
-                  key={w.key}
-                  tile={<span className={`watch-n schip ${w.tone}`}>{w.n}</span>}
-                  title={w.text}
-                  onOpen={() => navigate(w.to)}
+  const section = (key: HomeSection): ReactNode => {
+    if (!list || !areas) return null
+    switch (key) {
+      case 'start':
+        return <StartHere tasks={urgent} leaving={leaving} d={d} canEdit={canEdit} burst={burst} />
+      case 'areas':
+        return (
+          <section className="hareas" aria-label="All areas">
+            <h2 className="clist-head">All areas</h2>
+            <div className="hgrid">
+              {AREAS.map((a) => (
+                <AreaCard
+                  key={a.key}
+                  a={a}
+                  s={areas[a.key]}
+                  onOpen={() => navigate(`/today/${a.key}`)}
+                  onMore={() =>
+                    areaMenu(a, areas[a.key], {
+                      month: month ?? lastEndedMonth(today),
+                      onAddTask: a.key === 'tasks' && canEdit ? () => setAdding(newRoutine()) : undefined,
+                    })
+                  }
                 />
               ))}
-            </CardList>
-          )}
-
-          {list.progress && list.progress.total > 0 && (
-            <div className="progress-card">
-              <div className="progress-head">
-                <b>{MONTH_NAMES[Number(list.progress.month.slice(5, 7)) - 1]} progress</b>
-                <span>
-                  {list.progress.done} of {list.progress.total} entered
-                </span>
-              </div>
-              <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={list.progress.total} aria-valuenow={list.progress.done}>
-                <div style={{ width: `${(list.progress.done / list.progress.total) * 100}%` }} />
-              </div>
             </div>
-          )}
+          </section>
+        )
+      case 'watch':
+        return list.watch.length ? (
+          <CardList title="Watch">
+            {list.watch.map((w) => (
+              <ItemRow key={w.key} tile={<span className={`watch-n schip ${w.tone}`}>{w.n}</span>} title={w.text} onOpen={() => navigate(w.to)} />
+            ))}
+          </CardList>
+        ) : null
+      case 'progress':
+        return list.progress && list.progress.total > 0 ? (
+          <div className="progress-card">
+            <div className="progress-head">
+              <b>{MONTH_NAMES[Number(list.progress.month.slice(5, 7)) - 1]} progress</b>
+              <span>
+                {list.progress.done} of {list.progress.total} entered
+              </span>
+            </div>
+            <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={list.progress.total} aria-valuenow={list.progress.done}>
+              <div style={{ width: `${(list.progress.done / list.progress.total) * 100}%` }} />
+            </div>
+          </div>
+        ) : null
+    }
+  }
 
-          <div className="list-foot" style={{ textAlign: 'center', marginTop: 20 }}>
-            Tap a card for its list · hold for a quick look
+  return (
+    <Page title={greeting(now.getHours())} subtitle={date}>
+      {!list || !areas ? (
+        <div className="home">
+          <div className="skeleton" style={{ height: 196, marginTop: 30 }} />
+          <div className="skeleton" style={{ height: 236, marginTop: 48 }} />
+        </div>
+      ) : editing ? (
+        <HomeEditor order={order} onMove={move} onReset={reset} onDone={() => setEditing(false)} />
+      ) : (
+        <div className="home stagger">
+          {order.map((key) => {
+            const body = section(key)
+            return body ? (
+              <div key={key} className="home-sec">
+                {body}
+              </div>
+            ) : null
+          })}
+          <div className="home-foot">
+            <button type="button" className="btn home-edit-btn" onClick={() => setEditing(true)}>
+              <Icon name="move" size={20} />
+              Edit Home
+            </button>
           </div>
         </div>
       )}

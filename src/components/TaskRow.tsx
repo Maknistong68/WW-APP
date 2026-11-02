@@ -14,8 +14,9 @@ import { showToast } from './Toast'
 import { monthLabel } from '../lib/dates'
 import { ticketSub } from '../lib/useData'
 import { haptic } from '../lib/haptics'
+import { useLongPress } from '../lib/useLongPress'
 import type { AllData } from '../lib/kpiData'
-import { completedSince, type Task, type TaskGroup } from '../lib/tasks'
+import { completedSince, type Task, type TaskGroup, type TaskKind } from '../lib/tasks'
 import type { IconName } from './Icon'
 
 // The task rows of Home and of each Home card's list. Tap does the main thing
@@ -129,6 +130,56 @@ export function TaskRow({ t, d, canEdit, expanded, onToggle }: { t: Task; d: All
   )
 }
 
+/** The card button's longer words for the main action ("Close ticket"); others keep the row's word. */
+const CARD_ACTION: Partial<Record<TaskKind, string>> = { ticket: 'Close ticket', camp: 'Start inspection', routine: 'Mark done' }
+
+/**
+ * A Home "Start here" card: one job, its status, what it is and one button
+ * that does it (Close ticket, Fill in, Start inspection). Viewers get Open.
+ * Tap the top to open the record; hold for more.
+ */
+export function TaskCard({ t, d, canEdit }: { t: Task; d: AllData; canEdit: boolean }) {
+  const navigate = useNavigate()
+  const primary = t.members ? null : primaryOf(t, canEdit)
+  const press = useLongPress(() => taskMenu(t, d))
+  const open = () => {
+    if (t.to) navigate(t.to)
+  }
+  const label = primary ? (CARD_ACTION[t.kind] ?? primary.label) : t.kind === 'draft' ? 'Continue' : t.members ? 'Open the list' : 'Open'
+  return (
+    <article className="hcard" {...press}>
+      <button type="button" className="hcard-main" onClick={open}>
+        <IconTile icon={t.icon} tone={t.tone} size={52} />
+        <span className="hcard-text">
+          <StatusChip tone={t.tone} icon={t.group === 'overdue' ? 'alert' : t.kind === 'draft' ? 'play' : 'clock'}>
+            {t.dueText}
+          </StatusChip>
+          <span className="hcard-title">{t.title}</span>
+        </span>
+      </button>
+      <p className="hcard-detail">{t.detail}</p>
+      <button type="button" className={`btn block hcard-act${primary ? ' primary' : ''}`} onClick={primary ? primary.run : open}>
+        {label}
+      </button>
+    </article>
+  )
+}
+
+/** A finished card on its way out: the drawn check, then it fades away. */
+export function LeavingCard({ t }: { t: Task }) {
+  return (
+    <article className="hcard leaving" aria-hidden="true">
+      <div className="hcard-main">
+        <DoneCheck size={52} />
+        <span className="hcard-text">
+          <span className="hcard-title">{t.title}</span>
+          <span className="hcard-detail">Done</span>
+        </span>
+      </div>
+    </article>
+  )
+}
+
 /** A finished task on its way out: its tile is the check, then it slides away. */
 function LeavingRow({ t }: { t: Task }) {
   return (
@@ -138,32 +189,23 @@ function LeavingRow({ t }: { t: Task }) {
   )
 }
 
-/**
- * Tasks finished since the last look (they get the check-and-slide), with a
- * success buzz; `bump` is true for a moment when the done count went up.
- */
-export function useFinished(tasks: Task[] | null, done = 0) {
-  const before = useRef<{ tasks: Task[]; done: number } | null>(null)
+/** Tasks finished since the last look (they get the check-and-slide), with a success buzz. */
+export function useFinished(tasks: Task[] | null) {
+  const before = useRef<Task[] | null>(null)
   const [leaving, setLeaving] = useState<Task[]>([])
-  const [bump, setBump] = useState(false)
   useEffect(() => {
     if (!tasks) return
     const prev = before.current
-    before.current = { tasks, done }
+    before.current = tasks
     if (!prev) return
-    const gone = completedSince(prev.tasks, tasks)
+    const gone = completedSince(prev, tasks)
     if (!gone.length) return
     haptic('success')
     setLeaving(gone)
-    setBump(done > prev.done)
-    const t1 = window.setTimeout(() => setBump(false), 450)
-    const t2 = window.setTimeout(() => setLeaving([]), 1000)
-    return () => {
-      window.clearTimeout(t1)
-      window.clearTimeout(t2)
-    }
-  }, [tasks, done])
-  return { leaving, bump }
+    const t = window.setTimeout(() => setLeaving([]), 1000)
+    return () => window.clearTimeout(t)
+  }, [tasks])
+  return { leaving }
 }
 
 const TITLES: Record<TaskGroup, string> = { overdue: 'Overdue', week: 'This week', later: 'Later', done: 'Done' }

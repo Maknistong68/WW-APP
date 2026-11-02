@@ -61,6 +61,8 @@
   --g-good-1: #2fbd6c;  --g-good-2: #0f8541;  --g-good-s: rgb(15 133 65 / 0.35);
   --g-none-1: #a4adb8;  --g-none-2: #687482;  --g-none-s: rgb(104 116 130 / 0.32);
   --g-info-1: #4c9bff;  --g-info-2: #1d62d8;  --g-info-s: rgb(29 98 216 / 0.35);
+  /* count badges on icons: white numbers ≥ 4.5:1, the same in both themes */
+  --badge-bad: var(--g-bad-2); --badge-warn: #b45309; --badge-good: var(--g-good-2);
   --g-blue-1: #4c9bff;  --g-blue-2: #1d62d8;  --g-blue-s: rgb(29 98 216 / 0.35);
   --g-cyan-1: #2fb9db;  --g-cyan-2: #0a87ab;  --g-cyan-s: rgb(10 135 171 / 0.35);
   --g-indigo-1: #7b7dff; --g-indigo-2: #4446d8; --g-indigo-s: rgb(68 70 216 / 0.35);
