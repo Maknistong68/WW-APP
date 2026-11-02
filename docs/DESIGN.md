@@ -117,11 +117,27 @@ per screen.
   screen is the target (so its scroll returns), otherwise it opens the target as a "back" move.
 
 ## Screens
-- **Today (Home):** a named task list (`src/lib/tasks.ts`).
-  - Three counters (Overdue / This week / Done) work as filters.
-  - Then the sections Overdue, This week, Later, and Done (collapsed).
-  - Urgent rows are named one by one, e.g. "RPCO · WO 882 · Oct: WPS, Salary missing · 1d late".
-    Later ones are grouped per month; tap a group to open it in place.
+- **Today (Home):** three counters, then six cards built from one named task list
+  (`src/lib/tasks.ts`).
+  - Three counters (Overdue / This week / Done) work as filters: tapped, Home shows that group's
+    named rows from every card.
+  - **Cards**, two side by side, kept plain (`AREAS`, `src/components/AreaCard.tsx`): **Tickets ·
+    Submission · KPIs · Accommodation · Audits · Tasks**. Each has a line icon in its menu hue
+    (`MENU_HUE`, menu `home`; no gradient tile), the name, and one status line with the most urgent
+    count big (`areaStatus`): "**3** late" (red), "**2** this week" (amber), "Next 15 Nov" (grey) or
+    "✓ All done" (green).
+    - Tickets: over 30 days or turning 30 this week. Submission: WPS / manpower / salary
+      declarations and older months. KPIs: scores and worker counts. Accommodation: camp
+      inspections due and draft inspections. Audits: quarterly audits and close-outs. Tasks: the
+      team's own to-dos.
+    - **Tap** opens the card's list (`/today/:area`, `src/pages/AreaPage.tsx`): Overdue, This
+      week, Later, with the shortcut to the app's own screen at the end (and **Add** on Tasks).
+    - **Hold** (`areaMenu`): Late / This week / Later, the most urgent names (or what the card
+      means), the shortcut (Open Tickets, Missing submissions, KPI dashboard, Open Camps, Audit
+      close-outs) and Add task.
+  - Rows (`src/components/TaskRow.tsx`): urgent ones are named one by one, e.g. "RPCO · WO 882 ·
+    Oct: WPS, Salary missing · 1d late". Later ones are grouped per month; tap a group to open it
+    in place.
   - Due dates: a month's declarations by the 15th of the next month, its KPIs by the end of the
     next month (`src/lib/due.ts`).
   - Gaps are chased from October 2026 (`TASKS_FROM`), for up to 3 ended months.
@@ -131,7 +147,7 @@ per screen.
   - With nothing overdue or due this week, "All caught up" shows its check (with a burst once a
     day).
   - A Watch card (KPI below 70%, illegal workers, visas, recruitment fees) and the month's progress
-    sit at the end.
+    sit under the cards.
   - **Tasks** (+ → Task, `src/lib/routines.ts`): the team's own to-dos, Once / Daily / Weekly /
     Monthly, shared with everyone (Editors add and tick off; Viewers see them).
     - Weekly repeats on the start date's weekday, monthly on its day (the last day in shorter

@@ -1,155 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
-import IconTile from '../components/IconTile'
 import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
 import StatCard from '../components/StatCard'
-import StatusChip from '../components/StatusChip'
-import SwipeRow from '../components/SwipeRow'
 import DoneCheck from '../components/DoneCheck'
-import { showActions, type SheetAction } from '../components/ActionSheet'
-import { campMenu, inspectionMenu, markRoutine, routineMenu, ticketMenu } from '../components/menus'
-import { go, openSheet } from '../components/SheetHost'
-import { showToast } from '../components/Toast'
+import RoutineSheet from '../components/RoutineSheet'
+import AreaCard from '../components/AreaCard'
+import { TaskGroups, useFinished } from '../components/TaskRow'
+import { areaMenu } from '../components/menus'
 import { useAuthInfo } from '../lib/auth'
-import { dayMonth, localDate, monthLabel } from '../lib/dates'
-import { declarationsDue, dueTone, kpisDue } from '../lib/due'
+import { dayMonth, localDate } from '../lib/dates'
+import { declarationsDue, dueTone, kpisDue, lastEndedMonth } from '../lib/due'
 import { haptic } from '../lib/haptics'
-import { useAllData, type AllData } from '../lib/kpiData'
+import { useAllData } from '../lib/kpiData'
 import { useCachedLiveQuery } from '../lib/useCachedQuery'
+import { newRoutine } from '../lib/useData'
 import { db } from '../db'
-import { buildTasks, completedSince, type Task, type TaskGroup } from '../lib/tasks'
-import type { IconName } from '../components/Icon'
+import { AREAS, areaSummaries, buildTasks, type TaskGroup } from '../lib/tasks'
+import type { Routine } from '../types'
 
-// Home: what I must do, by name and date. Overdue and this week's things are
-// named one by one; later ones are grouped per month (tap to open the group).
-// Tap does the main thing (fill in, open, start); swipe left does it too;
-// hold for more. Finished rows get a check and slide away.
-
-const GROUPS: { key: Exclude<TaskGroup, 'done'>; title: string }[] = [
-  { key: 'overdue', title: 'Overdue' },
-  { key: 'week', title: 'This week' },
-  { key: 'later', title: 'Later' },
-]
+// Home: the date strip, three counters (Overdue / This week / Done) and six
+// plain cards, two side by side: Tickets, Submission, KPIs, Accommodation, Audits
+// and Tasks. A card says its most urgent thing ("3 late"); tap opens its list
+// (/today/:area), hold for a quick look. A counter tapped shows that group's
+// named rows from every card.
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-
-/** The main action of a task for an editor: what tap and swipe do. */
-function primaryOf(t: Task, canEdit: boolean): { label: string; icon: IconName; tone: 'good' | 'info' | 'warn' | 'bad'; run: () => void } | null {
-  if (!canEdit) return null
-  if (t.subject && t.sheet) {
-    const subject = t.subject
-    return {
-      label: t.kind === 'closeout' ? 'Update' : 'Fill in',
-      icon: t.kind === 'closeout' ? 'pencil' : 'gauge',
-      tone: 'info',
-      run: () => openSheet({ kind: t.sheet!, ...subject }),
-    }
-  }
-  if (t.kind === 'ticket' && t.ticketUuid) return { label: 'Close', icon: 'check-circle', tone: 'good', run: () => openSheet({ kind: 'ticketClose', uuid: t.ticketUuid! }) }
-  if (t.kind === 'camp' && t.campUuid) return { label: 'Start', icon: 'play', tone: 'info', run: () => go(`/new/accommodation?camp=${t.campUuid}`) }
-  if (t.kind === 'routine' && t.routine && t.due) {
-    const r = t.routine
-    const due = t.due
-    return { label: 'Done', icon: 'check-circle', tone: 'good', run: () => void markRoutine(r, due) }
-  }
-  return null
-}
-
-const copyText = (t: Task) => {
-  const text = `${t.title} — ${t.detail} (${t.dueText})`
-  void navigator.clipboard?.writeText(text).then(
-    () => showToast({ text: 'Copied' }),
-    () => showToast({ text }),
-  )
-}
-
-/** Hold a task: the record's own menu, or what it means and what to do. */
-function taskMenu(t: Task, d: AllData) {
-  if (t.kind === 'ticket' && t.ticketUuid) {
-    const ticket = d.tickets.find((x) => x.uuid === t.ticketUuid)
-    if (ticket) return ticketMenu(ticket, { sub: t.detail })
-  }
-  if (t.kind === 'camp' && t.campUuid) {
-    const camp = d.camps.find((x) => x.uuid === t.campUuid)
-    if (camp) return campMenu(camp, { sub: t.detail, tone: t.tone })
-  }
-  if (t.kind === 'routine' && t.routine && t.due) return routineMenu(t.routine, { due: t.due, sub: `${t.detail} · ${t.dueText}`, tone: t.tone })
-  if (t.kind === 'draft' && t.inspectionId !== undefined) {
-    const ins = d.inspections.find((x) => x.id === t.inspectionId)
-    if (ins) return inspectionMenu(ins, { title: t.detail.split(' · ')[0], sub: t.detail, tone: 'info' })
-  }
-  const actions: SheetAction[] = []
-  if (t.subject) {
-    const { month } = t.subject
-    actions.push(
-      { label: `Fill in ${monthLabel(month)}`, icon: 'gauge', edit: true, onSelect: () => openSheet({ kind: 'kpi', ...t.subject! }) },
-      { label: `Workers for ${monthLabel(month).slice(0, 3)}`, icon: 'users', edit: true, onSelect: () => openSheet({ kind: 'manpower', ...t.subject! }) },
-      { label: 'Open contractor', icon: 'buildings', onSelect: () => go(`/contractors/${t.subject!.contractorUuid}?m=${month}`) },
-      {
-        label: 'See trends',
-        icon: 'activity',
-        onSelect: () => go(`/contractors/${t.subject!.contractorUuid}?tab=trends${t.subject!.workOrderUuid ? `&wo=${t.subject!.workOrderUuid}` : ''}`),
-      },
-    )
-  } else if (t.to) {
-    actions.push({ label: t.members ? 'Open the list' : 'Open', icon: 'arrow-right', onSelect: () => go(t.to) })
-  }
-  actions.push({ label: 'Copy as text', icon: 'copy', onSelect: () => copyText(t) })
-  showActions({
-    title: t.title,
-    sub: `${t.detail} · ${t.dueText}`,
-    cover: <IconTile icon={t.icon} tone={t.tone} size={52} />,
-    note: t.help,
-    actions,
-  })
-}
-
-function TaskRow({ t, d, canEdit, expanded, onToggle }: { t: Task; d: AllData; canEdit: boolean; expanded?: boolean; onToggle?: () => void }) {
-  const navigate = useNavigate()
-  const primary = primaryOf(t, canEdit)
-  const open = () => {
-    if (t.members) return onToggle?.()
-    if (primary) return primary.run()
-    if (t.to) navigate(t.to)
-  }
-  const chip = (
-    <span className="task-trail">
-      <StatusChip tone={t.tone} icon={t.group === 'overdue' ? 'alert' : t.group === 'done' ? 'check' : t.kind === 'draft' ? 'play' : 'clock'}>
-        {t.dueText}
-      </StatusChip>
-      {t.members && <Icon name="chevron-down" size={18} className={`task-caret${expanded ? ' open' : ''}`} />}
-    </span>
-  )
-  const row = (
-    <ItemRow
-      tile={<IconTile icon={t.icon} tone={t.tone} size={52} />}
-      title={t.title}
-      sub={t.detail}
-      trail={chip}
-      onOpen={open}
-      onMore={() => taskMenu(t, d)}
-    />
-  )
-  return primary && !t.members ? (
-    <SwipeRow actionLabel={primary.label} icon={primary.icon} tone={primary.tone} onAction={primary.run}>
-      {row}
-    </SwipeRow>
-  ) : (
-    row
-  )
-}
-
-/** A finished task on its way out: its tile is the check, then it slides away. */
-function LeavingRow({ t }: { t: Task }) {
-  return (
-    <div className="task-leaving" aria-hidden="true">
-      <ItemRow tile={<DoneCheck size={52} />} title={t.title} sub="Done" />
-    </div>
-  )
-}
 
 /** Once a day the "all caught up" check gets its little burst. */
 function burstToday(today: string): boolean {
@@ -168,33 +46,13 @@ export default function TodoPage() {
   const { canEdit } = useAuthInfo()
   const today = localDate()
   const [only, setOnly] = useState<TaskGroup | null>(null)
-  const [showDone, setShowDone] = useState(false)
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [adding, setAdding] = useState<Routine | null>(null)
   // Routine tasks the team added (+ → Task); shown once both have loaded.
   const routines = useCachedLiveQuery('routines', () => db.routines.toArray())
   const list = useMemo(() => (d.loaded && routines ? buildTasks(d, today, { routines }) : null), [d, today, routines])
-
+  const areas = useMemo(() => (list ? areaSummaries(list.tasks) : null), [list])
   // Finished since the last look: check, slide away, buzz, bump Done.
-  const before = useRef<{ tasks: Task[]; done: number } | null>(null)
-  const [leaving, setLeaving] = useState<Task[]>([])
-  const [bump, setBump] = useState(false)
-  useEffect(() => {
-    if (!list) return
-    const prev = before.current
-    before.current = { tasks: list.tasks, done: list.counts.done }
-    if (!prev) return
-    const gone = completedSince(prev.tasks, list.tasks)
-    if (!gone.length) return
-    haptic('success')
-    setLeaving(gone)
-    setBump(list.counts.done > prev.done)
-    const t1 = window.setTimeout(() => setBump(false), 450)
-    const t2 = window.setTimeout(() => setLeaving([]), 1000)
-    return () => {
-      window.clearTimeout(t1)
-      window.clearTimeout(t2)
-    }
-  }, [list])
+  const { leaving, bump } = useFinished(list?.tasks ?? null, list?.counts.done ?? 0)
 
   const clear = list ? list.counts.overdue + list.counts.week === 0 : false
   const [burst] = useState(() => burstToday(today))
@@ -202,13 +60,6 @@ export default function TodoPage() {
     haptic('tick')
     setOnly((o) => (o === g ? null : g))
   }
-  const toggleGroup = (key: string) =>
-    setExpanded((s) => {
-      const n = new Set(s)
-      if (n.has(key)) n.delete(key)
-      else n.add(key)
-      return n
-    })
   const date = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
   // The month being chased: when its declarations and KPIs are due.
@@ -227,8 +78,7 @@ export default function TodoPage() {
       })()
     : null
 
-  const groupTasks = (g: TaskGroup) => list?.tasks.filter((t) => t.group === g) ?? []
-  const leavingIn = (g: TaskGroup) => leaving.filter((t) => t.group === g)
+  const shown = only && list ? list.tasks.filter((t) => t.group === only) : []
 
   return (
     <Page title="Today" subtitle={date}>
@@ -240,15 +90,31 @@ export default function TodoPage() {
         <StatCard icon="check-circle" tone="good" value={list ? list.counts.done : '–'} label="Done" active={only === 'done'} bump={bump} onClick={() => toggle('done')} />
       </div>
 
-      {!list ? (
-        <div className="today-list" style={{ marginTop: 22 }}>
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="skeleton" style={{ height: 76 }} />
+      {!list || !areas ? (
+        <div className="acards">
+          {AREAS.map((a) => (
+            <div key={a.key} className="skeleton" style={{ height: 112 }} />
           ))}
+        </div>
+      ) : only ? (
+        // A counter tapped: that group's named rows, from every card.
+        <div className="tasks">
+          {shown.length || leaving.some((t) => t.group === only) ? (
+            <TaskGroups tasks={list.tasks} groups={[only]} leaving={leaving} d={d} canEdit={canEdit} />
+          ) : (
+            <div className="empty-state" style={{ marginTop: 24 }}>
+              <Icon name="check-circle" size={44} />
+              <b>Nothing here</b>
+              {only === 'overdue' ? 'Nothing is late.' : only === 'week' ? 'Nothing due this week.' : 'Nothing done yet this month.'}
+            </div>
+          )}
+          <div className="list-foot" style={{ textAlign: 'center', marginTop: 20 }}>
+            {canEdit ? 'Tap or swipe left to do it · hold for more' : 'Tap to open · hold for more'}
+          </div>
         </div>
       ) : (
         <div className="tasks">
-          {clear && !only && (
+          {clear && (
             <div className="caught-up">
               <DoneCheck size={64} burst={burst} label="All caught up" />
               <div>
@@ -258,38 +124,24 @@ export default function TodoPage() {
             </div>
           )}
 
-          {GROUPS.filter((g) => !only || only === g.key).map((g) => {
-            const items = groupTasks(g.key)
-            const out = leavingIn(g.key)
-            if (!items.length && !out.length) {
-              return only === g.key ? (
-                <div key={g.key} className="empty-state" style={{ marginTop: 24 }}>
-                  <Icon name="check-circle" size={44} />
-                  <b>Nothing here</b>
-                  {g.key === 'overdue' ? 'Nothing is late.' : 'Nothing due this week.'}
-                </div>
-              ) : null
-            }
-            return (
-              <CardList key={g.key} title={g.title} count={list.counts[g.key]}>
-                {out.map((t) => (
-                  <LeavingRow key={`out-${t.key}`} t={t} />
-                ))}
-                {items.flatMap((t) => [
-                  <TaskRow key={t.key} t={t} d={d} canEdit={canEdit} expanded={expanded.has(t.key)} onToggle={() => toggleGroup(t.key)} />,
-                  ...(t.members && expanded.has(t.key)
-                    ? t.members.map((m) => (
-                        <div key={m.key} className="task-member">
-                          <TaskRow t={m} d={d} canEdit={canEdit} />
-                        </div>
-                      ))
-                    : []),
-                ])}
-              </CardList>
-            )
-          })}
+          <div className="acards stagger">
+            {AREAS.map((a) => (
+              <AreaCard
+                key={a.key}
+                a={a}
+                s={areas[a.key]}
+                onOpen={() => navigate(`/today/${a.key}`)}
+                onMore={() =>
+                  areaMenu(a, areas[a.key], {
+                    month: month ?? lastEndedMonth(today),
+                    onAddTask: a.key === 'tasks' && canEdit ? () => setAdding(newRoutine()) : undefined,
+                  })
+                }
+              />
+            ))}
+          </div>
 
-          {!only && list.watch.length > 0 && (
+          {list.watch.length > 0 && (
             <CardList title="Watch · no deadline">
               {list.watch.map((w) => (
                 <ItemRow
@@ -302,7 +154,7 @@ export default function TodoPage() {
             </CardList>
           )}
 
-          {!only && list.progress && list.progress.total > 0 && (
+          {list.progress && list.progress.total > 0 && (
             <div className="progress-card">
               <div className="progress-head">
                 <b>{MONTH_NAMES[Number(list.progress.month.slice(5, 7)) - 1]} progress</b>
@@ -316,24 +168,12 @@ export default function TodoPage() {
             </div>
           )}
 
-          {(only === 'done' || (!only && groupTasks('done').length > 0)) &&
-            (only === 'done' || showDone ? (
-              <CardList title="Done" count={list.counts.done}>
-                {groupTasks('done').map((t) => (
-                  <TaskRow key={t.key} t={t} d={d} canEdit={canEdit} />
-                ))}
-              </CardList>
-            ) : (
-              <button className="show-more" onClick={() => setShowDone(true)}>
-                Show {list.counts.done} done
-              </button>
-            ))}
-
           <div className="list-foot" style={{ textAlign: 'center', marginTop: 20 }}>
-            {canEdit ? 'Tap or swipe left to do it · hold for more' : 'Tap to open · hold for more'}
+            Tap a card for its list · hold for a quick look
           </div>
         </div>
       )}
+      {adding && <RoutineSheet routine={adding} onClose={() => setAdding(null)} />}
     </Page>
   )
 }

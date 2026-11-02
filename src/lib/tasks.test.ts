@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTasks, completedSince, taskMonths } from './tasks'
+import { AREAS, areaLine, areaStatus, areaSummaries, buildTasks, completedSince, taskMonths, tasksIn, type Task } from './tasks'
 import type { AllData } from './kpiData'
 import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Routine, Ticket, WorkOrder } from '../types'
 
@@ -127,5 +127,66 @@ describe('Home tasks: routine tasks the team added', () => {
     const before = buildTasks(base(), '2026-11-02', { routines: [routine({})] }).tasks
     const after = buildTasks(base(), '2026-11-02', { routines: [routine({ doneThrough: '2026-11-02' })] }).tasks
     expect(completedSince(before, after).map((t) => t.key)).toEqual(['routine:r1:2026-11-02'])
+  })
+})
+
+describe('Home cards: the six areas', () => {
+  const t = (p: Partial<Task>): Task =>
+    ({ key: p.key ?? Math.random().toString(), kind: 'ticket', group: 'overdue', title: 'X', detail: '', due: null, dueText: '', tone: 'bad', icon: 'ticket', to: '', weight: 1, ...p }) as Task
+  it('every kind but "done" belongs to one card, in the agreed order', () => {
+    expect(AREAS.map((a) => a.key)).toEqual(['tickets', 'submission', 'kpis', 'accommodation', 'audits', 'tasks'])
+    const list = [
+      t({ kind: 'ticket' }),
+      t({ kind: 'tickets', weight: 4 }),
+      t({ kind: 'declarations' }),
+      t({ kind: 'older' }),
+      t({ kind: 'kpis' }),
+      t({ kind: 'camp' }),
+      t({ kind: 'draft', group: 'later' }),
+      t({ kind: 'closeout' }),
+      t({ kind: 'quarterly' }),
+      t({ kind: 'routine' }),
+      t({ kind: 'done', group: 'done' }),
+    ]
+    expect(tasksIn(list, 'tickets').map((x) => x.kind)).toEqual(['ticket', 'tickets'])
+    expect(tasksIn(list, 'submission').map((x) => x.kind)).toEqual(['declarations', 'older'])
+    expect(tasksIn(list, 'kpis').map((x) => x.kind)).toEqual(['kpis'])
+    expect(tasksIn(list, 'accommodation').map((x) => x.kind)).toEqual(['camp', 'draft'])
+    expect(tasksIn(list, 'audits').map((x) => x.kind)).toEqual(['closeout', 'quarterly'])
+    expect(tasksIn(list, 'tasks').map((x) => x.kind)).toEqual(['routine'])
+  })
+  it('counts late / this week / later by weight, finds the next deadline and names the urgent ones', () => {
+    const s = areaSummaries([
+      t({ kind: 'declarations', group: 'overdue', title: 'RPCO · WO 882' }),
+      t({ kind: 'declarations', group: 'overdue', title: 'RPCO · WO 1134' }),
+      t({ kind: 'declarations', group: 'week', title: 'SAMA' }),
+      t({ kind: 'older', group: 'overdue', title: 'Older months' }),
+      t({ kind: 'declarations', group: 'later', weight: 5, due: '2026-12-15' }),
+      t({ kind: 'declarations', group: 'later', weight: 2, due: '2026-12-01' }),
+    ]).submission
+    expect([s.late, s.week, s.later]).toEqual([3, 1, 7])
+    expect(s.next).toBe('2026-12-01')
+    expect(s.names).toEqual(['RPCO · WO 882', 'RPCO · WO 1134', 'Older months'])
+    expect(s.more).toBe(1)
+  })
+  it('the card line says the most urgent thing', () => {
+    const sum = (late: number, week: number, later: number, next: string | null = null) => ({ late, week, later, next, names: [], more: 0 })
+    expect(areaLine(sum(3, 2, 0))).toEqual({ text: '3 late', tone: 'bad' })
+    expect(areaLine(sum(0, 2, 1))).toEqual({ text: '2 this week', tone: 'warn' })
+    expect(areaLine(sum(0, 0, 4, '2026-12-15'))).toEqual({ text: 'Next 15 Dec', tone: 'none' })
+    expect(areaLine(sum(0, 0, 1))).toEqual({ text: '1 later', tone: 'none' })
+    expect(areaLine(sum(0, 0, 0))).toEqual({ text: 'All done', tone: 'good' })
+  })
+  it('the card shows the most urgent count big, with its word', () => {
+    const sum = (late: number, week: number, later: number, next: string | null = null) => ({ late, week, later, next, names: [], more: 0 })
+    expect(areaStatus(sum(3, 2, 0))).toEqual({ n: 3, word: 'late', tone: 'bad' })
+    expect(areaStatus(sum(0, 2, 1))).toEqual({ n: 2, word: 'this week', tone: 'warn' })
+    expect(areaStatus(sum(0, 0, 4, '2026-12-15'))).toEqual({ n: null, word: 'Next 15 Dec', tone: 'none' })
+    expect(areaStatus(sum(0, 0, 0))).toEqual({ n: null, word: 'All done', tone: 'good' })
+  })
+  it('an empty list gives every card zeros', () => {
+    const all = areaSummaries([])
+    expect(Object.keys(all)).toEqual(['tickets', 'submission', 'kpis', 'accommodation', 'audits', 'tasks'])
+    expect(all.tasks).toEqual({ late: 0, week: 0, later: 0, next: null, names: [], more: 0 })
   })
 })

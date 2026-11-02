@@ -79,6 +79,24 @@
 .task-member { background: var(--bg); animation: cardIn var(--dur-med) var(--ease-90) both; }
 .task-member .irow { padding-left: 28px; }
 .watch-n { min-width: 44px; justify-content: center; font-size: 15px; font-weight: 700; padding: 8px 10px; }
+/* Home cards: plain icon, name, one status line with the urgent count big. */
+.acards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0 8px; }
+.acard {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; padding: 14px 14px 12px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 24px;
+  color: var(--text); text-align: left; font-family: var(--font); cursor: pointer;
+  -webkit-touch-callout: none; user-select: none;
+}
+.hicon { flex: none; color: var(--t2); }
+:root[data-theme='dark'] .hicon { color: var(--t1); }
+.acard .hicon { margin-bottom: 2px; }
+.acard-name { max-width: 100%; font-size: 16px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acard-status { display: flex; align-items: baseline; gap: 6px; min-height: 30px; font-size: 14px; font-weight: 500; color: var(--muted); }
+.acard-status b { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.acard-status.bad { color: var(--bad); }
+.acard-status.warn { color: var(--warn); }
+.acard-status.good { color: var(--good); align-items: center; }
+.acard-status.none, .acard-status.good { align-items: center; }
 .caught-up {
   display: flex; align-items: center; gap: 16px; margin: 16px 0 4px; padding: 18px 16px;
   background: var(--card); border: 1px solid var(--border); border-radius: var(--r-card);

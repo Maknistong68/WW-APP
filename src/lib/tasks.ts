@@ -11,6 +11,7 @@ import type { Tone } from './tone'
 import type { IconName } from '../components/Icon'
 import { nextDue, repeatText, routineGroup } from './routines'
 import type { Routine } from '../types'
+import type { MenuItem } from './hues'
 
 // Home as a task list: everything to do, by name and due date. Urgent things
 // (overdue, due within 7 days) get a row each; later ones are grouped per
@@ -460,6 +461,122 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
   ].filter((w) => w.n > 0)
 
   return { tasks: sorted, counts, progress, watch }
+}
+
+// ---- Home cards: the task list split into six areas ------------------------------------
+
+export type TaskArea = 'tickets' | 'submission' | 'kpis' | 'accommodation' | 'audits' | 'tasks'
+
+/** Which card a task belongs to ("done" rows belong to none). */
+export const AREA_OF: Record<TaskKind, TaskArea | null> = {
+  ticket: 'tickets',
+  tickets: 'tickets',
+  declarations: 'submission',
+  older: 'submission',
+  kpis: 'kpis',
+  camp: 'accommodation',
+  draft: 'accommodation',
+  closeout: 'audits',
+  quarterly: 'audits',
+  routine: 'tasks',
+  done: null,
+}
+
+export interface AreaDef {
+  key: TaskArea
+  label: string
+  icon: IconName
+  hue: MenuItem
+  /** What it means (the long-press note). */
+  help: string
+  /** The app's own screen for it (a shortcut in the long-press pop-up). */
+  link?: { label: string; icon: IconName; to: (month: string) => string }
+}
+
+/** The six cards, in grid order. */
+export const AREAS: AreaDef[] = [
+  { key: 'tickets', label: 'Tickets', icon: 'ticket', hue: 'ticket', help: HELP.ticket, link: { label: 'Open Tickets', icon: 'ticket', to: () => '/tickets' } },
+  {
+    key: 'submission',
+    label: 'Submission',
+    icon: 'file-text',
+    hue: 'submission',
+    help: HELP.declarations,
+    link: { label: 'Missing submissions', icon: 'file-text', to: (m) => `/missing/submission?m=${m}` },
+  },
+  { key: 'kpis', label: 'KPIs', icon: 'gauge', hue: 'kpis', help: HELP.kpis, link: { label: 'KPI dashboard', icon: 'gauge', to: (m) => `/dashboard?v=kpis&m=${m}` } },
+  { key: 'accommodation', label: 'Accommodation', icon: 'tent', hue: 'camps', help: HELP.camp, link: { label: 'Open Camps', icon: 'tent', to: () => '/camps' } },
+  {
+    key: 'audits',
+    label: 'Audits',
+    icon: 'seal',
+    hue: 'closeout',
+    help: `${HELP.quarterly} ${HELP.closeout}`,
+    link: { label: 'Audit close-outs', icon: 'seal', to: () => '/closeouts' },
+  },
+  { key: 'tasks', label: 'Tasks', icon: 'checklist', hue: 'task', help: 'The team’s own to-dos, once or repeating.' },
+]
+
+export const isArea = (k: string | undefined): k is TaskArea => AREAS.some((a) => a.key === k)
+
+/** One card's tasks, in list order. */
+export const tasksIn = (tasks: Task[], area: TaskArea) => tasks.filter((t) => AREA_OF[t.kind] === area)
+
+export interface AreaSummary {
+  /** Things late, due this week and due later (grouped rows count each thing). */
+  late: number
+  week: number
+  later: number
+  /** The soonest deadline among the later ones. */
+  next: string | null
+  /** The most urgent names (late, then this week), for the long-press pop-up. */
+  names: string[]
+  /** Urgent rows beyond `names`. */
+  more: number
+}
+
+const NAMES_SHOWN = 3
+
+/** Counts per card. */
+export function areaSummaries(tasks: Task[]): Record<TaskArea, AreaSummary> {
+  const out = {} as Record<TaskArea, AreaSummary>
+  for (const a of AREAS) {
+    const sum: AreaSummary = { late: 0, week: 0, later: 0, next: null, names: [], more: 0 }
+    const late: string[] = []
+    const week: string[] = []
+    for (const t of tasksIn(tasks, a.key)) {
+      if (t.group === 'overdue') {
+        sum.late += t.weight
+        late.push(t.title)
+      } else if (t.group === 'week') {
+        sum.week += t.weight
+        week.push(t.title)
+      } else if (t.group === 'later') {
+        sum.later += t.weight
+        if (t.due && (!sum.next || t.due < sum.next)) sum.next = t.due
+      }
+    }
+    // late ones before this week's, each in list order
+    const urgent = [...late, ...week]
+    sum.names = urgent.slice(0, NAMES_SHOWN)
+    sum.more = Math.max(0, urgent.length - NAMES_SHOWN)
+    out[a.key] = sum
+  }
+  return out
+}
+
+/** The card's status: the most urgent count (shown big) and its word, or just a word. */
+export function areaStatus(s: AreaSummary): { n: number | null; word: string; tone: Tone } {
+  if (s.late) return { n: s.late, word: 'late', tone: 'bad' }
+  if (s.week) return { n: s.week, word: 'this week', tone: 'warn' }
+  if (s.later) return s.next ? { n: null, word: `Next ${dayMonth(s.next)}`, tone: 'none' } : { n: s.later, word: 'later', tone: 'none' }
+  return { n: null, word: 'All done', tone: 'good' }
+}
+
+/** The same as one line of text, e.g. "3 late" (the pop-up's subtitle). */
+export function areaLine(s: AreaSummary): { text: string; tone: Tone } {
+  const st = areaStatus(s)
+  return { text: st.n === null ? st.word : `${st.n} ${st.word}`, tone: st.tone }
 }
 
 /** Every row a task list shows, grouped rows' own rows included. */

@@ -6,6 +6,8 @@ import { db, deleteInspection, duplicateInspection } from '../db'
 import { ageDays, isOpen } from '../lib/aging'
 import { dayMonth, localDate, monthLabel, shortDate } from '../lib/dates'
 import { lastEndedMonth } from '../lib/due'
+import { MENU_HUE } from '../lib/hues'
+import { areaLine, type AreaDef, type AreaSummary } from '../lib/tasks'
 import { haptic } from '../lib/haptics'
 import { kpiStatus, pct, type KpiResult } from '../lib/kpi'
 import { campActions, contractorActions, inspectionActions, routineActions, ticketActions, workOrderActions, type MenuAction } from '../lib/menuSpec'
@@ -321,5 +323,31 @@ export function routineMenu(r: Routine, o: { due: string; sub: string; tone: Ton
     cover: <IconTile icon="checklist" tone={o.tone} size={52} />,
     note: r.notes.trim() || undefined,
     actions: routineActions(r).map((a) => map[a]).filter((a): a is SheetAction => !!a),
+  })
+}
+
+/**
+ * Hold a Home card: how many are late / this week / later, the most urgent names
+ * (or what the card means), a shortcut to the app's own screen for it, and on
+ * Tasks "Add task". A tap already opens the card's list, so there is no Open.
+ */
+export function areaMenu(a: AreaDef, s: AreaSummary, o: { month: string; onAddTask?: () => void }) {
+  const actions: SheetAction[] = []
+  if (a.link) {
+    const link = a.link
+    actions.push({ label: link.label, icon: link.icon, onSelect: () => go(link.to(o.month)) })
+  }
+  if (o.onAddTask) actions.push({ label: 'Add task', icon: 'plus', edit: true, onSelect: o.onAddTask })
+  showActions({
+    title: a.label,
+    sub: areaLine(s).text,
+    cover: <IconTile icon={a.icon} hue={MENU_HUE[a.hue]} size={52} />,
+    facts: [
+      { label: 'Late', value: s.late, tone: s.late ? 'bad' : undefined },
+      { label: 'This week', value: s.week, tone: s.week ? 'warn' : undefined },
+      { label: 'Later', value: s.later },
+    ],
+    note: s.names.length ? `${s.names.join(', ')}${s.more ? ` +${s.more} more` : ''}` : a.help,
+    actions,
   })
 }

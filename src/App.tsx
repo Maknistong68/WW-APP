@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, type ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import TodoPage from './pages/TodoPage'
+import AreaPage from './pages/AreaPage'
 import CampsPage from './pages/CampsPage'
 import CampDetailPage from './pages/CampDetailPage'
 import TicketsPage from './pages/TicketsPage'
@@ -117,6 +118,7 @@ function AppRoutes() {
     <div key={location.pathname} className="route" data-enter={entry.current.kind}>
       <Routes location={location}>
         <Route path="/" element={<TodoPage />} />
+        <Route path="/today/:area" element={<AreaPage />} />
         <Route path="/camps" element={<CampsPage />} />
         <Route path="/camps/:uuid" element={<CampDetailPage />} />
         <Route path="/tickets" element={<TicketsPage />} />

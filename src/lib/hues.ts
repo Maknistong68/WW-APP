@@ -26,6 +26,7 @@ export const MENU_HUE = {
   exportExcel: 'cyan',
   exportWord: 'blue',
   task: 'blue',
+  submission: 'violet',
 } as const satisfies Record<string, Hue>
 
 export type MenuItem = keyof typeof MENU_HUE
@@ -37,4 +38,6 @@ export const MENUS: Record<string, MenuItem[]> = {
   sideMenu: ['contractors', 'camps', 'closeout', 'inspections', 'activity', 'users', 'settings'],
   settingsData: ['activity', 'backup', 'restore'],
   export: ['exportPack', 'exportExcel', 'exportWord'],
+  /** The Home cards (src/lib/tasks.ts AREAS). */
+  home: ['ticket', 'submission', 'kpis', 'camps', 'closeout', 'task'],
 }

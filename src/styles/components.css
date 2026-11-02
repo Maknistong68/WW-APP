@@ -30,13 +30,13 @@
 :is(.itile, .row-icon, .letter).good { --t1: var(--g-good-1); --t2: var(--g-good-2); --ts: var(--g-good-s); }
 :is(.itile, .row-icon, .letter).none { --t1: var(--g-none-1); --t2: var(--g-none-2); --ts: var(--g-none-s); }
 :is(.itile, .row-icon, .letter).info { --t1: var(--g-info-1); --t2: var(--g-info-2); --ts: var(--g-info-s); }
-:is(.itile, .row-icon).h-blue { --t1: var(--g-blue-1); --t2: var(--g-blue-2); --ts: var(--g-blue-s); }
-:is(.itile, .row-icon).h-cyan { --t1: var(--g-cyan-1); --t2: var(--g-cyan-2); --ts: var(--g-cyan-s); }
-:is(.itile, .row-icon).h-indigo { --t1: var(--g-indigo-1); --t2: var(--g-indigo-2); --ts: var(--g-indigo-s); }
-:is(.itile, .row-icon).h-violet { --t1: var(--g-violet-1); --t2: var(--g-violet-2); --ts: var(--g-violet-s); }
-:is(.itile, .row-icon).h-plum { --t1: var(--g-plum-1); --t2: var(--g-plum-2); --ts: var(--g-plum-s); }
-:is(.itile, .row-icon).h-pink { --t1: var(--g-pink-1); --t2: var(--g-pink-2); --ts: var(--g-pink-s); }
-:is(.itile, .row-icon).h-slate { --t1: var(--g-slate-1); --t2: var(--g-slate-2); --ts: var(--g-slate-s); }
+:is(.itile, .row-icon, .hicon).h-blue { --t1: var(--g-blue-1); --t2: var(--g-blue-2); --ts: var(--g-blue-s); }
+:is(.itile, .row-icon, .hicon).h-cyan { --t1: var(--g-cyan-1); --t2: var(--g-cyan-2); --ts: var(--g-cyan-s); }
+:is(.itile, .row-icon, .hicon).h-indigo { --t1: var(--g-indigo-1); --t2: var(--g-indigo-2); --ts: var(--g-indigo-s); }
+:is(.itile, .row-icon, .hicon).h-violet { --t1: var(--g-violet-1); --t2: var(--g-violet-2); --ts: var(--g-violet-s); }
+:is(.itile, .row-icon, .hicon).h-plum { --t1: var(--g-plum-1); --t2: var(--g-plum-2); --ts: var(--g-plum-s); }
+:is(.itile, .row-icon, .hicon).h-pink { --t1: var(--g-pink-1); --t2: var(--g-pink-2); --ts: var(--g-pink-s); }
+:is(.itile, .row-icon, .hicon).h-slate { --t1: var(--g-slate-1); --t2: var(--g-slate-2); --ts: var(--g-slate-s); }
 
 /* ---- Status chip (icon + word) ------------------------------------------- */
 .schip {
