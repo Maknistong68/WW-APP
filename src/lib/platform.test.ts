@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectPlatform, installPlan, shouldOfferInstall } from './platform'
+import { detectPlatform, installPlan, offerInstallFirst, shouldOfferInstall } from './platform'
 
 const UA = {
   iphoneSafari: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
@@ -80,5 +80,19 @@ describe('When to ask for the install first', () => {
   })
   it('never on a computer', () => {
     expect(shouldOfferInstall(at(UA.windowsEdge, 0), { installed: false, skipped: false })).toBe(false)
+  })
+})
+
+describe('Right after installing from the browser tab', () => {
+  const phone = at(UA.androidChrome)
+  it('the install screen stays, to say "Installed: open it from your home screen"', () => {
+    expect(offerInstallFirst(phone, { installed: false, skipped: false, justInstalled: true })).toBe(true)
+  })
+  it('"Keep using the browser" after that lets the tab go on', () => {
+    expect(offerInstallFirst(phone, { installed: false, skipped: true, justInstalled: false })).toBe(false)
+  })
+  it('otherwise the usual rule', () => {
+    expect(offerInstallFirst(phone, { installed: false, skipped: false, justInstalled: false })).toBe(true)
+    expect(offerInstallFirst(at(UA.windowsEdge, 0), { installed: false, skipped: false, justInstalled: true })).toBe(false)
   })
 })

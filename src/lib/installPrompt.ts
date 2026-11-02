@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { detectPlatform, shouldOfferInstall, type Platform } from './platform'
+import { detectPlatform, offerInstallFirst, type Platform } from './platform'
 
 // Captures the browser's install prompt so the app can offer an explicit
 // "Install app" button. Must be imported at startup (main.tsx): the
@@ -51,6 +51,7 @@ const skipped = (): boolean => {
 }
 /** "Continue in browser": the install screen stops coming first (Home still offers it). */
 export function skipInstall(on = true): void {
+  if (on) justInstalled = false
   try {
     if (on) localStorage.setItem(SKIP_KEY, '1')
     else localStorage.removeItem(SKIP_KEY)
@@ -76,7 +77,7 @@ function readState(): InstallState {
   const platform = currentPlatform()
   const installed = isStandalone()
   const st = { platform, installed, justInstalled, canPrompt: canInstall(), skipped: skipped() }
-  const next = { ...st, offerFirst: shouldOfferInstall(platform, st) && !justInstalled }
+  const next = { ...st, offerFirst: offerInstallFirst(platform, st) }
   if (snapshot && JSON.stringify(snapshot) === JSON.stringify(next)) return snapshot
   snapshot = next
   return next

@@ -12,7 +12,7 @@ import { copyText } from '../lib/clipboard'
  * this exact browser; in an app's built-in browser, how to open a real one.
  * "Continue in browser" stays for phones that can't install.
  */
-export default function InstallPage({ signInAs }: { signInAs?: string }) {
+export default function InstallPage({ signInAs, linkError = '' }: { signInAs?: string; linkError?: string }) {
   const st = useInstallState()
   const again = signInAs ? ` Sign in there as ${signInAs}.` : ''
 
@@ -31,6 +31,11 @@ export default function InstallPage({ signInAs }: { signInAs?: string }) {
 
   return (
     <Frame title="Install the app" sub="It opens full screen, works without signal and keeps your data on this phone.">
+      {linkError && (
+        <div className="login-alert" role="alert">
+          {linkError}
+        </div>
+      )}
       <InstallSteps signInAs={signInAs} />
       <button type="button" className="login-link" onClick={() => skipInstall()}>
         Continue in browser

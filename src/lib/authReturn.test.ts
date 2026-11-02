@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanUrl, parseAuthReturn } from './authReturn'
+import { cleanUrl, linkFailureText, parseAuthReturn } from './authReturn'
 
 const APP = 'https://ww-app-omega.vercel.app/'
 
@@ -36,5 +36,16 @@ describe('Tidying the address bar after a link', () => {
     expect(cleanUrl(`${APP}?code=abc#/settings`)).toBe(`${APP}#/settings`)
     expect(cleanUrl(`${APP}#access_token=AT&type=invite`)).toBe(`${APP}#/`)
     expect(cleanUrl(`${APP}?token_hash=TH&type=invite`)).toBe(`${APP}#/`)
+  })
+})
+
+describe('A link opened in another browser (iPhone: Safari vs the home-screen app)', () => {
+  it('says what to do instead of an impossible "same browser"', () => {
+    expect(linkFailureText('invalid request: both auth code and code verifier should be non-empty')).toBe(
+      'If you just confirmed your email, open WW Co-pilot and sign in. Resetting a password? Ask for a new link here.',
+    )
+  })
+  it('other link problems keep their own words', () => {
+    expect(linkFailureText('Token has expired or is invalid')).toBe('Token has expired or is invalid')
   })
 })

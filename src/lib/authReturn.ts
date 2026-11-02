@@ -73,3 +73,13 @@ export function takeAuthReturn(): AuthReturn | null {
     return null
   }
 }
+
+/**
+ * Why an email link didn't finish, in plain words. A sign-in code opened in
+ * another browser than the one that asked for it (on iPhone: Safari vs the
+ * home-screen app) can't be finished there, but the email is confirmed.
+ */
+export function linkFailureText(message: string): string {
+  if (/code verifier/i.test(message)) return 'If you just confirmed your email, open WW Co-pilot and sign in. Resetting a password? Ask for a new link here.'
+  return message
+}

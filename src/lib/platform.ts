@@ -92,3 +92,7 @@ export function installPlan(p: Platform, s: { canPrompt: boolean; installed: boo
 /** The install screen comes first on phones and tablets in a browser tab, until they install or skip. Never on a computer. */
 export const shouldOfferInstall = (p: Platform, s: { installed: boolean; skipped: boolean }): boolean =>
   p.device !== 'desktop' && !s.installed && !s.skipped
+
+/** The install screen comes first: the usual rule, and right after installing (to say "Installed: open it from your home screen"). */
+export const offerInstallFirst = (p: Platform, s: { installed: boolean; skipped: boolean; justInstalled: boolean }): boolean =>
+  p.device !== 'desktop' && !s.installed && (s.justInstalled || !s.skipped)

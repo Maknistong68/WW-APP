@@ -50,7 +50,7 @@ export default function App() {
   if (screen === 'install') {
     return (
       <>
-        <InstallPage signInAs={auth.session ? (auth.username ? `@${auth.username}` : auth.email) : undefined} />
+        <InstallPage signInAs={auth.session ? (auth.username ? `@${auth.username}` : auth.email) : undefined} linkError={auth.linkError} />
         <ToastHost />
       </>
     )

@@ -17,6 +17,8 @@ export default defineConfig({
     VitePWA({
       // 'prompt': a new version waits for a safe moment (src/lib/appUpdate.ts)
       registerType: 'prompt',
+      // registered by src/lib/appUpdate.ts with workbox-window (no injected script)
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png'],
       workbox: {
         // jpeg/jpg must be included: buildWord fetches the bundled logo at

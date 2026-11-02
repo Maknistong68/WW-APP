@@ -3,7 +3,8 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { getClient, getSyncConfig, syncNow } from './sync'
 import { authProblemText, parseLogin } from './authForm'
-import { takeAuthReturn, type AuthReturn } from './authReturn'
+import { linkFailureText, takeAuthReturn, type AuthReturn } from './authReturn'
+import { passwordFlag, readPasswordFlag, type PasswordWhy } from './passwordFlag'
 import { db } from '../db'
 import { showToast } from '../components/Toast'
 import { displayName } from './actor'
@@ -120,18 +121,18 @@ export async function setNewPassword(c: SupabaseClient, password: string): Promi
 }
 
 const SET_PASSWORD_KEY = 'ww.setPassword'
-/** 'invite' or 'recovery' while a password must be set; false when done. */
-function markNeedsPassword(why: 'invite' | 'recovery' | false) {
+/** Kept for the person the link was for (src/lib/passwordFlag.ts); false when done or signed out. */
+function markNeedsPassword(why: PasswordWhy | false, uid?: string) {
   try {
-    if (why) localStorage.setItem(SET_PASSWORD_KEY, why)
+    if (why && uid) localStorage.setItem(SET_PASSWORD_KEY, passwordFlag(uid, why))
     else localStorage.removeItem(SET_PASSWORD_KEY)
   } catch {
     // private mode
   }
 }
-const needsPassword = (): string => {
+const needsPassword = (uid: string | undefined): PasswordWhy | '' => {
   try {
-    return localStorage.getItem(SET_PASSWORD_KEY) ?? ''
+    return readPasswordFlag(localStorage.getItem(SET_PASSWORD_KEY), uid)
   } catch {
     return ''
   }
@@ -160,12 +161,15 @@ async function finishAuthReturn(c: SupabaseClient, ret: AuthReturn): Promise<str
       type = ret.type
     }
     localStorage.removeItem(RECOVERY_KEY)
-    if (type === 'invite' || type === 'recovery') markNeedsPassword(type)
+    if (type === 'invite' || type === 'recovery') {
+      const { data } = await c.auth.getSession()
+      markNeedsPassword(type, data.session?.user.id)
+    }
     return ''
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     // a PKCE link opened in another browser than the one that asked for it
-    if (/code verifier/i.test(msg)) return 'Open the link on the phone and browser where you asked for it, or ask for a new one.'
+    if (/code verifier/i.test(msg)) return linkFailureText(msg)
     return authProblemText(err)
   }
 }
@@ -270,8 +274,8 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
         setState((prev) => ({
           phase: r.phase,
           session,
-          setPassword: !!session && !!needsPassword(),
-          invited: needsPassword() === 'invite',
+          setPassword: !!needsPassword(session?.user.id),
+          invited: needsPassword(session?.user.id) === 'invite',
           linkError: linkError || (session ? '' : prev.linkError),
           email: session?.user.email ?? '',
           role: r.role,
@@ -309,6 +313,7 @@ export function useAuth(): AuthState & { refresh: () => void; signOut: () => Pro
     }
     const c = await getClient()
     await c?.auth.signOut()
+    markNeedsPassword(false)
     setTick((t) => t + 1)
   }, [])
 
