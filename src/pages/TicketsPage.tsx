@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { db } from '../db'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
-import IconTile from '../components/IconTile'
 import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
 import StatusChip from '../components/StatusChip'
@@ -22,6 +21,7 @@ import { ageDays, isOpen } from '../lib/aging'
 import { monthLabel, shortDate } from '../lib/dates'
 import { contractorName, useContractors } from '../lib/useData'
 import { sar } from '../lib/money'
+import { shortName } from '../lib/names'
 import type { Contractor, Ticket, WorkOrder } from '../types'
 
 type Filter = 'open' | 'late' | 'closed' | 'all'
@@ -32,7 +32,10 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
 ]
 
-/** "RPCO · WO 882 · Final salary · SAR 4,500" — what's under the ticket number. */
+/**
+ * "RPCO · WO 882 · Final salary · SAR 4,500" (the pop-up's line under the ticket number).
+ * Without the contractor map it is just "WO 882 · Final salary · SAR 4,500".
+ */
 export function ticketSub(t: Ticket, contractors?: Map<string, Contractor>, wos?: Map<string, WorkOrder>): string {
   const wo = wos?.get(t.workOrderUuid)
   return [
@@ -48,9 +51,16 @@ export function ticketSub(t: Ticket, contractors?: Map<string, Contractor>, wos?
 /** Copy a ticket number to the clipboard. */
 export { copyTicketNo } from '../components/menus'
 
-/** Ticket row: the ticket number is the title, the tile shows its age. In select mode a tap ticks it. */
+/**
+ * Ticket row: the contractor's short name is the title; below it the age (or closing date) chip, then the
+ * ticket number · WO · issue · money. No tile and no ⋯ (the chip shows the status; hold opens
+ * the pop-up). Without `contractors` (a contractor's own page) the ticket number is the title.
+ * In select mode a tap ticks it.
+ */
 export function TicketRow({
   t,
+  contractors,
+  wos,
   sub,
   group,
   selected,
@@ -58,12 +68,17 @@ export function TicketRow({
   onMore,
 }: {
   t: Ticket
+  /** Contractor names for the title. */
+  contractors?: Map<string, Contractor>
+  /** Work orders, for "WO 882" on the line below. */
+  wos?: Map<string, WorkOrder>
+  /** What follows the ticket number on the line below; defaults to WO · issue · money. */
   sub?: string
   /** "+2" on a main ticket, "↳ WWCMPL…" on a combined one */
   group?: string
   selected?: boolean
   onSelect?: () => void
-  /** Long-press / ⋯ actions; defaults to the shared ticket menu. */
+  /** Long-press actions; defaults to the shared ticket menu. */
   onMore?: () => void
 }) {
   const navigate = useNavigate()
@@ -71,7 +86,10 @@ export function TicketRow({
   const tone = ticketTone(t)
   const open = () => navigate(`/tickets/${t.uuid}`)
   const members = group?.startsWith('+') ? Number(group.slice(1)) || 0 : 0
-  const more = onMore ?? (() => ticketMenu(t, { sub: sub ?? ticketSub(t), members }))
+  const more = onMore ?? (() => ticketMenu(t, { sub: ticketSub(t, contractors, wos), members }))
+  const number = t.ticketNo || 'No number'
+  const who = contractors?.get(t.contractorUuid)?.name
+  const line = [contractors ? number : '', sub ?? ticketSub(t, undefined, wos)].filter(Boolean).join(' · ')
   return (
     <ItemRow
       selected={selected}
@@ -80,13 +98,11 @@ export function TicketRow({
           <span className={`select-dot${selected ? ' on' : ''}`} aria-hidden="true">
             {selected && <Icon name="check" size={16} strokeWidth={3} />}
           </span>
-        ) : (
-          <IconTile icon={isOpen(t) ? 'ticket' : 'check'} tone={tone} size={52} />
-        )
+        ) : undefined
       }
       title={
-        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {t.ticketNo || 'No number'}
+        <span style={contractors ? undefined : { fontVariantNumeric: 'tabular-nums' }}>
+          {contractors ? (who ? shortName(who) : 'No contractor') : number}
           {group && <span className="group-chip">{group}</span>}
         </span>
       }
@@ -101,11 +117,14 @@ export function TicketRow({
               {shortDate(t.closedAt)}
             </StatusChip>
           )}
-          <span className="irow-meta-text">{sub ?? ticketSub(t)}</span>
+          <span className="irow-meta-text" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {line}
+          </span>
         </span>
       }
       onOpen={onSelect ?? open}
       onMore={onSelect ? undefined : more}
+      moreButton={false}
     />
   )
 }
@@ -198,7 +217,7 @@ export default function TicketsPage() {
     setSelecting(false)
     setPicked(new Set())
   }
-  /** Long-press / ⋯ on a ticket: the shared ticket menu, plus "Select several" here. */
+  /** Holding a ticket: the shared ticket menu, plus "Select several" here. */
   const more = (t: Ticket) =>
     ticketMenu(t, {
       sub: ticketSub(t, byUuid, woByUuid),
@@ -292,17 +311,18 @@ export default function TicketsPage() {
                 <TicketRow
                   key={t.uuid}
                   t={t}
-                  sub={ticketSub(t, byUuid, woByUuid)}
+                  contractors={byUuid}
+                  wos={woByUuid}
                   group={groupLabel(t)}
                   selected={picked.has(t.uuid)}
                   onSelect={() => toggle(t.uuid)}
                 />
               ) : isOpen(t) && canEdit ? (
                 <SwipeRow key={t.uuid} actionLabel="Close" onAction={() => openSheet({ kind: 'ticketClose', uuid: t.uuid })}>
-                  <TicketRow t={t} sub={ticketSub(t, byUuid, woByUuid)} group={groupLabel(t)} onMore={() => more(t)} />
+                  <TicketRow t={t} contractors={byUuid} wos={woByUuid} group={groupLabel(t)} onMore={() => more(t)} />
                 </SwipeRow>
               ) : (
-                <TicketRow key={t.uuid} t={t} sub={ticketSub(t, byUuid, woByUuid)} group={groupLabel(t)} onMore={() => more(t)} />
+                <TicketRow key={t.uuid} t={t} contractors={byUuid} wos={woByUuid} group={groupLabel(t)} onMore={() => more(t)} />
               ),
             )}
             </CardList>
@@ -310,7 +330,7 @@ export default function TicketsPage() {
           {visible.length > 0 && (
             <div className="list-foot">
               {visible.length} ticket{visible.length === 1 ? '' : 's'} · {workers} workers
-              {filter === 'open' && !selecting && canEdit && ' · swipe left to close · hold for more'}
+              {!selecting && (filter === 'open' && canEdit ? ' · swipe left to close · hold for more' : ' · hold for more')}
             </div>
           )}
         </>

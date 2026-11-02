@@ -19,7 +19,7 @@ import { contractorOverall } from '../lib/trends'
 import { isOpen } from '../lib/aging'
 import { useLongPress } from '../lib/useLongPress'
 import { campTone, kpiTone } from '../lib/tone'
-import { TicketRow, ticketSub } from './TicketsPage'
+import { TicketRow } from './TicketsPage'
 import {
   auditAverage,
   campsSummary,
@@ -450,7 +450,8 @@ export default function DashboardPage() {
                   <TicketRow
                     key={t.uuid}
                     t={t}
-                    sub={ticketSub(t, d.byUuid, d.woByUuid)}
+                    contractors={d.byUuid}
+                    wos={d.woByUuid}
                     group={groupCounts.get(t.uuid) ? `${(groupCounts.get(t.uuid) ?? 0) + 1} tickets` : undefined}
                   />
                 ))}

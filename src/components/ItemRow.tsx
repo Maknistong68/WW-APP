@@ -6,6 +6,7 @@ import { setAnchor } from '../lib/anchor'
 /**
  * A list row inside a CardList: big tile, bold title, muted meta, trailing
  * status and a ⋯ button. Tap opens; long-press or ⋯ opens the quick actions.
+ * With `moreButton={false}` there is no ⋯: hold (or right-click) still opens them.
  */
 export default function ItemRow({
   tile,
@@ -16,6 +17,7 @@ export default function ItemRow({
   onMore,
   selected,
   wrap = false,
+  moreButton = true,
 }: {
   tile?: ReactNode
   title: ReactNode
@@ -26,6 +28,8 @@ export default function ItemRow({
   selected?: boolean
   /** Let the title wrap to two lines instead of cutting it. */
   wrap?: boolean
+  /** Draw the ⋯ button for `onMore` (off: hold or right-click only). */
+  moreButton?: boolean
 }) {
   const press = useLongPress(onMore)
   const onKey = (e: KeyboardEvent) => {
@@ -52,7 +56,7 @@ export default function ItemRow({
         {sub && <div className="irow-sub">{sub}</div>}
       </div>
       {trail}
-      {onMore ? (
+      {onMore && moreButton ? (
         <button
           className="irow-more"
           aria-label="More actions"

@@ -83,3 +83,30 @@ export function mentions(text: string, names: string[]): boolean {
     return false
   })
 }
+
+/** Legal-form and filler words that can go from the end of a name. */
+const TAIL = [
+  'co', 'company', 'contracting', 'contract', 'contractors', 'contractor', 'trading', 'est', 'establishment',
+  'llc', 'ltd', 'limited', 'group', 'jv', 'joint', 'venture', 'services', 'service', 'corporation', 'corp',
+  'inc', 'wll', 'branch', 'holding', 'holdings',
+]
+const TAIL_SET = new Set(TAIL)
+/** Joining words left dangling once the end is gone. */
+const DANGLING = new Set(['and', 'for', 'of', 'the', ''])
+
+/**
+ * A contractor's short name for tight rows: filler words come off the end only
+ * ("Project Pioneers Contracting Company" → "Project Pioneers"), including a last word
+ * cut off by an old import ("… Contracting Compa"). The middle and the spelling stay;
+ * the first word always stays.
+ */
+export function shortName(name: string): string {
+  const words = name.replace(/_/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const key = (w: string) => w.toLowerCase().replace(/[^a-z0-9]/g, '')
+  let end = words.length
+  // a cut-off last word: the start of a filler word ("Compa", "Con")
+  const last = key(words[end - 1] ?? '')
+  if (end > 1 && last.length >= 3 && !TAIL_SET.has(last) && TAIL.some((t) => t.length > last.length && t.startsWith(last))) end--
+  while (end > 1 && (TAIL_SET.has(key(words[end - 1])) || DANGLING.has(key(words[end - 1])))) end--
+  return words.slice(0, end).join(' ')
+}

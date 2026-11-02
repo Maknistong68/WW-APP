@@ -369,7 +369,7 @@ export default function ContractorDetailPage() {
       {open.length ? (
         <div className="list">
           {open.map((t) => (
-            <TicketRow key={t.uuid} t={t} />
+            <TicketRow key={t.uuid} t={t} wos={d.woByUuid} />
           ))}
         </div>
       ) : (

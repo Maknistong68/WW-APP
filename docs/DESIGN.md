@@ -167,6 +167,10 @@ per screen.
     by month ›" on a KPI page. That tab also has "Quarterly audits", one bar per quarter.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
+  - A ticket row: the contractor's short name (`shortName`, `src/lib/names.ts`: "… Contracting
+    Company" and the like come off the end) is the title; below it the age chip (or closing date), then
+    ticket number · WO · issue · money. No tile (the chip already shows the status) and no ⋯:
+    hold for the pop-up. On a contractor's own page the ticket number is the title.
   - Closing asks for the money paid to the workers, or **Nothing owed** (saved as 0, shown as
     "None"); it won't close without an answer. A combined ticket's money stays on its main ticket.
   - Edit shows the closing date and the actions too. Old imported tickets with gaps (no contractor
@@ -201,7 +205,7 @@ per screen.
   - It opens below the item, or above it. When neither fits, it opens as the bottom sheet.
   - Scrolling closes it.
 - **Preview:** the pop-up's top can show up to 3 key numbers and a sparkline.
-- **Same pop-up from:** ⋯, right-click and the keyboard menu key.
+- **Same pop-up from:** ⋯, right-click and the keyboard menu key. Ticket rows have no ⋯.
 - **One menu per record type,** the same on every screen.
   - Menus: `src/components/menus.tsx`; which actions: `src/lib/menuSpec.ts`.
   - The sheets they open live in `SheetHost` (`openSheet`), so any screen can close a ticket or
