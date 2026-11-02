@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { closeoutState, closeoutTotals, closeouts, defaultDue } from './closeout'
+import { closeoutState, closeoutTotals, closeouts, defaultDue, hasAudit, withoutAudit } from './closeout'
 import type { Contractor, KpiMonth } from '../types'
 
 const k = (p: Partial<KpiMonth>) => ({ contractorUuid: 'c', workOrderUuid: '', month: '2026-09', ...p }) as KpiMonth
 
 describe('quarterly audit close-out', () => {
+  it('the audit is optional each month: on when any audit field is filled, cleared when turned off', () => {
+    expect(hasAudit(k({}))).toBe(false)
+    expect(hasAudit(k({ quarterlyAuditPct: null }))).toBe(false)
+    expect(hasAudit(k({ quarterlyAuditPct: 88 }))).toBe(true)
+    expect(hasAudit(k({ auditDate: '2026-09-03' }))).toBe(true)
+    expect(hasAudit(k({ auditFindings: 0 }))).toBe(true)
+    const off = withoutAudit(k({ quarterlyAuditPct: 88, auditDate: '2026-09-03', auditFindings: 4, auditClosed: 1, auditDueDate: '2026-10-03' }))
+    expect(hasAudit(off)).toBe(false)
+    expect(off).toEqual({ contractorUuid: 'c', workOrderUuid: '', month: '2026-09', quarterlyAuditPct: null })
+  })
   it('due 30 days after the audit unless a date is typed', () => {
     expect(defaultDue('2026-10-01')).toBe('2026-10-31')
     expect(closeoutState(k({ auditDate: '2026-10-01', auditFindings: 4, auditClosed: 1 }), '2026-10-20')?.due).toBe('2026-10-31')

@@ -1,5 +1,5 @@
 import { addMonths, monthLabel } from './dates'
-import { submissionsComplete } from './kpi'
+import { offboardingScore, submissionsComplete } from './kpi'
 import { auditPctFor, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectManpower, type KpiSubject } from './subjects'
 import { closeoutState } from './closeout'
@@ -59,17 +59,14 @@ export const SUBJECT_ITEMS: Record<SubjectItemKey, SubjectItem> = {
     value: (d, s, m) => pctText(kpiOf(d, s, m)?.onboardingPct),
   },
   offboarding: {
-    title: 'Offboarding',
+    title: 'Offboarding %',
     sheet: 'kpi',
+    // Older months with a total of 0 (nobody offboarded) count as entered.
     done: (d, s, m) => {
       const k = kpiOf(d, s, m)
-      return !!k && (k.offboardTotal != null || k.legacy?.offboardingPct != null)
+      return offboardingScore(k) !== null || k?.offboardTotal != null
     },
-    value: (d, s, m) => {
-      const k = kpiOf(d, s, m)
-      if (k?.offboardTotal != null) return `${k.offboarded ?? 0} of ${k.offboardTotal} on time`
-      return pctText(k?.legacy?.offboardingPct)
-    },
+    value: (d, s, m) => pctText(offboardingScore(kpiOf(d, s, m))),
   },
   formal: {
     title: 'Formal vs illegal workers',

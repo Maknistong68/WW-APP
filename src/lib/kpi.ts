@@ -39,9 +39,25 @@ export function submissionPct(k: Pick<KpiMonth, 'wps' | 'manpowerDecl' | 'salary
   return yes === 3 ? 100 : yes === 0 ? 0 : 50
 }
 
+/** Older months: offboarded on time ÷ total offboarded. */
 export function offboardingPct(k: Pick<KpiMonth, 'offboarded' | 'offboardTotal'>): number | null {
-  if (!k.offboardTotal || k.offboarded === null) return null
+  if (!k.offboardTotal || k.offboarded == null) return null
   return Math.min(100, (k.offboarded / k.offboardTotal) * 100)
+}
+
+/** Offboarding %: the typed score; older months fall back to their counts, then the Excel %. */
+export function offboardingScore(k: KpiMonth | undefined): number | null {
+  if (!k) return null
+  return k.offboardingPct ?? offboardingPct(k) ?? k.legacy?.offboardingPct ?? null
+}
+
+/** Type the offboarding score, dropping older counts so they can't show through a cleared score. */
+export function setOffboarding(k: KpiMonth, v: number | null): KpiMonth {
+  const out: KpiMonth = { ...k, offboardingPct: v }
+  delete out.offboarded
+  delete out.offboardTotal
+  if (out.legacy?.offboardingPct != null) out.legacy = { ...out.legacy, offboardingPct: null }
+  return out
 }
 
 export function formalPct(m: Pick<Manpower, 'totalWorkers' | 'illegalOrFreelance'> | undefined): number | null {
@@ -114,7 +130,7 @@ export function computeKpi(input: {
     submission: kpi ? submissionPct(kpi) : null,
     accommodation: kpi?.accommodationPct ?? input.auditPct ?? null,
     onboarding: kpi?.onboardingPct ?? null,
-    offboarding: (kpi ? offboardingPct(kpi) : null) ?? kpi?.legacy?.offboardingPct ?? null,
+    offboarding: offboardingScore(kpi),
     grievance: grievancePct(tickets, month),
     formal: formalPct(manpower) ?? kpi?.legacy?.formalPct ?? null,
     closure: closurePct(tickets, month),

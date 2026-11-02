@@ -12,6 +12,20 @@ export const CLOSEOUT_SOON_DAYS = 7
 
 export const defaultDue = (auditDate: string) => (auditDate ? addDays(auditDate, CLOSEOUT_DAYS) : '')
 
+/** The audit is optional each month: true when this month has any of it filled in. */
+export const hasAudit = (k: KpiMonth) =>
+  k.quarterlyAuditPct != null || !!k.auditDate || k.auditFindings != null || k.auditClosed != null || !!k.auditDueDate
+
+/** The month with its quarterly audit cleared (the switch turned off). */
+export function withoutAudit(k: KpiMonth): KpiMonth {
+  const out: KpiMonth = { ...k, quarterlyAuditPct: null }
+  delete out.auditDate
+  delete out.auditFindings
+  delete out.auditClosed
+  delete out.auditDueDate
+  return out
+}
+
 export type CloseoutStatus = 'overdue' | 'due' | 'open' | 'closed'
 
 export interface CloseoutState {

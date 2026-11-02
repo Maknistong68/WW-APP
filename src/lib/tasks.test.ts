@@ -24,7 +24,7 @@ const base = (p: Partial<AllData> = {}): AllData => {
 }
 const allIn = (workOrderUuid: string, month: string) => ({
   kpis: [
-    { contractorUuid: 'c1', workOrderUuid, month, wps: true, manpowerDecl: true, salaryDecl: true, accommodationPct: 90, onboardingPct: 95, offboardTotal: 2, offboarded: 2, meetingPct: 100 },
+    { contractorUuid: 'c1', workOrderUuid, month, wps: true, manpowerDecl: true, salaryDecl: true, accommodationPct: 90, onboardingPct: 95, offboardingPct: 100, meetingPct: 100 },
   ] as KpiMonth[],
   manpower: [{ contractorUuid: 'c1', workOrderUuid, month, totalWorkers: 120, illegalOrFreelance: 0, visaExpiring30d: 0, paidRecruitmentFees: 0 }] as Manpower[],
 })

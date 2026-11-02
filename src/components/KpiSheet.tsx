@@ -4,7 +4,8 @@ import { showToast } from './Toast'
 import { haptic } from '../lib/haptics'
 import { saveRecord } from '../lib/records'
 import { monthLabel, shortDate } from '../lib/dates'
-import { CLOSEOUT_DAYS, closeoutState, closeoutText, defaultDue } from '../lib/closeout'
+import { CLOSEOUT_DAYS, closeoutState, closeoutText, defaultDue, hasAudit, withoutAudit } from '../lib/closeout'
+import { offboardingScore, setOffboarding } from '../lib/kpi'
 import type { Contractor, KpiMonth, Manpower } from '../types'
 
 const num = (v: string): number | null => {
@@ -48,6 +49,7 @@ export default function KpiSheet({
   subjectLabel,
   kpi,
   auditPct,
+  audit: openAudit = false,
   onClose,
 }: {
   contractor: Contractor
@@ -55,21 +57,25 @@ export default function KpiSheet({
   subjectLabel: string
   kpi: KpiMonth
   auditPct: number | null
+  /** Open with the quarterly audit switched on (from the audit's missing list). */
+  audit?: boolean
   onClose: () => void
 }) {
   const [k, setK] = useState(kpi)
+  // The quarterly audit is optional each month: on only when this month has one.
+  const [audit, setAudit] = useState(() => openAudit || hasAudit(kpi))
   const set = <F extends keyof KpiMonth>(f: F, v: KpiMonth[F]) => setK((p) => ({ ...p, [f]: v }))
   const closeout = closeoutState(k)
+  // A typed score as typed; an older month's counts as a whole %.
+  const off = offboardingScore(k)
+  const offShown = k.offboardingPct ?? (off === null ? null : Math.round(off))
 
   const sheet = useRef<ModalHandle>(null)
   const save = async () => {
-    if (k.offboarded !== null && k.offboardTotal !== null && k.offboarded > k.offboardTotal) {
-      return showToast({ text: 'Offboarded can’t be more than the total' })
-    }
-    if ((k.auditClosed ?? 0) > (k.auditFindings ?? 0)) {
+    if (audit && (k.auditClosed ?? 0) > (k.auditFindings ?? 0)) {
       return showToast({ text: 'Closed out can’t be more than the findings' })
     }
-    await saveRecord('kpiMonths', k, `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
+    await saveRecord('kpiMonths', audit ? k : withoutAudit(k), `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
     haptic('success')
     showToast({ text: 'KPIs saved' })
     // slide the sheet away, then close
@@ -99,59 +105,55 @@ export default function KpiSheet({
         <div className="list">
           <PctRow label="Accommodation" value={k.accommodationPct} onChange={(v) => set('accommodationPct', v)} />
           <PctRow label="Onboarding" value={k.onboardingPct} onChange={(v) => set('onboardingPct', v)} />
+          <PctRow label="Offboarding" value={offShown} onChange={(v) => setK((p) => setOffboarding(p, v))} />
           <PctRow label="Meeting attendance" value={k.meetingPct} onChange={(v) => set('meetingPct', v)} />
-          <PctRow label="Quarterly audit" value={k.quarterlyAuditPct} onChange={(v) => set('quarterlyAuditPct', v)} />
         </div>
         {k.accommodationPct === null && auditPct !== null && (
           <div className="list-foot">Accommodation empty → uses this month’s audit: {auditPct}%</div>
         )}
-        <div className="section-label">Quarterly audit close-out</div>
+        <div className="section-label">Quarterly audit</div>
         <div className="list">
-          <label className="row">
-            <span className="row-label">Audit date</span>
-            <input
-              type="date"
-              value={k.auditDate ?? ''}
-              onChange={(e) => {
-                const date = e.target.value
-                // Keep the due date following the audit date until it is changed by hand.
-                const autoDue = !k.auditDueDate || k.auditDueDate === defaultDue(k.auditDate ?? '')
-                setK((p) => ({ ...p, auditDate: date, ...(autoDue ? { auditDueDate: defaultDue(date) } : {}) }))
-              }}
-            />
-          </label>
-          <label className="row">
-            <span className="row-label">Findings</span>
-            <input inputMode="numeric" placeholder="—" value={str(k.auditFindings ?? null)} onChange={(e) => set('auditFindings', num(e.target.value))} />
-          </label>
-          <label className="row">
-            <span className="row-label">Closed out</span>
-            <input inputMode="numeric" placeholder="—" value={str(k.auditClosed ?? null)} onChange={(e) => set('auditClosed', num(e.target.value))} />
-          </label>
-          <label className="row">
-            <span className="row-label">Due by</span>
-            <input type="date" value={k.auditDueDate ?? ''} onChange={(e) => set('auditDueDate', e.target.value)} />
-          </label>
+          <Toggle label="Audit this month" on={audit} onChange={setAudit} />
+          {audit && (
+            <>
+              <PctRow label="Audit score" value={k.quarterlyAuditPct} onChange={(v) => set('quarterlyAuditPct', v)} />
+              <label className="row">
+                <span className="row-label">Audit date</span>
+                <input
+                  type="date"
+                  value={k.auditDate ?? ''}
+                  onChange={(e) => {
+                    const date = e.target.value
+                    // Keep the due date following the audit date until it is changed by hand.
+                    const autoDue = !k.auditDueDate || k.auditDueDate === defaultDue(k.auditDate ?? '')
+                    setK((p) => ({ ...p, auditDate: date, ...(autoDue ? { auditDueDate: defaultDue(date) } : {}) }))
+                  }}
+                />
+              </label>
+              <label className="row">
+                <span className="row-label">Findings</span>
+                <input inputMode="numeric" placeholder="—" value={str(k.auditFindings ?? null)} onChange={(e) => set('auditFindings', num(e.target.value))} />
+              </label>
+              <label className="row">
+                <span className="row-label">Closed out</span>
+                <input inputMode="numeric" placeholder="—" value={str(k.auditClosed ?? null)} onChange={(e) => set('auditClosed', num(e.target.value))} />
+              </label>
+              <label className="row">
+                <span className="row-label">Due by</span>
+                <input type="date" value={k.auditDueDate ?? ''} onChange={(e) => set('auditDueDate', e.target.value)} />
+              </label>
+            </>
+          )}
         </div>
-        {closeout ? (
-          <div className="list-foot">
-            <span className={`status-dot ${closeout.status === 'closed' ? 'good' : closeout.status === 'open' ? '' : closeout.status === 'due' ? 'warn' : 'bad'}`} />{' '}
-            {closeoutText(closeout, shortDate)}
-          </div>
-        ) : (
-          <div className="list-foot">Due {CLOSEOUT_DAYS} days after the audit unless you change it.</div>
-        )}
-        <div className="section-label">Offboarding</div>
-        <div className="list">
-          <label className="row">
-            <span className="row-label">Offboarded on time</span>
-            <input inputMode="numeric" placeholder="—" value={str(k.offboarded)} onChange={(e) => set('offboarded', num(e.target.value))} />
-          </label>
-          <label className="row">
-            <span className="row-label">Total offboarded</span>
-            <input inputMode="numeric" placeholder="—" value={str(k.offboardTotal)} onChange={(e) => set('offboardTotal', num(e.target.value))} />
-          </label>
-        </div>
+        {audit &&
+          (closeout ? (
+            <div className="list-foot">
+              <span className={`status-dot ${closeout.status === 'closed' ? 'good' : closeout.status === 'open' ? '' : closeout.status === 'due' ? 'warn' : 'bad'}`} />{' '}
+              {closeoutText(closeout, shortDate)}
+            </div>
+          ) : (
+            <div className="list-foot">Close-out due {CLOSEOUT_DAYS} days after the audit unless you change it.</div>
+          ))}
         <div className="list-foot">Grievance, ticket closure and formal vs illegal are calculated automatically.</div>
       </div>
     </Modal>

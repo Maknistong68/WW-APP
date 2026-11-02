@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { closurePct, computeKpi, formalPct, grievancePct, grievanceTier, kpiStatus, submissionPct } from './kpi'
+import { closurePct, computeKpi, formalPct, grievancePct, grievanceTier, kpiStatus, offboardingScore, setOffboarding, submissionPct } from './kpi'
 import type { KpiMonth, Ticket } from '../types'
 
 const tk = (openedAt: string, closedAt = ''): Ticket => ({
@@ -85,6 +85,24 @@ describe('KPI rules', () => {
     expect(Math.round(r.overall!)).toBe(93)
     expect(r.status).toBe('good')
     expect([90, 89.9, 70, 69.9, null].map(kpiStatus)).toEqual(['good', 'warn', 'warn', 'bad', 'none'])
+  })
+  it('offboarding is the typed score; older months fall back to their counts or the Excel %', () => {
+    expect(offboardingScore(kpi({ offboardingPct: 85 }))).toBe(85)
+    expect(offboardingScore(kpi({ offboardingPct: 85, offboarded: 1, offboardTotal: 2 }))).toBe(85)
+    expect(offboardingScore(kpi({ offboarded: 1, offboardTotal: 2 }))).toBe(50)
+    expect(offboardingScore(kpi({ legacy: { offboardingPct: 70 } }))).toBe(70)
+    expect(offboardingScore(kpi())).toBeNull()
+    expect(offboardingScore(undefined)).toBeNull()
+    expect(computeKpi({ kpi: kpi({ offboardingPct: 60 }), tickets: [], month: '2026-10' }).offboarding).toBe(60)
+  })
+  it('typing the offboarding score drops the older counts, so clearing it leaves it blank', () => {
+    const old = kpi({ offboarded: 1, offboardTotal: 2, legacy: { offboardingPct: 70, formalPct: 90 } })
+    const typed = setOffboarding(old, 95)
+    expect(offboardingScore(typed)).toBe(95)
+    expect(typed.legacy).toEqual({ offboardingPct: null, formalPct: 90 })
+    expect(offboardingScore(setOffboarding(old, null))).toBeNull()
+    // a month with no older data gains no extra fields
+    expect(Object.keys(setOffboarding(kpi({ offboarded: undefined, offboardTotal: undefined }), 80))).not.toContain('legacy')
   })
   it('accommodation falls back to the audit score', () => {
     expect(computeKpi({ kpi: kpi(), tickets: [], month: '2026-10', auditPct: 72 }).accommodation).toBe(72)

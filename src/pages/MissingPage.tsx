@@ -53,7 +53,7 @@ export default function MissingPage() {
         }
       />
       {canEdit && <div className="list-foot">Tap a work order to fill it in · hold for more.</div>}
-      {editing && <SubjectEditor d={d} subject={editing} month={month} sheet={def.sheet} onClose={() => setEditing(null)} />}
+      {editing && <SubjectEditor d={d} subject={editing} month={month} sheet={def.sheet} audit={key === 'quarterly'} onClose={() => setEditing(null)} />}
     </Page>
   )
 }

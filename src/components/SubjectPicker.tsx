@@ -88,12 +88,15 @@ export function SubjectEditor({
   subject,
   month,
   sheet,
+  audit,
   onClose,
 }: {
   d: AllData
   subject: KpiSubject
   month: string
   sheet: 'kpi' | 'manpower'
+  /** KPI sheet: open with the quarterly audit switched on. */
+  audit?: boolean
   onClose: () => void
 }) {
   const wo = woOf(subject)
@@ -112,6 +115,7 @@ export function SubjectEditor({
       subjectLabel={subject.label}
       kpi={subjectKpi(subject, d.kpis, month) ?? emptyKpi(subject.contractor.uuid, wo, month)}
       auditPct={auditPctFor(subject.contractor, d.inspections, month)}
+      audit={audit}
       onClose={onClose}
     />
   )

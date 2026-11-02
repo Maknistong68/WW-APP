@@ -17,7 +17,7 @@ const RULE: Record<KpiItemKey, string> = {
   submission: 'WPS, manpower and salary declarations: all three in 100%, some 50%, none 0%.',
   accommodation: 'Accommodation score typed in, or the score of that month’s audit.',
   onboarding: 'Onboarding score typed in each month.',
-  offboarding: 'Workers offboarded on time out of all offboarded.',
+  offboarding: 'Offboarding score typed in each month.',
   grievance: 'Average days to close the tickets closed that month. Up to 10 days 100% · 15 days 90% · 20 days 80% · 30 days 70% · over 30 days 0%.',
   formal: 'Formal workers out of all declared workers; illegal / freelance count against it.',
   closure: 'Tickets closed in the month out of the tickets open at any point in it.',

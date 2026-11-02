@@ -342,10 +342,14 @@ export interface KpiMonth extends RecordBase {
   /** 0–100, null = not scored */
   accommodationPct: number | null
   onboardingPct: number | null
-  offboarded: number | null
-  offboardTotal: number | null
+  /** 0–100, typed in. Months saved before this field use the counts below. */
+  offboardingPct?: number | null
+  /** Older months only: offboarded on time / total offboarded. */
+  offboarded?: number | null
+  offboardTotal?: number | null
   /** 0–100 */
   meetingPct: number | null
+  /** Optional each month: only filled in the month of the quarterly audit. */
   quarterlyAuditPct: number | null
   /** Percentages typed straight into the old Excel KPI tracker (import only). */
   legacy?: { offboardingPct?: number | null; formalPct?: number | null }

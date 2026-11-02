@@ -74,8 +74,7 @@ export function emptyKpi(contractorUuid: string, workOrderUuid: string, month: s
     salaryDecl: false,
     accommodationPct: null,
     onboardingPct: null,
-    offboarded: null,
-    offboardTotal: null,
+    offboardingPct: null,
     meetingPct: null,
     quarterlyAuditPct: null,
   }

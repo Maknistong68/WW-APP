@@ -49,9 +49,13 @@ wwAction, notes, updatedAt`
 
 ### KPI month (contractor × month)
 `uuid, contractorUuid, month (YYYY-MM), wps, manpowerDecl, salaryDecl (yes/no),
-accommodationPct, onboardingPct, offboarded, offboardTotal, meetingAttended,
+accommodationPct, onboardingPct, offboardingPct, meetingAttended,
 quarterlyAuditPct?, updatedAt`
-- Calculated, not stored: monthly submission %, offboarding %, grievance %,
+- Onboarding and offboarding are one typed score each. Older months stored
+  offboarding as `offboarded` / `offboardTotal` counts; those still score.
+- The quarterly audit (score + close-out) is optional each month: the KPI sheet
+  shows it only when its "Audit this month" switch is on.
+- Calculated, not stored: monthly submission %, grievance %,
   formal-vs-illegal %, ticket closure %, overall %, status.
 - `accommodationPct` defaults to the score of that contractor's latest audit in
   the month (editable).
@@ -105,7 +109,7 @@ viewer (filter by type, search) · backup/restore (existing).
 |---|---|
 | Aging bucket | 0–10 · 11–30 · 31–60 · 61–90 · 90+ days |
 | Monthly submission % | WPS, manpower, salary: all 3 yes = 100%, none = 0%, otherwise 50% |
-| Offboarding % | `offboarded ÷ offboardTotal` (blank if total is 0) |
+| Offboarding % | Typed score; older months: `offboarded ÷ offboardTotal` (blank if total is 0) |
 | Formal vs illegal % | From manpower: `(total − illegal) ÷ total` (blank if no manpower record) |
 | Grievance % | Average days-to-close of the contractor's tickets **closed in the month**: ≤10 → 100%, ≤15 → 90%, ≤20 → 80%, ≤30 → 70%, >30 → 0%. Blank if none closed. |
 | Ticket closure % | Tickets closed in the month ÷ tickets open at any point in the month (opened before month end and not closed before month start). Blank if none. |
