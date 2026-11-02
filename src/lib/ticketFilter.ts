@@ -136,3 +136,12 @@ export function queryChips(q: TicketQuery, names: { contractor: (uuid: string) =
   if (q.owed) chips.push({ keys: ['owed'], label: OWED_LABEL[q.owed] })
   return chips
 }
+
+/** The ticket log's two tabs: hotline tickets, and Internal ones (raised by the team). */
+export type SourceTab = 'tickets' | 'internal'
+
+/** Which tab a ticket sits in: Internal apart, everything else (System, or no source) under Tickets. */
+export const sourceTab = (t: Pick<Ticket, 'source'>): SourceTab => (t.source === 'Internal' ? 'internal' : 'tickets')
+
+/** The tab in the link (`?tab=internal`); Tickets otherwise. */
+export const parseSourceTab = (params: URLSearchParams): SourceTab => (params.get('tab') === 'internal' ? 'internal' : 'tickets')

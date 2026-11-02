@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterTickets, hasQuery, parseTicketQuery, queryChips, ticketLink } from './ticketFilter'
+import { filterTickets, hasQuery, parseTicketQuery, parseSourceTab, queryChips, ticketLink, sourceTab } from './ticketFilter'
 import { periodStats } from './dashboard'
 import type { Ticket } from '../types'
 
@@ -47,5 +47,18 @@ describe('Ticket filters in the link', () => {
       { contractor: () => 'RPCO', workOrder: () => 'WO 882' },
     )
     expect(chips.map((c) => c.label)).toEqual(['RPCO', 'Opened in Oct 2026', 'Food', '11–30 days', 'Money owed'])
+  })
+})
+
+describe('Ticket log tabs: Tickets | Internal', () => {
+  it('Internal tickets sit apart; hotline (System) and old tickets without a source are under Tickets', () => {
+    expect(sourceTab({ source: 'Internal' } as Ticket)).toBe('internal')
+    expect(sourceTab({ source: 'System' } as Ticket)).toBe('tickets')
+    expect(sourceTab({ source: '' } as unknown as Ticket)).toBe('tickets')
+  })
+  it('the tab lives in the link (?tab=internal); anything else is Tickets', () => {
+    expect(parseSourceTab(new URLSearchParams('tab=internal'))).toBe('internal')
+    expect(parseSourceTab(new URLSearchParams('f=closed'))).toBe('tickets')
+    expect(parseSourceTab(new URLSearchParams('tab=nonsense'))).toBe('tickets')
   })
 })

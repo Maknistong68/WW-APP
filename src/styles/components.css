@@ -262,6 +262,7 @@ button.row { cursor: pointer; }
 /* Tabs (Dashboard views): a One UI sub-tab track */
 .segmented[role='tablist'] { gap: 2px; padding: 4px; margin: 0 0 14px; border-radius: 999px; background: var(--press); }
 .segmented[role='tablist'] button { min-height: 40px; padding: 0 14px; background: transparent; box-shadow: none; color: var(--muted); }
+.segmented.even button { flex: 1; }
 .segmented[role='tablist'] button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); }
 /* Month steppers: neutral, not filters */
 .segmented[style*='grid'] { display: grid; }

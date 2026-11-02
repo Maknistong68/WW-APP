@@ -184,10 +184,14 @@ per screen.
     by month ›" on a KPI page. That tab also has "Quarterly audits", one bar per quarter.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
-  - A ticket row: the contractor's short name (`shortName`, `src/lib/names.ts`: "… Contracting
-    Company" and the like come off the end) is the title; below it the age chip (or closing date), then
-    ticket number · WO · issue · money. No tile (the chip already shows the status) and no ⋯:
-    hold for the pop-up. On a contractor's own page the ticket number is the title.
+  - Two tabs on top, **Tickets | Internal** (`?tab=internal`, `sourceTab` in
+    `src/lib/ticketFilter.ts`): hotline tickets and the team's Internal ones apart. The Open / 30+d /
+    Closed / All counts follow the tab. A link that names a source (a Dashboard bar) hides the tabs.
+  - A ticket row: the tile is the due date (its colour: green 0–10 days, amber 11–30, red over 30;
+    a check once closed), the title is the contractor's short name (`shortName`,
+    `src/lib/names.ts`: "… Contracting Company" and the like come off the end), and below it ticket
+    number · WO · issue · money. No age chip and no ⋯: hold for the pop-up. On a contractor's own
+    page the ticket number is the title.
   - Closing asks for the money paid to the workers, or **Nothing owed** (saved as 0, shown as
     "None"); it won't close without an answer. A combined ticket's money stays on its main ticket.
   - Edit shows the closing date and the actions too. Old imported tickets with gaps (no contractor

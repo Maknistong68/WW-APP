@@ -4,26 +4,31 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { db } from '../db'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
+import IconTile from '../components/IconTile'
 import ItemRow from '../components/ItemRow'
 import CardList from '../components/CardList'
-import StatusChip from '../components/StatusChip'
 import ActionBar from '../components/ActionBar'
 import { ticketTone } from '../lib/tone'
 import SwipeRow from '../components/SwipeRow'
 import { ticketMenu } from '../components/menus'
 import { openSheet } from '../components/SheetHost'
-import { QUERY_KEYS, filterTickets, hasQuery, parseTicketQuery, queryChips } from '../lib/ticketFilter'
+import { QUERY_KEYS, filterTickets, hasQuery, parseSourceTab, parseTicketQuery, queryChips, sourceTab, type SourceTab } from '../lib/ticketFilter'
 import { haptic } from '../lib/haptics'
 import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { memberCounts } from '../lib/groups'
 import { ageDays, isOpen } from '../lib/aging'
-import { monthLabel, shortDate } from '../lib/dates'
+import { monthLabel } from '../lib/dates'
 import { contractorName, ticketSub, useContractors } from '../lib/useData'
 import { shortName } from '../lib/names'
 import type { Contractor, Ticket, WorkOrder } from '../types'
 
 type Filter = 'open' | 'late' | 'closed' | 'all'
+/** Hotline tickets and Internal ones (raised by the team) are kept apart. */
+const SOURCE_TABS: { key: SourceTab; label: string }[] = [
+  { key: 'tickets', label: 'Tickets' },
+  { key: 'internal', label: 'Internal' },
+]
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'open', label: 'Open' },
   { key: 'late', label: '30+d' },
@@ -38,10 +43,10 @@ export { ticketSub } from '../lib/useData'
 export { copyTicketNo } from '../components/menus'
 
 /**
- * Ticket row: the contractor's short name is the title; below it the age (or closing date) chip, then the
- * ticket number · WO · issue · money. No tile and no ⋯ (the chip shows the status; hold opens
- * the pop-up). Without `contractors` (a contractor's own page) the ticket number is the title.
- * In select mode a tap ticks it.
+ * Ticket row: the tile shows how due it is (its colour: 0–10 / 11–30 / over 30 days; a check once
+ * closed); the contractor's short name is the title, with the ticket number · WO · issue · money
+ * below. No ⋯: hold opens the pop-up. Without `contractors` (a contractor's own page) the ticket
+ * number is the title. In select mode a tap ticks it.
  */
 export function TicketRow({
   t,
@@ -68,7 +73,6 @@ export function TicketRow({
   onMore?: () => void
 }) {
   const navigate = useNavigate()
-  const days = ageDays(t)
   const tone = ticketTone(t)
   const open = () => navigate(`/tickets/${t.uuid}`)
   const members = group?.startsWith('+') ? Number(group.slice(1)) || 0 : 0
@@ -84,7 +88,10 @@ export function TicketRow({
           <span className={`select-dot${selected ? ' on' : ''}`} aria-hidden="true">
             {selected && <Icon name="check" size={16} strokeWidth={3} />}
           </span>
-        ) : undefined
+        ) : (
+          // the due date as the icon: green 0–10 days, amber 11–30, red over 30; a check once closed
+          <IconTile icon={isOpen(t) ? 'ticket' : 'check'} tone={tone} size={52} />
+        )
       }
       title={
         <span style={contractors ? undefined : { fontVariantNumeric: 'tabular-nums' }}>
@@ -92,22 +99,7 @@ export function TicketRow({
           {group && <span className="group-chip">{group}</span>}
         </span>
       }
-      sub={
-        <span className="irow-meta">
-          {isOpen(t) ? (
-            <StatusChip tone={tone} icon="clock">
-              {days}d
-            </StatusChip>
-          ) : (
-            <StatusChip tone="none" icon="check">
-              {shortDate(t.closedAt)}
-            </StatusChip>
-          )}
-          <span className="irow-meta-text" style={{ fontVariantNumeric: 'tabular-nums' }}>
-            {line}
-          </span>
-        </span>
-      }
+      sub={<span style={{ fontVariantNumeric: 'tabular-nums' }}>{line}</span>}
       onOpen={onSelect ?? open}
       onMore={onSelect ? undefined : more}
       moreButton={false}
@@ -139,6 +131,9 @@ export default function TicketsPage() {
   // Filters from the link (a Dashboard number, a chart bar, a contractor…)
   const linkQuery = useMemo(() => parseTicketQuery(params), [params])
   const drilled = hasQuery(linkQuery)
+  // Tickets | Internal; a link that names a source (a Dashboard bar) decides it instead.
+  const source = parseSourceTab(params)
+  const bySource = linkQuery.src === undefined
   const [query, setQuery] = useState('')
   const { canEdit } = useAuthInfo()
   const [selecting, setSelecting] = useState(false)
@@ -147,8 +142,11 @@ export default function TicketsPage() {
   const { byUuid, woByUuid } = useContractors()
   const tickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
 
-  /** The tickets the link points at, before the tab and the search. */
-  const scoped = useMemo(() => filterTickets(tickets ?? [], { ...linkQuery, f: undefined }), [tickets, linkQuery])
+  /** The tickets the link and the Tickets | Internal tab point at, before the filter and the search. */
+  const scoped = useMemo(
+    () => filterTickets(tickets ?? [], { ...linkQuery, f: undefined }).filter((t) => !bySource || sourceTab(t) === source),
+    [tickets, linkQuery, bySource, source],
+  )
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return scoped
@@ -177,6 +175,13 @@ export default function TicketsPage() {
     const next = new URLSearchParams(params)
     for (const k of keys === 'all' ? QUERY_KEYS : keys) next.delete(k)
     if (keys === 'all') next.delete('from')
+    setParams(next, { replace: true })
+  }
+  const setSource = (k: SourceTab) => {
+    haptic('tick')
+    const next = new URLSearchParams(params)
+    if (k === 'tickets') next.delete('tab')
+    else next.set('tab', k)
     setParams(next, { replace: true })
   }
   const setTab = (f: Filter) => {
@@ -251,6 +256,15 @@ export default function TicketsPage() {
         )
       }
     >
+      {bySource && (
+        <div className="segmented even" role="tablist">
+          {SOURCE_TABS.map((k) => (
+            <button key={k.key} role="tab" aria-selected={source === k.key} className={source === k.key ? 'on' : ''} onClick={() => setSource(k.key)}>
+              {k.label}
+            </button>
+          ))}
+        </div>
+      )}
       <label className="ios-search">
         <Icon name="search" size={18} />
         <input type="search" placeholder="Ticket no., contractor, WO, issue" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -285,7 +299,7 @@ export default function TicketsPage() {
       {tickets && visible.length === 0 ? (
         <div className="empty-state">
           <Icon name="ticket" size={44} />
-          <b>{tickets.length === 0 ? 'No tickets yet' : 'Nothing here'}</b>
+          <b>{tickets.length === 0 ? 'No tickets yet' : source === 'internal' && bySource && scoped.length === 0 ? 'No internal tickets' : 'Nothing here'}</b>
           {tickets.length === 0 ? (canEdit ? 'Tap Create to log one.' : 'Nothing logged yet.') : 'Try another filter.'}
         </div>
       ) : (
