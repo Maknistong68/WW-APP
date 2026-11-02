@@ -5,7 +5,7 @@ import { haptic } from '../lib/haptics'
 import { combineTickets, groupOf, suggestMain } from '../lib/groups'
 import { localDate } from '../lib/dates'
 import { saveRecord } from '../lib/records'
-import { sar } from '../lib/money'
+import { closingAmount, owedOf, parseSar, sar } from '../lib/money'
 import { ticketLabel, useContractors } from '../lib/useData'
 import type { Ticket } from '../types'
 
@@ -27,11 +27,13 @@ export default function CloseTogetherSheet({
   const { byUuid } = useContractors()
   const [mainUuid, setMainUuid] = useState(() => suggestMain(selected).uuid)
   // existing amounts in the selected groups, as a starting point
-  const existing = selected
+  const inGroups = selected
     .flatMap((t) => groupOf(t, all).all)
     .filter((t, i, arr) => arr.findIndex((x) => x.uuid === t.uuid) === i)
-    .reduce((s, t) => s + (t.amountOwed ?? 0), 0)
+  const existing = inGroups.reduce((s, t) => s + owedOf(t), 0)
   const [amount, setAmount] = useState(existing ? String(existing) : '')
+  // "Nothing owed" when closing: already answered if a ticket says 0 and none has an amount
+  const [none, setNone] = useState(existing === 0 && inGroups.some((t) => t.amountOwed === 0))
   const [date, setDate] = useState(localDate())
   const [contractorAction, setContractorAction] = useState('')
   const [wwAction, setWwAction] = useState('')
@@ -43,12 +45,25 @@ export default function CloseTogetherSheet({
     if (close && selected.some((t) => date < t.openedAt)) {
       return showToast({ text: 'Closing date is before a ticket was opened' })
     }
-    const value = amount.replace(/[^\d.]/g, '')
+    // Closing asks for the money (an amount or Nothing owed); combining only keeps it optional.
+    let value: number | null
+    if (close) {
+      const r = closingAmount(amount, none)
+      if ('error' in r) {
+        haptic('warn')
+        return showToast({ text: r.error })
+      }
+      value = r.amount
+    } else {
+      const v = parseSar(amount)
+      if (v === undefined) return showToast({ text: 'Check the amount' })
+      value = v
+    }
     setSaving(true)
     try {
       const updates = combineTickets(selected, all, {
         mainUuid,
-        amount: value === '' ? null : Number(value),
+        amount: value,
         closedAt: date,
         contractorAction: contractorAction.trim(),
         wwAction: wwAction.trim(),
@@ -109,7 +124,15 @@ export default function CloseTogetherSheet({
         <div className="list">
           <label className="row">
             <span className="row-label">{close ? 'Total paid' : 'Total owed'}</span>
-            <input inputMode="decimal" placeholder="SAR" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input
+              inputMode="decimal"
+              placeholder="SAR"
+              value={amount}
+              onChange={(e) => {
+                setAmount(e.target.value)
+                if (e.target.value.trim()) setNone(false)
+              }}
+            />
             <span className="row-trail">SAR</span>
           </label>
           {close && (
@@ -119,6 +142,22 @@ export default function CloseTogetherSheet({
             </label>
           )}
         </div>
+        {close && (
+          <div className="pill-row" style={{ marginTop: -4 }}>
+            <button
+              type="button"
+              className={`pill${none ? ' on' : ''}`}
+              aria-pressed={none}
+              onClick={() => {
+                haptic('tick')
+                setNone((v) => !v)
+                setAmount('')
+              }}
+            >
+              Nothing owed
+            </button>
+          </div>
+        )}
         {close && (
           <>
             <div className="section-label">Contractor action</div>

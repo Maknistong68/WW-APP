@@ -6,6 +6,10 @@ describe('normalize older records', () => {
     const t = normalizeTicket({ uuid: 'a', updatedAt: 'x', ['old' + 'No']: 'WWCMPL0000001', source: 'Other', status: 'Open' })
     expect(t).toMatchObject({ ticketNo: 'WWCMPL0000001', source: 'System', workOrderUuid: '', amountOwed: null, updatedAt: 'x' })
     expect(normalizeTicket({ ticketNo: 'WWCMPL9', source: 'Internal', amountOwed: 500 })).toMatchObject({ ticketNo: 'WWCMPL9', source: 'Internal', amountOwed: 500 })
+    // a broken or negative amount is dropped; 0 (nothing owed) stays
+    expect(normalizeTicket({ ticketNo: 'WWCMPL9', amountOwed: NaN }).amountOwed).toBeNull()
+    expect(normalizeTicket({ ticketNo: 'WWCMPL9', amountOwed: -5 }).amountOwed).toBeNull()
+    expect(normalizeTicket({ ticketNo: 'WWCMPL9', amountOwed: 0 }).amountOwed).toBe(0)
   })
   it('adds the work-order key to KPI months', () => {
     expect(normalizeKpi({ uuid: 'k', month: '2026-10' }).workOrderUuid).toBe('')

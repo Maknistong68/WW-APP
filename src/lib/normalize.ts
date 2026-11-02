@@ -18,7 +18,8 @@ export function normalizeTicket(raw: Record<string, unknown>): Ticket {
     ticketNo: (typeof raw.ticketNo === 'string' && raw.ticketNo) || legacyNumber(raw),
     source: raw.source === 'Internal' ? 'Internal' : 'System',
     workOrderUuid: typeof raw.workOrderUuid === 'string' ? raw.workOrderUuid : '',
-    amountOwed: typeof raw.amountOwed === 'number' ? raw.amountOwed : null,
+    // Only a real, non-negative amount (0 = nothing owed); NaN and the like become "not known".
+    amountOwed: typeof raw.amountOwed === 'number' && Number.isFinite(raw.amountOwed) && raw.amountOwed >= 0 ? raw.amountOwed : null,
     parentUuid: typeof raw.parentUuid === 'string' ? raw.parentUuid : '',
   }
 }

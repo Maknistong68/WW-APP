@@ -4,8 +4,9 @@ import { lastEndedMonth } from './due'
 import { KPI_PARTS } from './kpi'
 import { kpiForSubject, rollup, type AllData, type KpiItemKey } from './kpiData'
 import type { KpiSubject } from './subjects'
+import { owedOf } from './money'
 import { closedIn, monthEnd, openOn, openedIn } from './ticketFilter'
-import type { Contractor, Ticket } from '../types'
+import type { Contractor } from '../types'
 
 // History for one contractor, month by month (the contractor's Trends tab).
 // A month with no data is null (a gap on the chart), never 0. Work orders that
@@ -81,7 +82,7 @@ export function contractorTicketSeries(d: AllData, c: Contractor, months: string
   })
 }
 
-const owed = (t: Ticket) => (typeof t.amountOwed === 'number' && t.amountOwed > 0 ? t.amountOwed : 0)
+const owed = owedOf
 
 /** SAR still owed at each month's end, and recovered (tickets closed) in each month. */
 export function contractorMoneySeries(d: AllData, c: Contractor, months: string[], wo?: string, today = localDate()) {

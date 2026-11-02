@@ -12,6 +12,33 @@ export function sarShort(v: number): string {
   return Math.round(v).toLocaleString('en-US')
 }
 
+/** SAR on a ticket; 0 for none, not known, or a broken amount. */
+export const owedOf = (t: Pick<Ticket, 'amountOwed'>) =>
+  typeof t.amountOwed === 'number' && Number.isFinite(t.amountOwed) && t.amountOwed > 0 ? t.amountOwed : 0
+
+/**
+ * A typed amount: "12,500", "SAR 1,200.50", "12." → the number; blank → null;
+ * anything that isn't one non-negative number → undefined.
+ */
+export function parseSar(text: string): number | null | undefined {
+  const s = text.replace(/sar/gi, '').replace(/[,\s]/g, '')
+  if (s === '') return null
+  if (!/^\d+(\.\d*)?$|^\.\d+$/.test(s)) return undefined
+  const n = Number(s)
+  return Number.isFinite(n) ? n : undefined
+}
+
+/** The amount a ticket closes with: what was typed, or 0 for "Nothing owed". */
+export function closingAmount(text: string, none: boolean): { amount: number } | { error: string } {
+  const v = parseSar(text)
+  if (v === undefined) return { error: 'Check the amount' }
+  if (v === null) return none ? { amount: 0 } : { error: 'Add the money paid, or tap Nothing owed' }
+  return { amount: v }
+}
+
+/** An amount as it shows in a money box: blank for none or broken. */
+export const sarInput = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? String(v) : '')
+
 export interface MoneyStats {
   /** Owed on tickets still open. */
   outstanding: number

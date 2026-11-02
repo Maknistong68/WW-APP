@@ -117,7 +117,13 @@ export default function TicketDetailPage() {
         />
         <Field
           label={open ? 'Money still owed' : 'Money recovered'}
-          value={t.amountOwed ? `${sar(t.amountOwed)}${isMain ? ` (${group.all.length} tickets)` : ''}` : ''}
+          value={
+            t.amountOwed
+              ? `${sar(t.amountOwed)}${isMain ? ` (${group.all.length} tickets)` : ''}`
+              : t.amountOwed === 0 && !open
+                ? 'None'
+                : ''
+          }
         />
         <Field label="Source" value={t.source} />
         <Field label="Violations" value={t.violations} />

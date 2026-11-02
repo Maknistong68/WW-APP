@@ -3,6 +3,7 @@ import { campState, type CampState } from './camps'
 import { addDays, addMonths, daysBetween, localDate, monthRange } from './dates'
 import { submissionsComplete } from './kpi'
 import { inspectionPct } from './inspectionScore'
+import { owedOf } from './money'
 import { subjectKpi, subjectManpower, type KpiSubject } from './subjects'
 import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Ticket, WeeklyCount } from '../types'
 
@@ -136,7 +137,7 @@ export function recoveredPerMonth(tickets: Ticket[], months: string[]): MonthPoi
     values: [
       tickets
         .filter((t) => t.status === 'Closed' && t.closedAt?.startsWith(m))
-        .reduce((s, t) => s + (t.amountOwed ?? 0), 0),
+        .reduce((s, t) => s + owedOf(t), 0),
     ],
   }))
 }
@@ -157,7 +158,7 @@ export function openAging(tickets: Ticket[], today = localDate()): AgingRow[] {
     const r = rows.find((x) => x.bucket === agingBucket(ageDays(t, today)))!
     r.count++
     r.workers += t.workers || 0
-    r.owed += t.amountOwed ?? 0
+    r.owed += owedOf(t)
   }
   return rows
 }

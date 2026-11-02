@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { haptic } from '../lib/haptics'
@@ -8,6 +9,7 @@ import { localDate } from '../lib/dates'
 import { CATEGORIES, CHANNELS, ISSUES, PRIORITIES, SEVERITIES } from '../lib/lists'
 import { newContractor, ticketLabel, useContractors } from '../lib/useData'
 import { ticketProblem } from '../lib/ticketCheck'
+import { closingAmount, parseSar, sarInput } from '../lib/money'
 import { db } from '../db'
 import type { Ticket } from '../types'
 
@@ -33,12 +35,20 @@ function Stepper({ value, onChange, min = 0 }: { value: number; onChange: (n: nu
   )
 }
 
+/** A combined ticket's main ticket number (the main ticket holds the money). */
+function useMainNo(parentUuid: string) {
+  return useLiveQuery(async () => (parentUuid ? ((await db.tickets.get(parentUuid))?.ticketNo ?? '') : ''), [parentUuid]) ?? ''
+}
+
 /** Add / edit a ticket. Four things up front; the rest under "More". */
 export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClose: () => void }) {
   const { all: contractors, byUuid, workOrders } = useContractors()
   const [t, setT] = useState(ticket)
   const [more, setMore] = useState(!!ticket.updatedAt)
   const [newName, setNewName] = useState('')
+  const [money, setMoney] = useState(ticket.amountOwed === 0 ? '0' : sarInput(ticket.amountOwed))
+  const isMember = !!ticket.parentUuid
+  const mainNo = useMainNo(ticket.parentUuid)
   const isNew = !ticket.updatedAt
   const set = <K extends keyof Ticket>(k: K, v: Ticket[K]) => setT((p) => ({ ...p, [k]: v }))
   const addingContractor = t.contractorUuid === NEW
@@ -55,6 +65,12 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
       rec = { ...rec, contractorUuid: c.uuid }
     }
     rec = { ...rec, contractorAction: rec.contractorAction.trim(), wwAction: rec.wwAction.trim() }
+    if (!isMember) {
+      // a combined ticket's money stays on its main ticket
+      const amount = parseSar(money)
+      if (amount === undefined) return showToast({ text: 'Check the amount' })
+      rec = { ...rec, amountOwed: amount }
+    }
     // Old imported tickets may lack a contractor or issue: they still save.
     const problem = ticketProblem(isNew ? null : ticket, rec)
     if (problem) return showToast({ text: problem })
@@ -139,19 +155,18 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
               </select>
             </label>
           )}
-          <label className="row">
-            <span className="row-label">Money owed</span>
-            <input
-              inputMode="decimal"
-              placeholder="SAR"
-              value={t.amountOwed ?? ''}
-              onChange={(e) => {
-                const v = e.target.value.replace(/[^\d.]/g, '')
-                set('amountOwed', v === '' ? null : Number(v))
-              }}
-            />
-            <span className="row-trail">SAR</span>
-          </label>
+          {isMember ? (
+            <div className="row">
+              <span className="row-label">Money</span>
+              <span className="row-trail">on {mainNo || 'the main ticket'}</span>
+            </div>
+          ) : (
+            <label className="row">
+              <span className="row-label">Money owed</span>
+              <input inputMode="decimal" placeholder="SAR" value={money} onChange={(e) => setMoney(e.target.value)} />
+              <span className="row-trail">SAR</span>
+            </label>
+          )}
           <div className="row">
             <span className="row-label" style={{ flex: 1 }}>
               Workers
@@ -281,13 +296,28 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
   const [action, setAction] = useState(ticket.wwAction)
   const [contractorAction, setContractorAction] = useState(ticket.contractorAction)
   const [date, setDate] = useState(localDate())
+  // Money paid to the workers: an amount, or "Nothing owed" (0). Asked every
+  // time so it isn't forgotten; a combined ticket's money is on its main ticket.
+  const isMember = !!ticket.parentUuid
+  const mainNo = useMainNo(ticket.parentUuid)
+  const [money, setMoney] = useState(sarInput(ticket.amountOwed))
+  const [none, setNone] = useState(ticket.amountOwed === 0)
 
   const sheet = useRef<ModalHandle>(null)
   const save = async () => {
     if (date < ticket.openedAt) return showToast({ text: 'Closing date is before the opening date' })
+    let amountOwed = ticket.amountOwed
+    if (!isMember) {
+      const r = closingAmount(money, none)
+      if ('error' in r) {
+        haptic('warn')
+        return showToast({ text: r.error })
+      }
+      amountOwed = r.amount
+    }
     await saveRecord(
       'tickets',
-      { ...ticket, status: 'Closed', closedAt: date, wwAction: action.trim(), contractorAction: contractorAction.trim() },
+      { ...ticket, status: 'Closed', closedAt: date, amountOwed, wwAction: action.trim(), contractorAction: contractorAction.trim() },
       ticketLabel(ticket, byUuid),
       'close',
     )
@@ -316,6 +346,43 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
         </div>
+        <div className="section-label">Money</div>
+        {isMember ? (
+          <div className="list-foot">Money is on the main ticket{mainNo ? ` ${mainNo}` : ''}.</div>
+        ) : (
+          <>
+            <div className="list">
+              <label className="row">
+                <span className="row-label">Money paid</span>
+                <input
+                  inputMode="decimal"
+                  placeholder="SAR"
+                  value={money}
+                  onChange={(e) => {
+                    setMoney(e.target.value)
+                    if (e.target.value.trim()) setNone(false)
+                  }}
+                />
+                <span className="row-trail">SAR</span>
+              </label>
+            </div>
+            <div className="pill-row" style={{ marginTop: -4 }}>
+              <button
+                type="button"
+                className={`pill${none ? ' on' : ''}`}
+                aria-pressed={none}
+                onClick={() => {
+                  haptic('tick')
+                  setNone((v) => !v)
+                  setMoney('')
+                }}
+              >
+                Nothing owed
+              </button>
+            </div>
+            <div className="list-foot">What the contractor paid the workers.</div>
+          </>
+        )}
         <div className="section-label">Contractor action</div>
         <div className="list">
           <label className="row">

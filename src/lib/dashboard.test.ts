@@ -131,6 +131,15 @@ describe('dashboard series', () => {
     expect(rows.map((r) => r.count)).toEqual([1, 0, 0, 0, 1])
     expect([rows[0].owed, rows[4].workers]).toEqual([100, 3])
   })
+  it('a broken amount (NaN) never spoils the money charts', () => {
+    const bad = [
+      t({ openedAt: '2026-10-25', amountOwed: NaN }),
+      t({ openedAt: '2026-10-01', status: 'Closed', closedAt: '2026-10-02', amountOwed: NaN }),
+      t({ openedAt: '2026-10-01', status: 'Closed', closedAt: '2026-10-03', amountOwed: 200 }),
+    ]
+    expect(recoveredPerMonth(bad, ['2026-10']).map((p) => p.values[0])).toEqual([200])
+    expect(openAging(bad, '2026-10-31')[0].owed).toBe(0)
+  })
   it('workforce uses the latest declared month and flags missing ones', () => {
     const c = { uuid: 'c', name: 'RPCO', active: true, aliases: [] } as unknown as Contractor
     const d = { uuid: 'd', name: 'Other', active: true, aliases: [] } as unknown as Contractor
