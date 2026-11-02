@@ -6,7 +6,8 @@ import Icon from './Icon'
 import { saveRecord } from '../lib/records'
 import { localDate } from '../lib/dates'
 import { CATEGORIES, CHANNELS, ISSUES, PRIORITIES, SEVERITIES } from '../lib/lists'
-import { TICKET_PREFIX, newContractor, ticketLabel, useContractors, validTicketNo } from '../lib/useData'
+import { newContractor, ticketLabel, useContractors } from '../lib/useData'
+import { ticketProblem } from '../lib/ticketCheck'
 import { db } from '../db'
 import type { Ticket } from '../types'
 
@@ -53,11 +54,14 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
       byUuid.set(c.uuid, c)
       rec = { ...rec, contractorUuid: c.uuid }
     }
-    if (!validTicketNo(rec.ticketNo)) return showToast({ text: `Complete the ticket number (${TICKET_PREFIX}…)` })
-    const clash = await db.tickets.where('ticketNo').equals(rec.ticketNo).filter((x) => x.uuid !== rec.uuid).count()
-    if (clash) return showToast({ text: `${rec.ticketNo} already exists` })
-    if (!rec.contractorUuid) return showToast({ text: 'Pick a contractor' })
-    if (!rec.issue) return showToast({ text: 'Pick an issue' })
+    rec = { ...rec, contractorAction: rec.contractorAction.trim(), wwAction: rec.wwAction.trim() }
+    // Old imported tickets may lack a contractor or issue: they still save.
+    const problem = ticketProblem(isNew ? null : ticket, rec)
+    if (problem) return showToast({ text: problem })
+    if (rec.ticketNo !== ticket.ticketNo || isNew) {
+      const clash = await db.tickets.where('ticketNo').equals(rec.ticketNo).filter((x) => x.uuid !== rec.uuid).count()
+      if (clash) return showToast({ text: `${rec.ticketNo} already exists` })
+    }
     await saveRecord('tickets', rec, ticketLabel(rec, byUuid))
     showToast({ text: isNew ? 'Ticket added' : 'Ticket saved' })
     // slide the sheet away, then close
@@ -166,6 +170,31 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
             ))}
           </div>
         </div>
+
+        {!isNew && (
+          <>
+            {t.status === 'Closed' && (
+              <div className="list" style={{ marginTop: 14 }}>
+                <label className="row">
+                  <span className="row-label">Closed on</span>
+                  <input type="date" value={t.closedAt} onChange={(e) => set('closedAt', e.target.value)} />
+                </label>
+              </div>
+            )}
+            <div className="section-label">Contractor action</div>
+            <div className="list">
+              <label className="row">
+                <textarea value={t.contractorAction} placeholder="e.g. Salary paid" onChange={(e) => set('contractorAction', e.target.value)} />
+              </label>
+            </div>
+            <div className="section-label">WW action</div>
+            <div className="list">
+              <label className="row">
+                <textarea value={t.wwAction} placeholder="e.g. Verified with workers on site" onChange={(e) => set('wwAction', e.target.value)} />
+              </label>
+            </div>
+          </>
+        )}
 
         {!more ? (
           <button className="row tint list" style={{ marginTop: 8 }} onClick={() => setMore(true)}>
