@@ -10,6 +10,12 @@ const cache = new WeakMap<Inspection, InspectionScore | null>()
 
 export function inspectionScore(ins: Inspection): InspectionScore | null {
   if (cache.has(ins)) return cache.get(ins)!
+  // Camp-log inspections carry their score; there is no checklist to work it out from.
+  if (ins.logged) {
+    const s: InspectionScore = { pct: ins.logged.pct, answered: 0, total: 0, flagged: 0 }
+    cache.set(ins, s)
+    return s
+  }
   const t = getTemplate(ins.templateId)
   const s = t ? scoreInspection(t, ins) : null
   cache.set(ins, s)

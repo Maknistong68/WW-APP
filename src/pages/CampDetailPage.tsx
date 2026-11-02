@@ -7,8 +7,7 @@ import CampSheet from '../components/CampSheet'
 import { CAMP_STATUS_LABEL, campInspections, campState } from '../lib/camps'
 import { addDays, shortDate } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
-import { isFlagged, scoreInspection } from '../lib/score'
-import { getTemplate } from '../templates'
+import { inspectionScore } from '../lib/inspectionScore'
 import { useAuthInfo } from '../lib/auth'
 import Summary from '../components/Summary'
 import IconTile from '../components/IconTile'
@@ -24,11 +23,12 @@ import { kpiStatus } from '../lib/kpi'
 
 /** One inspection in the camp's log: tap opens it, hold for Repeat visit / Delete. */
 function LogRow({ ins, onOpen }: { ins: Inspection; onOpen: () => void }) {
-  const t = getTemplate(ins.templateId)
-  const score = t ? scoreInspection(t, ins) : null
-  const findings = Object.values(ins.responses ?? {}).filter(isFlagged).length
-  const tone: Tone = score?.pct == null ? 'none' : score.pct >= 90 ? 'good' : score.pct >= 70 ? 'warn' : 'bad'
-  const sub = `${score?.pct != null ? `${score.pct}% compliant` : 'Not scored'} · ${findings} finding${findings === 1 ? '' : 's'} · ${ins.status === 'completed' ? 'Completed' : 'Draft'}`
+  const score = inspectionScore(ins)
+  const findings = score?.flagged ?? 0
+  const tone: Tone = kpiTone(kpiStatus(score?.pct ?? null))
+  const sub = ins.logged
+    ? `${ins.logged.pct}% · ${ins.logged.rating || 'Scored'} · Camp log`
+    : `${score?.pct != null ? `${score.pct}% compliant` : 'Not scored'} · ${findings} finding${findings === 1 ? '' : 's'} · ${ins.status === 'completed' ? 'Completed' : 'Draft'}`
   const press = useLongPress(() => inspectionMenu(ins, { title: `Inspection ${shortDate(ins.info.reviewDate)}`, sub, tone }))
   return (
     <button className="row" onClick={onOpen} {...press}>

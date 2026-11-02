@@ -25,6 +25,7 @@ import Icon from '../components/Icon'
 import { newer } from '../lib/sync'
 import { useAuthInfo } from '../lib/auth'
 import { useGoBack } from '../lib/nav'
+import LoggedInspection from '../components/LoggedInspection'
 import {
   learnedSuggestions,
   remarkSuggestionsFor,
@@ -253,6 +254,8 @@ export default function ChecklistPage() {
   if (!inspection || !template) {
     return <main className="page">{inspection === null ? <div className="empty">Loading…</div> : null}</main>
   }
+  // Camp-log inspections have no checklist: show their recorded score instead.
+  if (inspection.logged) return <LoggedInspection ins={inspection} logged={inspection.logged} />
 
   const questionByCode = new Map(template.sections.flatMap((s) => s.questions).map((q) => [q.code, q]))
 

@@ -65,6 +65,14 @@ describe('Audit history', () => {
     ])
     expect(q[1].rows.find((r) => r.subject.workOrder?.uuid === 'w2')).toMatchObject({ pct: 70, findings: 5, closed: 2 })
   })
+  it('a camp-log inspection keeps its logged score (no checklist) and shows in the camp’s score line', () => {
+    const logged = ins(20, { campUuid: 'p1', responses: {}, logged: { pct: 86, rating: 'Good' }, info: { reviewDate: '2026-05-17', facilityLocation: 'Camp 3', contractorNames: 'RPCO' } as Inspection['info'] })
+    expect(inspectionScore(logged)).toEqual({ pct: 86, answered: 0, total: 0, flagged: 0 })
+    expect(campScoreSeries(camp, [...inspections, logged])).toEqual([
+      { id: 20, date: '2026-05-17', value: 86 },
+      { id: 7, date: '2026-10-12', value: 75 },
+    ])
+  })
   it('scores an inspection once (memoised) and leaves drafts out', () => {
     expect(inspectionScore(inspections[0])).toMatchObject({ pct: 75, flagged: 1 })
     expect(inspectionScore(inspections[0])).toBe(inspectionScore(inspections[0]))

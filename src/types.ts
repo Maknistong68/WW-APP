@@ -86,6 +86,16 @@ export interface Inspection {
   notes: string
   /** Camp this inspection was done at (co-pilot camps). */
   campUuid?: string
+  /** From the camp log: score and rating only, no checklist (responses stay empty). */
+  logged?: LoggedScore
+}
+
+/** A camp-log inspection's result, e.g. { pct: 86, rating: 'Good' }. */
+export interface LoggedScore {
+  /** 0–100 */
+  pct: number
+  /** Excellent · Good · Partially Compliant · Minimally Compliant */
+  rating: string
 }
 
 export interface Photo {

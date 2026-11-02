@@ -90,7 +90,8 @@ export default function TrendLine({
     .map((r) => `${runPath(r)}L${x(r[r.length - 1])},${y(0)}L${x(r[0])},${y(0)}Z`)
     .join('')
   const ticks = [0, max / 2, max]
-  const xTicks = [0, Math.floor((data.length - 1) / 2), data.length - 1]
+  // First, middle and last date (with two points the middle one is the first: label it once).
+  const xTicks = [...new Set([0, Math.floor((data.length - 1) / 2), data.length - 1])]
   const lastRun = runs[runs.length - 1]
   const lastI = lastRun[lastRun.length - 1]
   const lastValue = values[lastI] as number
@@ -150,13 +151,13 @@ export default function TrendLine({
             </text>
           </g>
         ))}
-        {xTicks.map((i, n) => (
+        {xTicks.map((i) => (
           <text
             key={i}
             className="axis-text"
             x={x(i)}
             y={H - 4}
-            textAnchor={n === 0 ? 'start' : n === 2 ? 'end' : 'middle'}
+            textAnchor={i === 0 ? 'start' : i === data.length - 1 ? 'end' : 'middle'}
           >
             {label(data[i].date)}
           </text>
