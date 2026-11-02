@@ -4,13 +4,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { db } from '../db'
 import Page from '../components/Page'
 import History from '../components/History'
-import { ConfirmSheet } from '../components/Modal'
 import TicketSheet, { CloseTicketSheet } from '../components/TicketSheet'
 import { showToast } from '../components/Toast'
 import { ageDays, isOpen } from '../lib/aging'
 import { shortDate } from '../lib/dates'
 import { priorityLabel } from '../lib/lists'
-import { removeRecord, saveRecord } from '../lib/records'
+import { saveRecord } from '../lib/records'
 import { tryWrite } from '../lib/safeWrite'
 import { contractorName, ticketLabel, useContractors, woName } from '../lib/useData'
 import { sar, sarShort } from '../lib/money'
@@ -59,7 +58,7 @@ export default function TicketDetailPage() {
   const { byUuid, woByUuid } = useContractors()
   const t = useCachedLiveQuery(`ticket:${uuid}`, () => db.tickets.get(uuid).then((x) => x ?? null), [uuid])
   const allTickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
-  const [sheet, setSheet] = useState<'edit' | 'close' | 'closeGroup' | 'delete' | null>(null)
+  const [sheet, setSheet] = useState<'edit' | 'close' | 'closeGroup' | null>(null)
   const { canEdit, userId } = useAuthInfo()
   const team = useTeam()
   // who closed it: the newest "close" in its history
@@ -217,21 +216,6 @@ export default function TicketDetailPage() {
       {sheet === 'close' && <CloseTicketSheet ticket={t} onClose={() => setSheet(null)} />}
       {sheet === 'closeGroup' && (
         <CloseTogetherSheet selected={group.all} all={allTickets ?? []} close onClose={() => setSheet(null)} />
-      )}
-      {sheet === 'delete' && (
-        <ConfirmSheet
-          title={`Delete ${t.ticketNo || `this ${kind}`}?`}
-          message="It stays in the activity log, but disappears from lists and the dashboard."
-          confirmLabel={`Delete ${kind}`}
-          destructive
-          onCancel={() => setSheet(null)}
-          onConfirm={() => {
-            void removeRecord('tickets', t.uuid, ticketLabel(t, byUuid)).then(() => {
-              showToast({ text: `${Kind} deleted` })
-              navigate(list)
-            })
-          }}
-        />
       )}
     </Page>
   )

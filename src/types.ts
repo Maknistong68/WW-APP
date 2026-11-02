@@ -388,7 +388,7 @@ export interface WeeklyCount extends RecordBase {
 }
 
 export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import' | 'site' | 'map' | 'routine'
-export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'import'
+export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'restore' | 'import'
 
 export interface ActivityChange {
   field: string

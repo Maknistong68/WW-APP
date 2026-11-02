@@ -14,6 +14,7 @@ const ACTION_LABEL: Record<ActivityEntry['action'], string> = {
   close: 'Closed',
   reopen: 'Reopened',
   delete: 'Deleted',
+  restore: 'Restored',
   import: 'Imported',
 }
 

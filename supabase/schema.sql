@@ -427,3 +427,28 @@ begin
                    t, t || '_user_id_fkey');
   end loop;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Only an Admin removes (or restores) a ticket. A change to `deleted` from
+-- anyone else is quietly kept at the old value, and updated_at moves forward
+-- so that phone pulls the truth on its next sync (an error would fail the
+-- whole 200-row upsert batch on every sync). Server-side work (no signed-in
+-- user, e.g. the SQL editor) is not limited. Safe to re-run.
+-- ---------------------------------------------------------------------------
+create or replace function private.guard_ticket_removal() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.deleted is distinct from old.deleted and (select auth.uid()) is not null and not private.is_admin() then
+    new.deleted := old.deleted;
+    new.updated_at := greatest(now(), old.updated_at + interval '1 millisecond');
+  end if;
+  return new;
+end $$;
+revoke all on function private.guard_ticket_removal() from public, anon, authenticated;
+create or replace trigger guard_ticket_removal before update on public.tickets
+  for each row execute function private.guard_ticket_removal();
+
+-- Hard deletes of tickets: admins only (the app never hard-deletes).
+drop policy if exists "team remove" on public.tickets;
+drop policy if exists "admin remove" on public.tickets;
+create policy "admin remove" on public.tickets for delete to authenticated using ((select private.is_admin()));

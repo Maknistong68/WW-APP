@@ -8,6 +8,7 @@ export const ACTIONS: { key: ActionFilter; label: string }[] = [
   { key: 'close', label: 'Closed' },
   { key: 'reopen', label: 'Reopened' },
   { key: 'delete', label: 'Deleted' },
+  { key: 'restore', label: 'Restored' },
   { key: 'import', label: 'Imported' },
 ]
 

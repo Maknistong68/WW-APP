@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, type NavigateFunction } from 'react-router-dom'
 import { db } from '../db'
+import RemoveTicketSheet from './RemoveTicketSheet'
 import TicketSheet, { CloseTicketSheet } from './TicketSheet'
 import CloseTogetherSheet from './CloseTogetherSheet'
 import KpiSheet, { ManpowerSheet } from './KpiSheet'
@@ -8,14 +9,10 @@ import { ConfirmSheet } from './Modal'
 import CampSheet from './CampSheet'
 import ContractorSheet from './ContractorSheet'
 import RoutineSheet from './RoutineSheet'
-import { showToast } from './Toast'
 import { groupOf } from '../lib/groups'
-import { removeRecord } from '../lib/records'
-import { tryWrite } from '../lib/safeWrite'
 import { ticketLabel } from '../lib/useData'
 import { auditPctFor } from '../lib/kpiData'
 import { emptyKpi, emptyManpower } from '../lib/subjects'
-import { isCase, noun } from '../lib/cases'
 import type { Camp, Contractor, KpiMonth, Manpower, Routine, Ticket } from '../types'
 
 // The edit sheets that menus open (close a ticket, fill in a month, delete…),
@@ -143,26 +140,8 @@ export default function SheetHost() {
       return <CloseTicketSheet ticket={shown.ticket} onClose={done} />
     case 'ticketGroup':
       return <CloseTogetherSheet selected={shown.group} all={shown.all} close onClose={done} />
-    case 'ticketDelete': {
-      const t = shown.ticket
-      return (
-        <ConfirmSheet
-          title={`Delete ${t.ticketNo || `this ${noun(t)}`}?`}
-          message="It stays in the activity log, but disappears from lists and the dashboard."
-          confirmLabel={`Delete ${noun(t)}`}
-          destructive
-          onCancel={done}
-          onConfirm={() => {
-            done()
-            void tryWrite(`Delete ${t.ticketNo}`, () => removeRecord('tickets', t.uuid, shown.label)).then((ok) => {
-              if (!ok) return
-              showToast({ text: `${t.ticketNo || (isCase(t) ? 'Case' : 'Ticket')} deleted` })
-              shown.after?.()
-            })
-          }}
-        />
-      )
-    }
+    case 'ticketDelete':
+      return <RemoveTicketSheet ticket={shown.ticket} label={shown.label} after={shown.after} onClose={done} />
     case 'kpi':
       return <KpiSheet contractor={shown.contractor} subjectLabel={shown.label} kpi={shown.kpi} auditPct={shown.auditPct} onClose={done} />
     case 'manpower':

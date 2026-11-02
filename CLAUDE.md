@@ -77,4 +77,8 @@ npm run build   # strict tsc + vite build
   `useTeam`, `src/lib/team.ts`); `whoName` reads "You" / name. History, the Activity log (Who filter) and a
   closed ticket's status line show it. Each person sets name + username in Settings (`ProfileCard`,
   RPC `set_my_profile`; rules in `src/lib/authForm.ts`). Deleting a user never deletes their records (FKs restrict).
+- Removing tickets: only the Admin, with a reason (`RemoveTicketSheet`, `removeTicket` in `records.ts`, rules in
+  `src/lib/removal.ts`, menu via `ticketActions(…, { admin })` and `isAdmin()`/`setRole` in `actor.ts`). The server
+  keeps a non-admin's change to `deleted` back (trigger `private.guard_ticket_removal`). Removed tickets are listed
+  with who/when/why and restored at `/tickets/removed` (`RemovedTicketsPage`, admin, online).
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).

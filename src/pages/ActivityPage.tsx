@@ -27,6 +27,7 @@ const VERB: Record<ActivityEntry['action'], string> = {
   close: 'Closed',
   reopen: 'Reopened',
   delete: 'Deleted',
+  restore: 'Restored',
   import: 'Imported',
 }
 
@@ -41,7 +42,7 @@ export default function ActivityPage() {
   const [period, setPeriod] = useState<Period>('all')
   const [who, setWho] = useState('all')
   const team = useTeam()
-  const { userId } = useAuthInfo()
+  const { userId, role } = useAuthInfo()
   const [limit, setLimit] = useState(PAGE)
   const filterRow = useRef<HTMLDivElement>(null)
   useChipScroll(filterRow, filter)
@@ -54,7 +55,10 @@ export default function ActivityPage() {
 
   /** Open what the entry is about (deleted things have nowhere to go). */
   const open = async (e: ActivityEntry) => {
-    if (e.action === 'delete') return
+    if (e.action === 'delete') {
+      if (e.entity === 'ticket' && role === 'admin') navigate('/tickets/removed')
+      return
+    }
     const id = e.entityUuid
     switch (e.entity) {
       case 'ticket':
@@ -157,7 +161,7 @@ export default function ActivityPage() {
                   {VERB[e.action] ?? e.action} · {e.label}
                   {whoName(e, team, userId) && <span className="by"> · by {whoName(e, team, userId)}</span>}
                 </div>
-                {e.action === 'edit' || e.action === 'close'
+                {e.action === 'edit' || e.action === 'close' || e.action === 'delete'
                   ? e.changes.slice(0, 2).map((c) => (
                       <div key={c.field} className="row-sub">
                         {changeText(c, byUuid)}

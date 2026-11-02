@@ -136,7 +136,8 @@ export default function TicketsPage() {
   const showingCases = bySource ? source === 'internal' : linkQuery.src === 'Internal'
   const noun = showingCases ? 'case' : 'ticket'
   const [query, setQuery] = useState('')
-  const { canEdit } = useAuthInfo()
+  const { canEdit, role } = useAuthInfo()
+  const navigate = useNavigate()
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [together, setTogether] = useState<'close' | 'combine' | null>(null)
@@ -336,6 +337,14 @@ export default function TicketsPage() {
         </>
       )}
 
+      {role === 'admin' && !selecting && (
+        <div className="list" style={{ marginTop: 8 }}>
+          <button className="row" onClick={() => navigate('/tickets/removed')}>
+            <span className="row-main">Removed tickets</span>
+            <Icon name="chevron-right" size={20} />
+          </button>
+        </div>
+      )}
       {selecting && (
         <ActionBar
           secondary={[{ label: 'Combine', icon: 'checklist', onClick: () => startTogether('combine'), disabled: picked.size < 2 }]}

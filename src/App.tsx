@@ -6,6 +6,7 @@ import CampsPage from './pages/CampsPage'
 import CampDetailPage from './pages/CampDetailPage'
 import TicketsPage from './pages/TicketsPage'
 import TicketDetailPage from './pages/TicketDetailPage'
+import RemovedTicketsPage from './pages/RemovedTicketsPage'
 import ContractorsPage from './pages/ContractorsPage'
 import ContractorDetailPage from './pages/ContractorDetailPage'
 import AuditsPage from './pages/AuditsPage'
@@ -33,7 +34,7 @@ import CloseoutPage from './pages/CloseoutPage'
 import LoginPage, { WaitingPage } from './pages/LoginPage'
 import UsersPage from './pages/UsersPage'
 import { AuthContext, actorName, canEditRole, useAuth, useAuthInfo } from './lib/auth'
-import { setActor } from './lib/actor'
+import { setActor, setRole } from './lib/actor'
 import ToastHost, { showToast } from './components/Toast'
 import { backgroundSync, type SyncResult } from './lib/sync'
 
@@ -61,6 +62,7 @@ export default function App() {
       </>
     )
   }
+  setRole(auth.role)
   // Every change made on this phone is stamped with who is signed in.
   setActor(
     auth.session
@@ -140,6 +142,7 @@ function AppRoutes() {
         <Route path="/camps" element={<CampsPage />} />
         <Route path="/camps/:uuid" element={<CampDetailPage />} />
         <Route path="/tickets" element={<TicketsPage />} />
+        <Route path="/tickets/removed" element={<RemovedTicketsPage />} />
         <Route path="/tickets/:uuid" element={<TicketDetailPage />} />
         <Route path="/contractors" element={<ContractorsPage />} />
         <Route path="/contractors/:uuid" element={<ContractorDetailPage />} />

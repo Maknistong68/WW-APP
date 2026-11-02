@@ -83,6 +83,19 @@ export async function saveRecord<T extends AnyRecord>(
   })
 }
 
+/**
+ * Remove a ticket or case (the admin only, with a reason): it leaves this
+ * phone at once, the server marks it removed for everyone, and the activity
+ * log keeps who, when and why. It can be restored (Removed tickets).
+ */
+export async function removeTicket(uuid: string, reason: string, label: string): Promise<void> {
+  await db.transaction('rw', db.tickets, db.tombstones, db.activity, async () => {
+    await db.tickets.delete(uuid)
+    await db.tombstones.add({ table: 'tickets', uuid })
+    await db.activity.add(activityEntry('ticket', uuid, 'delete', label, [{ field: 'reason', from: null, to: reason.trim() }]))
+  })
+}
+
 /** Delete a record locally, queue the cloud deletion, and log it. */
 export async function removeRecord(table: RecordTable, uuid: string, label: string): Promise<void> {
   const t = tableOf(table)

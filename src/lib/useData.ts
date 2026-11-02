@@ -100,6 +100,7 @@ export const ticketLabel = (t: Ticket, map: Map<string, Contractor>) =>
 
 /** Display names for record fields in the activity log. */
 export const FIELD_LABELS: Record<string, string> = {
+  reason: 'Reason',
   title: 'Task',
   repeat: 'Repeats',
   start: 'Starts',

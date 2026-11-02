@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { displayName, getActor, isAdmin, lastAction, setActor, whoName } from './actor'
+import { displayName, getActor, isAdmin, lastAction, setActor, setRole, whoName } from './actor'
 import type { ActivityEntry } from '../types'
 
 const team = [
@@ -17,7 +17,10 @@ const entry = (p: Partial<ActivityEntry>): ActivityEntry => ({
   ...p,
 })
 
-afterEach(() => setActor(null))
+afterEach(() => {
+  setActor(null)
+  setRole(null)
+})
 
 describe('Who did it, as a name', () => {
   it('your own changes say "You"', () => {
@@ -45,8 +48,12 @@ describe('The signed-in person', () => {
     expect(getActor()).toBeNull()
     setActor({ id: 'u1', name: 'Ali Hassan', role: 'editor' })
     expect(getActor()).toEqual({ id: 'u1', name: 'Ali Hassan', role: 'editor' })
+  })
+  it('admin rights follow the role, also on a phone with no cloud account (local mode = admin)', () => {
     expect(isAdmin()).toBe(false)
-    setActor({ id: 'u3', name: 'Boss', role: 'admin' })
+    setRole('editor')
+    expect(isAdmin()).toBe(false)
+    setRole('admin')
     expect(isAdmin()).toBe(true)
   })
 })

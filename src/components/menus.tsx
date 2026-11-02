@@ -74,7 +74,7 @@ export function ticketMenu(
     main: { label: `Open main ${kind}`, icon: 'arrow-right', onSelect: () => go(`/tickets/${t.parentUuid}`) },
     copy: { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
     delete: {
-      label: `Delete ${kind}`,
+      label: `Remove ${kind}`,
       icon: 'trash',
       danger: true,
       edit: true,

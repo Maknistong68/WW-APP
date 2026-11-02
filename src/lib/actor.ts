@@ -22,12 +22,18 @@ export interface TeamMember {
 }
 
 let current: Actor | null = null
+// Kept apart from the actor: a phone with no cloud account has a role (admin) but nobody to name.
+let role: Role | null = null
 
 export function setActor(a: Actor | null): void {
   current = a
 }
 export const getActor = (): Actor | null => current
-export const isAdmin = (): boolean => current?.role === 'admin'
+export function setRole(r: Role | null): void {
+  role = r
+}
+/** Admin-only menu actions (e.g. Remove ticket) check this. */
+export const isAdmin = (): boolean => role === 'admin'
 
 /** "Ali Hassan", else "@ali", else "". */
 export function displayName(p: { full_name?: string | null; username?: string | null }): string {
