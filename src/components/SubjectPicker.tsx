@@ -5,9 +5,10 @@ import StatusChip from './StatusChip'
 import ItemRow from './ItemRow'
 import CardList from './CardList'
 import KpiSheet, { ManpowerSheet } from './KpiSheet'
+import SubmissionSheet from './SubmissionSheet'
 import { addMonths, monthLabel, monthOf } from '../lib/dates'
 import { auditPctFor, type AllData } from '../lib/kpiData'
-import { emptyKpi, emptyManpower, subjectKpi, subjectManpower, woOf, type KpiSubject } from '../lib/subjects'
+import { emptyKpi, emptyManpower, subjectKpi, subjectManpower, subjectPrior, woOf, type KpiSubject } from '../lib/subjects'
 
 /** ‹ Oct 2026 › — no months in the future. */
 export function MonthStepper({ month, onChange }: { month: string; onChange: (m: string) => void }) {
@@ -82,7 +83,7 @@ export function SubjectList({
   )
 }
 
-/** Opens the right sheet (KPIs or manpower) for one subject and month. */
+/** Opens the right sheet (KPIs, documents or manpower) for one subject and month. */
 export function SubjectEditor({
   d,
   subject,
@@ -94,12 +95,22 @@ export function SubjectEditor({
   d: AllData
   subject: KpiSubject
   month: string
-  sheet: 'kpi' | 'manpower'
+  sheet: 'kpi' | 'manpower' | 'submission'
   /** KPI sheet: open with the quarterly audit switched on. */
   audit?: boolean
   onClose: () => void
 }) {
   const wo = woOf(subject)
+  if (sheet === 'submission') {
+    return (
+      <SubmissionSheet
+        subjectLabel={subject.label}
+        kpi={subjectKpi(subject, d.kpis, month) ?? emptyKpi(subject.contractor.uuid, wo, month)}
+        prev={subjectPrior(subject, d.kpis, month)}
+        onClose={onClose}
+      />
+    )
+  }
   if (sheet === 'manpower') {
     return (
       <ManpowerSheet

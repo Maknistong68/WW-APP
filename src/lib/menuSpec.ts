@@ -12,6 +12,7 @@ export type MenuAction =
   | 'copy'
   | 'delete'
   | 'fill'
+  | 'docs'
   | 'manpower'
   | 'turnOff'
   | 'turnOn'
@@ -31,6 +32,7 @@ export const EDIT_ACTIONS: ReadonlySet<MenuAction> = new Set<MenuAction>([
   'edit',
   'delete',
   'fill',
+  'docs',
   'manpower',
   'turnOff',
   'turnOn',
@@ -62,15 +64,15 @@ export function ticketActions(
 }
 
 /**
- * A contractor: its trends and tickets, fill in (when it is scored), edit, and
+ * A contractor: its trends and tickets, fill in and documents (when it is scored), edit, and
  * the on/off switch. Turned on but every work order off → turn a work order on.
  */
 export function contractorActions(c: { active: boolean }, followed: boolean): MenuAction[] {
-  return ['trends', 'tickets', ...(followed ? (['fill'] as const) : []), 'edit', c.active ? (followed ? 'turnOff' : 'turnOnWo') : 'turnOn']
+  return ['trends', 'tickets', ...(followed ? (['fill', 'docs'] as const) : []), 'edit', c.active ? (followed ? 'turnOff' : 'turnOnWo') : 'turnOn']
 }
 
 export function workOrderActions(wo: { active: boolean }): MenuAction[] {
-  return ['fill', 'manpower', 'tickets', 'trends', 'contractor', wo.active ? 'turnOff' : 'turnOn']
+  return ['fill', 'docs', 'manpower', 'tickets', 'trends', 'contractor', wo.active ? 'turnOff' : 'turnOn']
 }
 
 export function campActions(camp: { contractorUuid: string }): MenuAction[] {

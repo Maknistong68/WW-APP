@@ -31,7 +31,7 @@ function primaryOf(t: Task, canEdit: boolean): { label: string; icon: IconName; 
     const subject = t.subject
     return {
       label: t.kind === 'closeout' ? 'Update' : 'Fill in',
-      icon: t.kind === 'closeout' ? 'pencil' : 'gauge',
+      icon: t.kind === 'closeout' ? 'pencil' : t.sheet === 'submission' ? 'file-text' : 'gauge',
       tone: 'info',
       run: () => openSheet({ kind: t.sheet!, ...subject }),
     }
@@ -71,6 +71,7 @@ function taskMenu(t: Task, d: AllData) {
   if (t.subject) {
     const { month } = t.subject
     actions.push(
+      { label: `Documents for ${monthLabel(month).slice(0, 3)}`, icon: 'file-text', edit: true, onSelect: () => openSheet({ kind: 'submission', ...t.subject! }) },
       { label: `Fill in ${monthLabel(month)}`, icon: 'gauge', edit: true, onSelect: () => openSheet({ kind: 'kpi', ...t.subject! }) },
       { label: `Workers for ${monthLabel(month).slice(0, 3)}`, icon: 'users', edit: true, onSelect: () => openSheet({ kind: 'manpower', ...t.subject! }) },
       { label: 'Open contractor', icon: 'buildings', onSelect: () => go(`/contractors/${t.subject!.contractorUuid}?m=${month}`) },

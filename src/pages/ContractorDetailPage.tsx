@@ -5,16 +5,18 @@ import Icon from '../components/Icon'
 import History from '../components/History'
 import ContractorSheet, { WorkOrderSheet } from '../components/ContractorSheet'
 import KpiSheet, { ManpowerSheet, emptyKpi, emptyManpower } from '../components/KpiSheet'
+import SubmissionSheet from '../components/SubmissionSheet'
 import { showToast } from '../components/Toast'
 import { TicketRow } from './TicketsPage'
 import { ageDays, isOpen } from '../lib/aging'
 import { addMonths, monthLabel, monthOf } from '../lib/dates'
-import { DECLARATIONS, KPI_PARTS, STATUS_LABEL, declState, pct, type KpiResult } from '../lib/kpi'
+import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
+import { SUBMISSION_ITEMS, docState, submissionCounts, type DocState } from '../lib/submissions'
 import { auditPctFor, kpiForSubject, rollup, useAllData } from '../lib/kpiData'
 import { mentions } from '../lib/names'
 import { saveRecord } from '../lib/records'
 import { tryWrite } from '../lib/safeWrite'
-import { isFollowed, subjectKpi, subjectManpower, type KpiSubject } from '../lib/subjects'
+import { isFollowed, subjectKpi, subjectManpower, subjectPrior, type KpiSubject } from '../lib/subjects'
 import { newWorkOrder } from '../lib/useData'
 import type { WorkOrder } from '../types'
 import { useAuthInfo } from '../lib/auth'
@@ -109,7 +111,7 @@ export default function ContractorDetailPage() {
   // Opened from a month (Dashboard, KPI list, activity log): show that month.
   const [month, setMonth] = useState(linked && /^\d{4}-\d{2}$/.test(linked) && linked <= monthOf() ? linked : monthOf())
   const [pick, setPick] = useState<string>(ALL)
-  const [sheet, setSheet] = useState<'edit' | 'kpi' | 'manpower' | null>(null)
+  const [sheet, setSheet] = useState<'edit' | 'kpi' | 'manpower' | 'docs' | null>(null)
   const [woSheet, setWoSheet] = useState<WorkOrder | null>(null)
   const c = d.byUuid.get(uuid)
 
@@ -148,13 +150,18 @@ export default function ContractorDetailPage() {
     ? data.results.get(chosen.key)!
     : rollup(data.subjects.map((s) => data.results.get(s.key)!))
   const kpi = chosen ? subjectKpi(chosen, d.kpis, month) : undefined
+  const prior = chosen ? subjectPrior(chosen, d.kpis, month) : undefined
+  const docCount = chosen ? submissionCounts(kpi, prior) : null
   const manpower = chosen ? subjectManpower(chosen, d.manpower, month) : undefined
   const open = data.tickets.filter(isOpen).sort((a, b) => a.openedAt.localeCompare(b.openedAt))
   const openCases = data.cases.filter(isOpen).sort((a, b) => a.openedAt.localeCompare(b.openedAt))
-  // ✓ in · ✗ awaited · – not provided (not counted against them)
-  const mark = (v: boolean | null, label: string) => (
-    <span className={v ? 'yes' : v === false ? 'na' : 'no'} title={v === false ? `${label} not provided` : undefined}>
-      <Icon name={v ? 'check' : v === false ? 'minus' : 'x'} size={16} strokeWidth={2.6} /> {label}
+  // ✓ in · ✗ waiting · – not provided or not applicable (not chased)
+  const mark = (v: DocState, label: string) => (
+    <span
+      className={v === 'in' ? 'yes' : v === 'awaited' ? 'no' : 'na'}
+      title={v === 'notProvided' ? `${label} not provided` : v === 'na' ? `${label} not applicable` : undefined}
+    >
+      <Icon name={v === 'in' ? 'check' : v === 'awaited' ? 'x' : 'minus'} size={16} strokeWidth={2.6} /> {label}
     </span>
   )
   const topResult: KpiResult = rollup(data.subjects.map((s) => data.results.get(s.key)!))
@@ -307,11 +314,9 @@ export default function ContractorDetailPage() {
                 <span className={`status-dot ${result.status}`} style={{ marginRight: 6 }} />
                 {STATUS_LABEL[result.status]}
               </div>
-              {chosen ? (
-                <div className="checks" style={{ marginTop: 6 }}>
-                  {DECLARATIONS.map((x) => (
-                    <Fragment key={x.key}>{mark(declState(kpi, x.key), x.short)}</Fragment>
-                  ))}
+              {chosen && docCount ? (
+                <div className="row-sub" style={{ marginTop: 4 }}>
+                  Documents {docCount.in} of {docCount.required} in
                 </div>
               ) : (
                 <div className="row-sub">Average of {data.subjects.length} work orders</div>
@@ -334,8 +339,24 @@ export default function ContractorDetailPage() {
               </button>
             ))}
           </div>
+          {chosen && (
+            <>
+              <div className="section-label">Documents · {monthLabel(month)}</div>
+              <div className="card docs-card">
+                <div className="checks">
+                  {SUBMISSION_ITEMS.map((x) => (
+                    <Fragment key={x.key}>{mark(docState(kpi, x.key, prior), x.short)}</Fragment>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
           {!canEdit ? null : chosen ? (
             <div className="list">
+              <button className="row tint" onClick={() => setSheet('docs')}>
+                Documents {monthLabel(month)}
+                {chosen.workOrder ? ` · WO ${chosen.workOrder.number}` : ''}
+              </button>
               <button className="row tint" onClick={() => setSheet('kpi')}>
                 Score {monthLabel(month)}
                 {chosen.workOrder ? ` · WO ${chosen.workOrder.number}` : ''}
@@ -346,7 +367,7 @@ export default function ContractorDetailPage() {
               </button>
             </div>
           ) : (
-            <div className="list-foot">Pick a work order above to score it or enter manpower.</div>
+            <div className="list-foot">Pick a work order above for its documents, scores and manpower.</div>
           )}
         </>
       )}
@@ -423,6 +444,14 @@ export default function ContractorDetailPage() {
           subjectLabel={chosen.label}
           kpi={kpi ?? emptyKpi(c.uuid, chosen.workOrder?.uuid ?? '', month)}
           auditPct={data.auditPct}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet === 'docs' && chosen && (
+        <SubmissionSheet
+          subjectLabel={chosen.label}
+          kpi={kpi ?? emptyKpi(c.uuid, chosen.workOrder?.uuid ?? '', month)}
+          prev={prior}
           onClose={() => setSheet(null)}
         />
       )}

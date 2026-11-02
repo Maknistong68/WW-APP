@@ -16,11 +16,12 @@ import {
 } from './dashboard'
 import { dayMonth, localDate, monthLabel } from './dates'
 import { declarationsDue, dueTone } from './due'
-import { closurePct, kpiStatus, pct, submissionsComplete } from './kpi'
+import { closurePct, kpiStatus, pct } from './kpi'
+import { SUBMISSION_ITEMS } from './submissions'
 import { itemStats, subjectKpis, type AllData } from './kpiData'
 import { moneyStats, sarShort } from './money'
 import { ageParts, countDomain, partsTone, type Peek, type PeekPart } from './peek'
-import { kpiSubjects, subjectKpi } from './subjects'
+import { docsSettled, kpiSubjects } from './subjects'
 import { monthEnd, ticketLink, type TicketQuery } from './ticketFilter'
 import { kpiTone, type Tone } from './tone'
 import type { IconName } from '../components/Icon'
@@ -224,17 +225,17 @@ function kpiCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
   const inCount = total - missing
   const due = declarationsDue(kpiMonth)
   const subTone: Tone = total === 0 ? 'none' : missing ? (dueTone(due, today) ?? 'info') : 'good'
-  const subSpark = months.map((m) => (total ? Math.round((subjectList.filter((s) => submissionsComplete(subjectKpi(s, d.kpis, m))).length / total) * 100) : null))
+  const subSpark = months.map((m) => (total ? Math.round((subjectList.filter((s) => docsSettled(s, d.kpis, m)).length / total) * 100) : null))
   const submissionsCard: FocusCard = {
     key: 'submissions',
-    title: 'Submissions',
+    title: 'Documents',
     kind: 'meter',
     value: `${inCount} of ${total}`,
     tone: subTone,
     icon: 'file-text',
     meter: { pct: total ? (inCount / total) * 100 : null },
-    line: `WPS, manpower and salary for ${short(kpiMonth)} · due ${dayMonth(due)} · ${missing} missing`,
-    link: { label: 'Missing submissions', to: `/missing/submission?m=${kpiMonth}` },
+    line: `Work orders with all ${SUBMISSION_ITEMS.length} documents for ${short(kpiMonth)} · due ${dayMonth(due)} · ${missing} missing`,
+    link: { label: 'Missing documents', to: `/missing/submission?m=${kpiMonth}` },
     peek: {
       sub: `${monthLabel(kpiMonth)} · due ${dayMonth(due)}`,
       facts: [
@@ -242,9 +243,9 @@ function kpiCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
         { label: 'Missing', value: missing, tone: missing ? (subTone === 'info' ? 'warn' : subTone) : undefined },
         { label: 'Due', value: dayMonth(due) },
       ],
-      spark: { values: subSpark, label: `Work orders with every declaration in, last ${SPARK_MONTHS} months`, tone: subTone === 'info' ? 'none' : subTone, guide: 100 },
+      spark: { values: subSpark, label: `Work orders with every document in, last ${SPARK_MONTHS} months`, tone: subTone === 'info' ? 'none' : subTone, guide: 100 },
       actions: [
-        { label: 'Missing submissions', icon: 'file-text', to: `/missing/submission?m=${kpiMonth}` },
+        { label: 'Missing documents', icon: 'file-text', to: `/missing/submission?m=${kpiMonth}` },
         { label: 'Submission KPI page', icon: 'gauge', to: `/kpis/submission?m=${kpiMonth}` },
       ],
     },

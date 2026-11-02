@@ -1,10 +1,12 @@
 import { addMonths, monthLabel } from './dates'
-import { declNotProvided, declWaiting, meetingAttended, offboardingScore, submissionsComplete } from './kpi'
+import { meetingAttended, offboardingScore } from './kpi'
 import { auditPctFor, type AllData } from './kpiData'
-import { kpiSubjects, subjectKpi, subjectManpower, type KpiSubject } from './subjects'
+import { kpiSubjects, subjectKpi, subjectManpower, subjectPrior, type KpiSubject } from './subjects'
+import { SUBMISSION_ITEMS as DOCS, allSettled, awaitedItems, docState, docText, shortList, submissionCounts } from './submissions'
+import type { SubmissionKey } from '../types'
 import { closeoutState } from './closeout'
 
-// The per-work-order checklist (WPS / manpower / salary, accommodation, …):
+// The per-work-order checklist (the monthly documents, accommodation, …):
 // what counts as entered for a month. Home's task list (src/lib/tasks.ts) and
 // the "still missing" lists (/missing/:item) both read it.
 
@@ -21,7 +23,7 @@ export type SubjectItemKey = 'submission' | 'accommodation' | 'onboarding' | 'of
 export interface SubjectItem {
   title: string
   /** Which sheet fills it in. */
-  sheet: 'kpi' | 'manpower'
+  sheet: 'kpi' | 'manpower' | 'submission'
   done: (d: AllData, s: KpiSubject, month: string) => boolean
   /** What is entered so far, e.g. "92%" or "WPS · Salary". */
   value: (d: AllData, s: KpiSubject, month: string) => string
@@ -32,17 +34,19 @@ const pctText = (v: number | null | undefined) => (v === null || v === undefined
 
 export const SUBJECT_ITEMS: Record<SubjectItemKey, SubjectItem> = {
   submission: {
-    title: 'Monthly submission',
-    sheet: 'kpi',
-    // Done once nothing is awaited: each one in, or marked not provided.
-    done: (d, s, m) => submissionsComplete(kpiOf(d, s, m)),
+    title: 'Monthly documents',
+    sheet: 'submission',
+    // Done once nothing is waiting: each one in, not provided, or not applicable.
+    done: (d, s, m) => allSettled(kpiOf(d, s, m), subjectPrior(s, d.kpis, m)),
     value: (d, s, m) => {
       const k = kpiOf(d, s, m)
-      const waiting = declWaiting(k).map((x) => x.short)
-      const notProvided = declNotProvided(k).map((x) => x.short)
-      if (waiting.length === 3) return ''
-      const parts = [waiting.length && `Missing ${waiting.join(', ')}`, notProvided.length && `${notProvided.join(', ')} not provided`]
-      return parts.filter(Boolean).join(' · ') || 'All 3 in'
+      const prior = subjectPrior(s, d.kpis, m)
+      const c = submissionCounts(k, prior)
+      const notProvided = DOCS.filter((i) => docState(k, i.key, prior) === 'notProvided')
+      if (!c.in && !notProvided.length) return ''
+      const waiting = awaitedItems(k, prior)
+      const parts = [`${c.in} of ${c.required} in`, waiting.length && `Missing ${shortList(waiting)}`, notProvided.length && `${shortList(notProvided)} not provided`]
+      return parts.filter(Boolean).join(' · ')
     },
   },
   accommodation: {
@@ -117,4 +121,28 @@ export function subjectRows(d: AllData, key: SubjectItemKey, month: string) {
   return kpiSubjects(d.contractors, d.workOrders)
     .map((s) => ({ s, done: item.done(d, s, month), value: item.value(d, s, month) }))
     .sort((a, b) => Number(a.done) - Number(b.done) || a.s.label.localeCompare(b.s.label))
+}
+
+/**
+ * The documents list (/missing/submission): every work order with what is
+ * still missing, or with `only`, whether each has sent that one document.
+ */
+export function docRows(d: AllData, month: string, only?: SubmissionKey) {
+  return kpiSubjects(d.contractors, d.workOrders)
+    .map((s) => {
+      const k = subjectKpi(s, d.kpis, month)
+      const prior = subjectPrior(s, d.kpis, month)
+      const waiting = awaitedItems(k, prior)
+      return only
+        ? { s, done: docState(k, only, prior) !== 'awaited', value: docText(k, only, prior), waiting }
+        : { s, done: !waiting.length, value: SUBJECT_ITEMS.submission.value(d, s, month), waiting }
+    })
+    .sort((a, b) => Number(a.done) - Number(b.done) || a.s.label.localeCompare(b.s.label, undefined, { numeric: true }))
+}
+
+/** How many work orders still owe each document this month. */
+export function docMissing(d: AllData, month: string): Record<SubmissionKey, number> {
+  const out = Object.fromEntries(DOCS.map((i) => [i.key, 0])) as Record<SubmissionKey, number>
+  for (const r of docRows(d, month)) for (const i of r.waiting) out[i.key] += 1
+  return out
 }

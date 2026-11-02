@@ -137,6 +137,13 @@ export function contractorMenu(
       edit: true,
       onSelect: () => openSheet({ kind: 'kpi', contractorUuid: c.uuid, workOrderUuid: s.workOrder?.uuid ?? '', month }),
     })),
+    // Documents: straight from here for one work order; with several, each work order's own menu has it.
+    docs: subjects.length === 1 ? [{
+      label: `Documents for ${short(month)}`,
+      icon: 'file-text' as const,
+      edit: true,
+      onSelect: () => openSheet({ kind: 'submission', contractorUuid: c.uuid, workOrderUuid: subjects[0].workOrder?.uuid ?? '', month }),
+    }] : [],
     edit: [{ label: 'Edit details', icon: 'pencil', edit: true, onSelect: () => openSheet({ kind: 'contractorEdit', uuid: c.uuid }) }],
     turnOff: [
       {
@@ -186,6 +193,12 @@ export function workOrderMenu(s: KpiSubject & { workOrder: NonNullable<KpiSubjec
       icon: 'gauge',
       edit: true,
       onSelect: () => openSheet({ kind: 'kpi', contractorUuid: s.contractor.uuid, workOrderUuid: wo.uuid, month }),
+    },
+    docs: {
+      label: `Documents for ${short(month)}`,
+      icon: 'file-text',
+      edit: true,
+      onSelect: () => openSheet({ kind: 'submission', contractorUuid: s.contractor.uuid, workOrderUuid: wo.uuid, month }),
     },
     manpower: {
       label: `Workers for ${short(month)}`,

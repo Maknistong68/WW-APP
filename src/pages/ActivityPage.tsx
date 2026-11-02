@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { db } from '../db'
 import Page from '../components/Page'
 import Icon from '../components/Icon'
-import { changeText, fmtWhen } from '../components/History'
+import { changeLines, fmtWhen } from '../components/History'
 import { useContractors } from '../lib/useData'
 import type { ActivityEntity, ActivityEntry } from '../types'
 import { ACTIONS, PERIODS, filterActivity, type ActionFilter, type Period } from '../lib/activityFilter'
@@ -162,11 +162,13 @@ export default function ActivityPage() {
                   {whoName(e, team, userId) && <span className="by"> · by {whoName(e, team, userId)}</span>}
                 </div>
                 {e.action === 'edit' || e.action === 'close' || e.action === 'delete'
-                  ? e.changes.slice(0, 2).map((c) => (
-                      <div key={c.field} className="row-sub">
-                        {changeText(c, byUuid)}
-                      </div>
-                    ))
+                  ? changeLines(e.changes, byUuid)
+                      .slice(0, 2)
+                      .map((line, i) => (
+                        <div key={i} className="row-sub">
+                          {line}
+                        </div>
+                      ))
                   : null}
               </span>
               <span className="row-trail" style={{ fontSize: 12.5 }}>

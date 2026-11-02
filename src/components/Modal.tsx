@@ -3,6 +3,9 @@ import Icon from './Icon'
 import { EXIT_MS, reducedMotion } from '../lib/motion'
 import { beginEdit } from '../lib/editing'
 
+// Open panels, newest last: Escape closes only the top one (a panel can open over another).
+const stack: object[] = []
+
 export interface ModalHandle {
   /** Animate out, then run `then` (default: onClose). */
   close: (then?: () => void) => void
@@ -55,11 +58,15 @@ const Modal = forwardRef<
   useEffect(() => {
     previousFocus.current = document.activeElement
     sheetRef.current?.querySelector<HTMLElement>('button, input, textarea')?.focus()
+    const me = {}
+    stack.push(me)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape' && stack[stack.length - 1] === me) close()
     }
     document.addEventListener('keydown', onKey)
     return () => {
+      const i = stack.indexOf(me)
+      if (i >= 0) stack.splice(i, 1)
       document.removeEventListener('keydown', onKey)
       // closed by the parent mid-animation: still run what was asked for
       if (pending.current) {

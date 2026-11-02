@@ -135,8 +135,8 @@ per screen.
     Each is a gradient tile in its menu hue (`MENU_HUE`, menu `home`) with a badge (`areaTile`): the
     late count (red), else this week's (amber), or a green check when all is done. Under the name:
     "Late", "This week", the next date ("15 Nov") or "Done".
-    - Tickets: over 30 days or turning 30 this week. Submission: WPS / manpower / salary
-      declarations and older months. KPIs: scores and worker counts. Accommodation: camp
+    - Tickets: over 30 days or turning 30 this week. Submission: the 11 monthly documents per
+      work order and older months. KPIs: scores and worker counts. Accommodation: camp
       inspections due and draft inspections. Audits: quarterly audits and close-outs. Tasks: the
       team's own to-dos.
     - **Tap** opens the area's list (`/today/:area`, `src/pages/AreaPage.tsx`): Overdue, This
@@ -145,16 +145,28 @@ per screen.
       `SourceTabs`); D&C tickets and the team's own cases are capped and listed on their own
       (`ticketSource`), and the badge counts both.
     - **Hold** (`areaMenu`): Late / This week / Later, the most urgent names (or what the area
-      means), the shortcut (Open Tickets, Missing submissions, KPI dashboard, Open Camps, Audit
+      means), the shortcut (Open Tickets, Missing documents, KPI dashboard, Open Camps, Audit
       close-outs) and Add task.
   - **Watch** (no deadline) and **Month progress** (how much of the month is entered) are sections
     too.
   - Rows (`src/components/TaskRow.tsx`): urgent ones are named one by one, e.g. "RPCO · WO 882 ·
-    Oct: WPS, Salary missing · 1d late". A ticket row, like the ticket log, is named by the
+    Oct: 4 of 11 in · Minutes, Water test +5 · 1d late". A ticket row, like the ticket log, is named by the
     contractor's short name, with "WWCMPL… · Open 42 days · 3 workers" below. Later ones are grouped
     per month; tap a group to open it in place.
-  - Due dates: a month's declarations by the 15th of the next month, its KPIs by the end of the
+  - Due dates: a month's documents by the 15th of the next month, its KPIs by the end of the
     next month (`src/lib/due.ts`).
+  - **Monthly documents** (`src/components/SubmissionSheet.tsx`, rules `src/lib/submissions.ts`): one
+    work order, one month. The header shows "7 of 11 in" with a green bar, the due date, **Mark all
+    in** and **Reminder** (copies a WhatsApp-ready list of what is missing). The 11 documents sit in
+    four groups (Reports · Registers & declarations · Committee · Accommodation), each a row with its
+    status chip: In 2 Nov (green) · Waiting (blue, amber near the 15th, red Late after) · Not provided
+    · N/A (grey). Tap a row to open its choices in place: In · Waiting · Not provided · N/A, the date
+    it came, a note, and for the issue log which was sent (Issue log / IAP). N/A carries on to the
+    next months until changed ("N/A since last month"). History of the month is at the bottom.
+    Opened from Home › Submission, the work order and contractor hold menus ("Documents for Oct"),
+    the KPI panel's Documents row (it opens over the KPI panel), the contractor page and
+    `/missing/submission`, whose chips (All · Report · … · Salary, with how many still owe each) show
+    who hasn't sent one document, with Copy reminder on hold and for all at the bottom.
   - Gaps are chased from October 2026 (`TASKS_FROM`), for up to 3 ended months.
   - **Editors:** tap or swipe left to do it (Fill in / Close / Start). **Viewers:** tap opens the
     record. Everyone can hold for more.

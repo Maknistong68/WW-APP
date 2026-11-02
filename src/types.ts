@@ -332,6 +332,34 @@ export interface Ticket extends RecordBase {
 
 export type DeclField = 'wps' | 'manpowerDecl' | 'salaryDecl'
 
+/** The documents a contractor hands in each month (src/lib/submissions.ts). */
+export type SubmissionKey =
+  | 'welfareReport'
+  | 'issueLog'
+  | 'manpowerDecl'
+  | 'subconDecl'
+  | 'committeeMinutes'
+  | 'workforceDecl'
+  | 'pestControl'
+  | 'activitySchedule'
+  | 'waterTest'
+  | 'wps'
+  | 'salaryDecl'
+
+/**
+ * One document for one month: in (with the date it came), not provided, not
+ * applicable, or waiting (kept only with a note, or to end last month's "not
+ * applicable").
+ */
+export interface DocEntry {
+  state: 'in' | 'notProvided' | 'na' | 'awaited'
+  /** YYYY-MM-DD it came in. */
+  on?: string
+  note?: string
+  /** Item 2: which one was sent. */
+  variant?: 'issueLog' | 'iap'
+}
+
 export interface KpiMonth extends RecordBase {
   contractorUuid: string
   /** '' = scored at contractor level (contractor without work orders). */
@@ -342,8 +370,10 @@ export interface KpiMonth extends RecordBase {
   wps: boolean
   manpowerDecl: boolean
   salaryDecl: boolean
-  /** Declarations the contractor said they can't provide: no longer chased, still scored as missing. */
+  /** Declarations the contractor said they can't provide (or that don't apply): not chased, left out of the score. */
   notProvided?: DeclField[]
+  /** The monthly documents (src/lib/submissions.ts). WPS / Manpower / Salary keep their state in the fields above; here they only add the date and note. */
+  docs?: Partial<Record<SubmissionKey, DocEntry>>
   /** 0–100, null = not scored */
   accommodationPct: number | null
   onboardingPct: number | null

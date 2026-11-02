@@ -342,3 +342,31 @@ button.row { cursor: pointer; }
 
 /* "· by Ali" after an action in History and the Activity log */
 .row-title .by { font-weight: 500; color: var(--muted); }
+
+/* ---- Monthly documents (SubmissionSheet, contractor page) -------------------- */
+.docs-head { padding: 6px 4px 2px; }
+.docs-subject { font-size: 15px; font-weight: 600; color: var(--muted); }
+.docs-count { margin: 2px 0 10px; font-size: 17px; font-variant-numeric: tabular-nums; }
+.docs-count b { font-size: 28px; font-weight: 800; letter-spacing: -0.01em; margin-right: 2px; }
+.docs-skip { color: var(--muted); font-size: 15px; }
+.docs-head .progress-bar > div { background: var(--good); }
+.docs-due { margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.docs-due.warn { color: var(--warn); }
+.docs-due.bad { color: var(--bad); }
+.docs-head .btn-row { margin-top: 14px; }
+.docs-head .btn { padding: 0 16px; white-space: nowrap; }
+.docs-head .btn-row .btn:last-child { flex: 0 0 auto; }
+/* one document: tap the row to open its choices underneath */
+.doc .row { cursor: pointer; }
+.doc .row-sub { white-space: normal; }
+.doc + .doc::before { content: ''; position: absolute; top: 0; left: 18px; right: 18px; height: 1px; background: var(--line); z-index: 1; pointer-events: none; }
+.doc.open > .row { background: var(--press); }
+.doc-edit { padding: 12px 14px 6px; animation: cardIn var(--dur-in) var(--ease-90) both; }
+.doc-edit .segmented.fit { margin-bottom: 8px; }
+.doc-edit .segmented.fit button { min-height: 44px; font-size: 14px; white-space: normal; }
+/* In · Waiting · Not provided · N/A: the long word gets the room */
+.doc-edit .doc-states { grid-template-columns: 0.6fr 1fr 1.3fr 0.65fr; }
+.doc-edit .row { min-height: 52px; padding: 8px 4px; }
+.doc-edit .row + .row::before { left: 4px; right: 4px; }
+.docs-card { padding: 16px 18px; }
+.docs-card .checks { gap: 8px 14px; }

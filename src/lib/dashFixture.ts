@@ -1,5 +1,6 @@
 import type { AllData } from './kpiData'
 import type { Camp, Contractor, GeneralInfo, Inspection, KpiMonth, Manpower, Ticket, WorkOrder } from '../types'
+import { markAllIn } from './submissions'
 
 // A small, hand-checked data set for the Dashboard tests (src/lib/focus,
 // explore, overTime, peek). Two contractors: Al Fahad (work order 882) and RPCO;
@@ -83,8 +84,9 @@ export function fixture(): AllData {
   const cases: Ticket[] = [ticket({ uuid: 'x1', ticketNo: 'CASE-0001', source: 'Internal', contractorUuid: 'cb', workOrderUuid: '', openedAt: '2026-10-15', workers: 1, issue: 'Overtime' })]
   const kpis: KpiMonth[] = [
     kpi({ uuid: 'k1', contractorUuid: 'ca', workOrderUuid: 'w1', month: '2026-10', salaryDecl: false, accommodationPct: 90, onboardingPct: 80, meetingPct: 100, quarterlyAuditPct: 85, auditDate: '2026-10-10', auditFindings: 4, auditClosed: 2 }),
-    kpi({ uuid: 'k2', contractorUuid: 'cb', workOrderUuid: '', month: '2026-10', accommodationPct: 95, onboardingPct: 90, meetingPct: 100 }),
-    kpi({ uuid: 'k3', contractorUuid: 'ca', workOrderUuid: 'w1', month: '2026-09', accommodationPct: 70, onboardingPct: 70, meetingPct: 0 }),
+    // every monthly document in (k1 still waits for the salary declaration and the rest)
+    markAllIn(kpi({ uuid: 'k2', contractorUuid: 'cb', workOrderUuid: '', month: '2026-10', accommodationPct: 95, onboardingPct: 90, meetingPct: 100 }), '2026-11-05'),
+    markAllIn(kpi({ uuid: 'k3', contractorUuid: 'ca', workOrderUuid: 'w1', month: '2026-09', accommodationPct: 70, onboardingPct: 70, meetingPct: 0 }), '2026-10-05'),
   ]
   const manpower: Manpower[] = [
     { uuid: 'm1', updatedAt: '', contractorUuid: 'ca', workOrderUuid: 'w1', month: '2026-10', totalWorkers: 100, illegalOrFreelance: 2, visaExpiring30d: 5, paidRecruitmentFees: 0 },

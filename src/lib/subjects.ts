@@ -1,4 +1,5 @@
 import { newUuid } from '../db'
+import { allSettled, carryBefore } from './submissions'
 import type { Contractor, KpiMonth, Manpower, Ticket, WorkOrder } from '../types'
 
 /**
@@ -57,6 +58,16 @@ export function subjectTickets(s: KpiSubject, tickets: Ticket[], workOrders: Wor
 
 export const subjectKpi = (s: KpiSubject, kpis: KpiMonth[], month: string) =>
   kpis.find((k) => k.contractorUuid === s.contractor.uuid && (k.workOrderUuid || '') === woOf(s) && k.month === month)
+
+/** One subject's months (documents marked "not applicable" carry on from them). */
+export const subjectRows = (s: KpiSubject, kpis: KpiMonth[]) =>
+  kpis.filter((k) => k.contractorUuid === s.contractor.uuid && (k.workOrderUuid || '') === woOf(s))
+
+/** What carries into `month` for the documents ("not applicable" until changed): pass as `prev`. */
+export const subjectPrior = (s: KpiSubject, kpis: KpiMonth[], month: string) => carryBefore(subjectRows(s, kpis), month)
+
+/** Every document answered for the month (in, not provided or not applicable). */
+export const docsSettled = (s: KpiSubject, kpis: KpiMonth[], month: string) => allSettled(subjectKpi(s, kpis, month), subjectPrior(s, kpis, month))
 
 export const subjectManpower = (s: KpiSubject, rows: Manpower[], month: string) =>
   rows.find((m) => m.contractorUuid === s.contractor.uuid && (m.workOrderUuid || '') === woOf(s) && m.month === month)

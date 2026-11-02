@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AREAS, areaLine, areaStatus, areaSummaries, areaTile, buildTasks, completedSince, taskMonths, tasksIn, type Task } from './tasks'
 import type { AllData } from './kpiData'
 import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Routine, Ticket, WorkOrder } from '../types'
+import { markAllIn, setDoc } from './submissions'
 
 const c1 = { uuid: 'c1', name: 'RPCO', active: true, aliases: [] } as unknown as Contractor
 const wo = (uuid: string, number: string) => ({ uuid, contractorUuid: 'c1', number, label: '', active: true }) as WorkOrder
@@ -23,10 +24,10 @@ const base = (p: Partial<AllData> = {}): AllData => {
     ...p,
   }
 }
+const docsIn = (workOrderUuid: string, month: string, p: Partial<KpiMonth> = {}) =>
+  markAllIn({ contractorUuid: 'c1', workOrderUuid, month, ...p } as KpiMonth, '2026-11-05')
 const allIn = (workOrderUuid: string, month: string) => ({
-  kpis: [
-    { contractorUuid: 'c1', workOrderUuid, month, wps: true, manpowerDecl: true, salaryDecl: true, accommodationPct: 90, onboardingPct: 95, offboardingPct: 100, meetingPct: 100 },
-  ] as KpiMonth[],
+  kpis: [docsIn(workOrderUuid, month, { accommodationPct: 90, onboardingPct: 95, offboardingPct: 100, meetingPct: 100 })],
   manpower: [{ contractorUuid: 'c1', workOrderUuid, month, totalWorkers: 120, illegalOrFreelance: 0, visaExpiring30d: 0, paidRecruitmentFees: 0 }] as Manpower[],
 })
 const ticket = (uuid: string, openedAt: string): Ticket =>
@@ -40,21 +41,27 @@ describe('Home tasks: which months', () => {
   })
 })
 
-describe('Home tasks: declarations and KPIs', () => {
+describe('Home tasks: documents and KPIs', () => {
   it('on 1 Nov, October is grouped under Later with its due dates', () => {
     const { tasks, counts } = buildTasks(base(), '2026-11-01')
     const decl = tasks.find((t) => t.key === 'declarations:2026-10')!
-    expect([decl.group, decl.title, decl.dueText, decl.members?.length]).toEqual(['later', 'October declarations', 'due 15 Nov', 2])
+    expect([decl.group, decl.title, decl.dueText, decl.members?.length]).toEqual(['later', 'October documents', 'due 15 Nov', 2])
+    expect(decl.detail).toBe('2 work orders · 11 documents each')
     expect(tasks.find((t) => t.key === 'kpis:2026-10')!.dueText).toBe('due 30 Nov')
     expect([counts.overdue, counts.week]).toEqual([0, 0])
   })
   it('from 8 Nov each work order is named under This week (work orders in number order)', () => {
     const week = buildTasks(base(), '2026-11-08').tasks.filter((t) => t.group === 'week' && t.kind === 'declarations')
     expect(week.map((t) => t.title)).toEqual(['RPCO · WO 882', 'RPCO · WO 1134'])
-    expect([week[0].detail, week[0].dueText]).toEqual(['Oct: WPS, Manpower, Salary missing', 'due 15 Nov'])
+    expect([week[0].detail, week[0].dueText, week[0].sheet]).toEqual(['Oct: nothing in yet', 'due 15 Nov', 'submission'])
+  })
+  it('a work order part way says how many are in and names the first ones still missing', () => {
+    const kpis = [setDoc(setDoc({ contractorUuid: 'c1', workOrderUuid: 'w1', month: '2026-10', wps: true } as KpiMonth, 'welfareReport', { state: 'in', on: '2026-11-03' }), 'waterTest', { state: 'na' })]
+    const row = buildTasks(base({ kpis }), '2026-11-08').tasks.find((t) => t.kind === 'declarations' && t.title === 'RPCO · WO 882')!
+    expect(row.detail).toBe('Oct: 2 of 10 in · Issue log, Manpower +6')
   })
   it('after the 15th the ones still missing are overdue, "1d late"', () => {
-    const kpis = [{ contractorUuid: 'c1', workOrderUuid: 'w1', month: '2026-10', wps: true, manpowerDecl: true, salaryDecl: true }] as KpiMonth[]
+    const kpis = [docsIn('w1', '2026-10')]
     const { tasks, counts } = buildTasks(base({ kpis }), '2026-11-16')
     const late = tasks.filter((t) => t.group === 'overdue' && t.kind === 'declarations')
     expect(late.map((t) => [t.title, t.dueText, t.tone])).toEqual([['RPCO · WO 1134', '1d late', 'bad']])
@@ -74,9 +81,8 @@ describe('Home tasks: declarations and KPIs', () => {
     expect(counts.done).toBe(1)
     expect(progress).toEqual({ month: '2026-10', done: 6, total: 12 })
   })
-  it('a declaration the contractor can’t provide is no longer chased, and the month can still be done', () => {
-    const notProvided = { contractorUuid: 'c1', workOrderUuid: 'w2', month: '2026-10', wps: false, manpowerDecl: true, salaryDecl: true, notProvided: ['wps'] }
-    const kpis = [allIn('w1', '2026-10').kpis[0], { ...allIn('w2', '2026-10').kpis[0], ...notProvided }] as KpiMonth[]
+  it('a document the contractor can’t provide is no longer chased, and the month can still be done', () => {
+    const kpis = [allIn('w1', '2026-10').kpis[0], setDoc(allIn('w2', '2026-10').kpis[0], 'wps', { state: 'notProvided' })]
     const manpower = [...allIn('w1', '2026-10').manpower, ...allIn('w2', '2026-10').manpower]
     const { tasks } = buildTasks(base({ kpis, manpower }), '2026-11-20')
     expect(tasks.filter((t) => t.kind === 'declarations')).toEqual([])

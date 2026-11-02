@@ -1,8 +1,7 @@
 import { auditAverage, inspectionsPerMonth, lastMonths, recoveredPerMonth, ticketsPerMonth, weeklyTrend, workersPerMonth, type DashView } from './dashboard'
 import { localDate, monthLabel } from './dates'
-import { submissionsComplete } from './kpi'
 import { itemStats, subjectKpis, type AllData } from './kpiData'
-import { kpiSubjects, subjectKpi } from './subjects'
+import { docsSettled, kpiSubjects } from './subjects'
 import type { Tone } from './tone'
 
 // The Dashboard's "Over time" card: one line chart, and chips that pick the series.
@@ -22,7 +21,7 @@ export const OVER_TIME_CHIPS: Record<DashView, OverTimeChip[]> = {
   kpis: [
     { key: 'overall', label: 'Overall KPI' },
     { key: 'workers', label: 'Workers' },
-    { key: 'submissions', label: 'Submissions' },
+    { key: 'submissions', label: 'Documents' },
     { key: 'audit', label: 'Audit score' },
   ],
   accommodation: [
@@ -106,9 +105,9 @@ export function overTimeSeries(d: AllData, view: DashView, chip: string, kpiMont
     }
     if (chip === 'submissions') {
       const data = perMonth(months6, (m) =>
-        subjects.length ? Math.round((subjects.filter((s) => submissionsComplete(subjectKpi(s, d.kpis, m))).length / subjects.length) * 100) : null,
+        subjects.length ? Math.round((subjects.filter((s) => docsSettled(s, d.kpis, m)).length / subjects.length) * 100) : null,
       )
-      return { mode: 'month', data, unit: '%', max: 100, open: 'month', sub: `Work orders with every declaration in · ${to(months6)}` }
+      return { mode: 'month', data, unit: '%', max: 100, open: 'month', sub: `Work orders with every document in · ${to(months6)}` }
     }
     if (chip === 'audit') {
       return { mode: 'month', data: scorePerMonth(months6), unit: '%', max: 100, guides: KPI_GUIDES, status: true, open: 'month', sub: `Average inspection score · ${to(months6)}` }

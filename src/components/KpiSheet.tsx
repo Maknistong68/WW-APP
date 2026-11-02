@@ -1,4 +1,9 @@
 import { useState, useRef } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../db'
+import Icon from './Icon'
+import StatusChip from './StatusChip'
+import SubmissionSheet, { docChip, loadDocs } from './SubmissionSheet'
 import { useSave } from '../lib/useSave'
 import { markSeen } from '../lib/onboarding'
 import SaveButton from './SaveButton'
@@ -6,9 +11,12 @@ import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { haptic } from '../lib/haptics'
 import { saveRecord } from '../lib/records'
-import { monthLabel, shortDate } from '../lib/dates'
+import { localDate, monthLabel, shortDate } from '../lib/dates'
+import { declarationsDue } from '../lib/due'
+import { allSettled, awaitedItems, shortList, submissionCounts, withDocsOf } from '../lib/submissions'
+import { emptyKpi } from '../lib/subjects'
 import { CLOSEOUT_DAYS, closeoutState, closeoutText, defaultDue, hasAudit, withoutAudit } from '../lib/closeout'
-import { DECLARATIONS, attendedPct, declState, meetingAttended, offboardingScore, setDecl, setOffboarding } from '../lib/kpi'
+import { attendedPct, meetingAttended, offboardingScore, setOffboarding } from '../lib/kpi'
 import type { Contractor, KpiMonth, Manpower } from '../types'
 
 const num = (v: string): number | null => {
@@ -94,6 +102,13 @@ export default function KpiSheet({
   const off = offboardingScore(k)
   const offShown = k.offboardingPct ?? (off === null ? null : Math.round(off))
 
+  // The documents live in their own panel; this one shows where they stand, kept fresh.
+  const [docsOpen, setDocsOpen] = useState(false)
+  const docs = useLiveQuery(() => loadDocs(k.contractorUuid, k.workOrderUuid, k.month), [k.contractorUuid, k.workOrderUuid, k.month])
+  const docCount = docs ? submissionCounts(docs.kpi, docs.prev) : null
+  const docWaiting = docs ? awaitedItems(docs.kpi, docs.prev) : []
+  const docTone = docs && allSettled(docs.kpi, docs.prev) ? docChip('in', undefined, '', '') : docChip('awaited', undefined, declarationsDue(k.month), localDate())
+
   const sheet = useRef<ModalHandle>(null)
   const { saving, alert, run } = useSave(`${subjectLabel} KPIs`)
   const save = () =>
@@ -101,7 +116,10 @@ export default function KpiSheet({
       if (audit && (k.auditClosed ?? 0) > (k.auditFindings ?? 0)) {
         return 'Closed out can’t be more than the findings'
       }
-      await saveRecord('kpiMonths', audit ? k : withoutAudit(k), `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
+      // The documents as saved in their panel (or by a teammate), never this panel's older copy.
+      const fresh = await db.kpiMonths.where('[contractorUuid+workOrderUuid+month]').equals([k.contractorUuid, k.workOrderUuid, k.month]).first()
+      const out = withDocsOf(k, fresh ?? emptyKpi(k.contractorUuid, k.workOrderUuid, k.month))
+      await saveRecord('kpiMonths', audit ? out : withoutAudit(out), `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
       haptic('success')
       markSeen('kpi')
       showToast({ text: 'KPIs saved' })
@@ -111,6 +129,7 @@ export default function KpiSheet({
     })
 
   return (
+    <>
     <Modal
       ref={sheet}
       title={`${monthLabel(k.month)} · ${subjectLabel.replace(`${contractor.name} · `, '')}`}
@@ -125,11 +144,22 @@ export default function KpiSheet({
       <div className="sheet-body">
         <div className="section-label">Submitted</div>
         <div className="list">
-          {DECLARATIONS.map((x) => (
-            <YesNoRow key={x.key} label={x.label} value={declState(k, x.key)} onChange={(v) => setK((p) => setDecl(p, x.key, v))} />
-          ))}
+          <button className="row" onClick={() => setDocsOpen(true)}>
+            <span className="row-main">
+              <div className="row-title">Documents</div>
+              <div className="row-sub">
+                {!docCount ? '…' : docWaiting.length ? `${docCount.in} of ${docCount.required} in · ${shortList(docWaiting)} waiting` : `All ${docCount.required} in`}
+              </div>
+            </span>
+            {docCount && (
+              <StatusChip tone={docTone.tone} icon={docTone.icon}>
+                {docWaiting.length ? `${docCount.in}/${docCount.required}` : 'All in'}
+              </StatusChip>
+            )}
+            <Icon name="chevron-right" size={18} className="row-chev" />
+          </button>
         </div>
-        <div className="list-foot">No = they can’t provide it. It isn’t chased or counted against them.</div>
+        <div className="list-foot">The score counts WPS, Manpower register and Salary; ones they can’t provide are left out.</div>
         <div className="section-label">Scores</div>
         <div className="list">
           <PctRow label="Accommodation" value={k.accommodationPct} onChange={(v) => set('accommodationPct', v)} />
@@ -186,6 +216,15 @@ export default function KpiSheet({
         <div className="list-foot">Grievance, ticket closure and formal vs illegal are calculated automatically.</div>
       </div>
     </Modal>
+    {docsOpen && docs && (
+      <SubmissionSheet
+        subjectLabel={subjectLabel}
+        kpi={docs.kpi ?? { ...emptyKpi(k.contractorUuid, k.workOrderUuid, k.month), uuid: k.uuid }}
+        prev={docs.prev}
+        onClose={() => setDocsOpen(false)}
+      />
+    )}
+    </>
   )
 }
 

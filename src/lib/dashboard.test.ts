@@ -17,6 +17,7 @@ import { kpiSubjects, subjectTickets } from './subjects'
 import { kpiForSubject, shapeAllData } from './kpiData'
 import type { KpiResult } from './kpi'
 import type { Camp, Contractor, KpiMonth, Manpower, Ticket, WorkOrder } from '../types'
+import { markAllIn } from './submissions'
 
 const tk = (p: Partial<Ticket>): Ticket => ({
   uuid: Math.random().toString(),
@@ -79,7 +80,7 @@ describe('dashboard', () => {
     expect(s.avgDaysToClose).toBe(40)
     expect(s.byContractor[0]).toMatchObject({ label: 'A', count: 1, workers: 2 })
   })
-  it('missing submissions and overdue list', () => {
+  it('missing documents and overdue list', () => {
     const cs = [
       { uuid: 'a', name: 'A', active: true },
       { uuid: 'b', name: 'B', active: true },
@@ -90,8 +91,10 @@ describe('dashboard', () => {
       { uuid: 'w2', contractorUuid: 'b', number: '823', active: false },
     ] as WorkOrder[]
     const k = [
-      { contractorUuid: 'a', workOrderUuid: '', month: '2026-10', wps: true, manpowerDecl: true, salaryDecl: true },
-      { contractorUuid: 'b', workOrderUuid: 'w1', month: '2026-10', wps: true, manpowerDecl: false, salaryDecl: true },
+      // every document in
+      markAllIn({ contractorUuid: 'a', workOrderUuid: '', month: '2026-10' } as KpiMonth, '2026-11-02'),
+      // the three the score reads, but not the other eight
+      { contractorUuid: 'b', workOrderUuid: 'w1', month: '2026-10', wps: true, manpowerDecl: true, salaryDecl: true },
     ] as KpiMonth[]
     const subjects = kpiSubjects(cs, wos)
     expect(subjects.map((s) => s.label)).toEqual(['A', 'B · WO 882'])

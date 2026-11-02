@@ -33,12 +33,12 @@ describe('Ticket menu', () => {
 
 describe('Other menus', () => {
   it('work order: fill in, manpower, its tickets, its trends, contractor, turn off or on', () => {
-    expect(workOrderActions({ active: true })).toEqual(['fill', 'manpower', 'tickets', 'trends', 'contractor', 'turnOff'])
-    expect(workOrderActions({ active: false })).toEqual(['fill', 'manpower', 'tickets', 'trends', 'contractor', 'turnOn'])
+    expect(workOrderActions({ active: true })).toEqual(['fill', 'docs', 'manpower', 'tickets', 'trends', 'contractor', 'turnOff'])
+    expect(workOrderActions({ active: false })).toEqual(['fill', 'docs', 'manpower', 'tickets', 'trends', 'contractor', 'turnOn'])
     expect(viewerOnly(workOrderActions({ active: true }))).toEqual(['tickets', 'trends', 'contractor'])
   })
   it('contractor: trends, tickets, fill in when scored, edit, and the on/off switch', () => {
-    expect(contractorActions({ active: true }, true)).toEqual(['trends', 'tickets', 'fill', 'edit', 'turnOff'])
+    expect(contractorActions({ active: true }, true)).toEqual(['trends', 'tickets', 'fill', 'docs', 'edit', 'turnOff'])
     // on, but every work order off: turn a work order on
     expect(contractorActions({ active: true }, false)).toEqual(['trends', 'tickets', 'edit', 'turnOnWo'])
     expect(contractorActions({ active: false }, false)).toEqual(['trends', 'tickets', 'edit', 'turnOn'])

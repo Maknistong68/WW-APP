@@ -5,6 +5,7 @@ import RemoveTicketSheet from './RemoveTicketSheet'
 import TicketSheet, { CloseTicketSheet } from './TicketSheet'
 import CloseTogetherSheet from './CloseTogetherSheet'
 import KpiSheet, { ManpowerSheet } from './KpiSheet'
+import SubmissionSheet, { loadDocs } from './SubmissionSheet'
 import { ConfirmSheet } from './Modal'
 import CampSheet from './CampSheet'
 import ContractorSheet from './ContractorSheet'
@@ -23,7 +24,7 @@ import type { Camp, Contractor, KpiMonth, Manpower, Routine, Ticket } from '../t
 export type SheetRequest =
   | { kind: 'ticketEdit' | 'ticketClose'; uuid: string }
   | { kind: 'ticketDelete'; uuid: string; after?: () => void }
-  | { kind: 'kpi' | 'manpower'; contractorUuid: string; workOrderUuid: string; month: string }
+  | { kind: 'kpi' | 'manpower' | 'submission'; contractorUuid: string; workOrderUuid: string; month: string }
   | { kind: 'campEdit' | 'contractorEdit' | 'routineEdit'; uuid: string }
   | { kind: 'confirm'; title: string; message: string; confirmLabel: string; destructive?: boolean; onConfirm: () => void }
 
@@ -36,6 +37,7 @@ type Shown =
   | { kind: 'ticketDelete'; ticket: Ticket; label: string; after?: () => void }
   | { kind: 'kpi'; contractor: Contractor; label: string; kpi: KpiMonth; auditPct: number | null }
   | { kind: 'manpower'; label: string; record: Manpower }
+  | { kind: 'submission'; label: string; kpi: KpiMonth; prev?: KpiMonth }
   | { kind: 'confirm'; title: string; message: string; confirmLabel: string; destructive?: boolean; onConfirm: () => void }
 
 let opener: ((r: SheetRequest) => void) | null = null
@@ -91,9 +93,14 @@ async function load(r: SheetRequest): Promise<Shown | null> {
       return { kind: 'ticketClose', ticket }
     }
     case 'kpi':
-    case 'manpower': {
+    case 'manpower':
+    case 'submission': {
       const s = await subjectOf(r.contractorUuid, r.workOrderUuid)
       if (!s) return null
+      if (r.kind === 'submission') {
+        const { kpi, prev } = await loadDocs(r.contractorUuid, r.workOrderUuid, r.month)
+        return { kind: 'submission', label: s.label, kpi: kpi ?? emptyKpi(r.contractorUuid, r.workOrderUuid, r.month), prev }
+      }
       const key = [r.contractorUuid, r.workOrderUuid, r.month]
       if (r.kind === 'manpower') {
         const record = (await db.manpower.where('[contractorUuid+workOrderUuid+month]').equals(key).first()) ?? emptyManpower(r.contractorUuid, r.workOrderUuid, r.month)
@@ -146,6 +153,8 @@ export default function SheetHost() {
       return <KpiSheet contractor={shown.contractor} subjectLabel={shown.label} kpi={shown.kpi} auditPct={shown.auditPct} onClose={done} />
     case 'manpower':
       return <ManpowerSheet subjectLabel={shown.label} record={shown.record} onClose={done} />
+    case 'submission':
+      return <SubmissionSheet subjectLabel={shown.label} kpi={shown.kpi} prev={shown.prev} onClose={done} />
     case 'confirm':
       return (
         <ConfirmSheet

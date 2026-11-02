@@ -178,7 +178,4 @@ export function computeKpi(input: {
   return { ...r, overall, status: kpiStatus(overall) }
 }
 
-/** Submissions complete for the month: WPS, manpower and salary each in or not provided. */
-export const submissionsComplete = (k: KpiMonth | undefined) => !!k && declWaiting(k).length === 0
-
 export const pct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${Math.round(v)}%`)

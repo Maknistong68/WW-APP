@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attendedPct, closurePct, computeKpi, declState, declWaiting, setDecl, submissionsComplete, formalPct, grievancePct, grievanceTier, kpiStatus, meetingAttended, offboardingScore, setOffboarding, submissionPct } from './kpi'
+import { attendedPct, closurePct, computeKpi, declState, declWaiting, setDecl, formalPct, grievancePct, grievanceTier, kpiStatus, meetingAttended, offboardingScore, setOffboarding, submissionPct } from './kpi'
 import type { KpiMonth, Ticket } from '../types'
 
 const tk = (openedAt: string, closedAt = ''): Ticket => ({
@@ -118,8 +118,6 @@ describe('KPI rules', () => {
     const none = setDecl(setDecl(setDecl(k0, 'wps', false), 'manpowerDecl', false), 'salaryDecl', false)
     expect(submissionPct(none)).toBeNull()
     expect(computeKpi({ kpi: none, tickets: [], month: '2026-10' }).submission).toBeNull()
-    // complete = nothing awaited
-    expect([k1, setDecl(k1, 'manpowerDecl', false), none].map(submissionsComplete)).toEqual([false, true, true])
     // changing the answer moves it out of the not-provided list; clearing leaves no empty list behind
     expect(setDecl(k1, 'salaryDecl', true).notProvided).toBeUndefined()
     expect(setDecl(k1, 'salaryDecl', null).notProvided).toBeUndefined()

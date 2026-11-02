@@ -51,6 +51,14 @@ npm run build   # strict tsc + vite build
   `source: 'Internal'`, numbered CASE-0001…, tabs D&C Tickets | Cases). `useAllData` gives `tickets` (D&C only:
   KPIs, Dashboard, counts) and `cases` apart.
 - Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
+- Monthly documents (per work order, 11: the owner's 9 + WPS + Salary; due the 15th of the next month):
+  rules `src/lib/submissions.ts` (`SUBMISSION_ITEMS`; each in with a date / not provided / N/A / waiting, a note,
+  item 2's Issue log or IAP; N/A carries on until changed: `carryBefore`, `subjectPrior`, `docsSettled`). Stored in
+  `KpiMonth.docs`; WPS / Manpower register / Salary also set the old fields the KPI score reads, so the score is
+  unchanged (track only). Panel `src/components/SubmissionSheet.tsx` (sheet kind `submission`): saves only what was
+  changed there onto a fresh copy (`applyDocChanges`); the KPI panel shows a Documents row and keeps the documents
+  on save (`withDocsOf`). Lists: Home › Submission (`tasks.ts`), `/missing/submission` with document chips and
+  reminders (`docRows`, `docMissing` in `todo.ts`, `chaseText`), contractor page, Excel sheet "Submissions".
 - Dashboard numbers: `src/lib/dashboard.ts`; its three sections: Focus cards `src/lib/focus.ts`,
   Explore chips `src/lib/explore.ts`, Over time series `src/lib/overTime.ts`, hold-to-drill pop-up data
   `src/lib/peek.ts` (`peekMenu` in `menus.tsx`); section components `src/components/dash/`, figures

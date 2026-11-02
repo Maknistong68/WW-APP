@@ -3,6 +3,7 @@ import { db } from '../db'
 import { FIELD_LABELS } from '../lib/useData'
 import { DECLARATIONS, meetingAttended } from '../lib/kpi'
 import { sourceLabel } from '../lib/cases'
+import { docChangeText } from '../lib/submissions'
 import type { ActivityChange, ActivityEntry, Contractor } from '../types'
 import { whoName } from '../lib/actor'
 import { useTeam } from '../lib/team'
@@ -42,6 +43,22 @@ export function changeText(c: ActivityChange, contractors?: Map<string, Contract
   return `${FIELD_LABELS[c.field] ?? c.field}: ${show(c.from, c.field, contractors)} → ${show(c.to, c.field, contractors)}`
 }
 
+/** The fields the KPI score reads, also written with each document change (said once, by the document line). */
+const DOC_MIRRORS = new Set(['wps', 'manpowerDecl', 'salaryDecl', 'notProvided'])
+
+/** One line per change: a document change reads "Water test certificates: waiting → in 2 Nov". */
+export function changeLines(changes: ActivityChange[], contractors?: Map<string, Contractor>): string[] {
+  const docs = changes.some((c) => c.field === 'docs')
+  return changes.flatMap((c) => {
+    if (c.field === 'docs') {
+      const lines = docChangeText((c.from ?? undefined) as Parameters<typeof docChangeText>[0], (c.to ?? undefined) as Parameters<typeof docChangeText>[1])
+      return lines.length ? lines : [changeText(c, contractors)]
+    }
+    if (docs && DOC_MIRRORS.has(c.field)) return []
+    return [changeText(c, contractors)]
+  })
+}
+
 /** Activity entries for one record, newest first. */
 export default function History({ uuid, contractors }: { uuid: string; contractors?: Map<string, Contractor> }) {
   const entries = useLiveQuery(() => db.activity.where('entityUuid').equals(uuid).reverse().sortBy('time'), [uuid])
@@ -59,12 +76,14 @@ export default function History({ uuid, contractors }: { uuid: string; contracto
                 {ACTION_LABEL[e.action] ?? e.action}
                 {whoName(e, team, userId) && <span className="by"> · by {whoName(e, team, userId)}</span>}
               </div>
-              {e.action !== 'add' &&
-                e.changes.slice(0, 6).map((c) => (
-                  <div key={c.field} className="row-sub" style={{ whiteSpace: 'normal' }}>
-                    {changeText(c, contractors)}
-                  </div>
-                ))}
+              {/* a new record lists only its documents (the rest is "Added") */}
+              {changeLines(e.action === 'add' ? e.changes.filter((c) => c.field === 'docs') : e.changes, contractors)
+                  .slice(0, 6)
+                  .map((line, i) => (
+                    <div key={i} className="row-sub" style={{ whiteSpace: 'normal' }}>
+                      {line}
+                    </div>
+                  ))}
             </div>
             <span className="row-trail" style={{ fontSize: 13 }}>
               {fmtWhen(e.time)}

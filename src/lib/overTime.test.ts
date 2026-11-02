@@ -54,7 +54,7 @@ describe('overTimeSeries · kpis and accommodation', () => {
     expect(at(s, '2026-09')).toBe(90)
     expect(at(s, '2026-08')).toBeNull()
   })
-  it('submissions is the share of work orders with every declaration in', () => {
+  it('documents: the share of work orders with every document in (or not provided / N/A)', () => {
     const s = overTimeSeries(fixture(), 'kpis', 'submissions', MONTH, TODAY)
     expect(at(s, '2026-10')).toBe(50)
     expect(at(s, '2026-09')).toBe(50)

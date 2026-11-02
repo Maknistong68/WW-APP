@@ -4,9 +4,9 @@ import { closeouts } from './closeout'
 import { workforce } from './dashboard'
 import { addDays, addMonths, dayMonth, daysDiff, localDate, monthLabel, monthOf, monthRange } from './dates'
 import { declarationsDue, dueTone, kpisDue, lastEndedMonth } from './due'
-import { declNotProvided, declWaiting } from './kpi'
+import { SUBMISSION_ITEMS as DOCS, awaitedItems, docState, shortList, submissionCounts } from './submissions'
 import { kpisForMonth, type AllData } from './kpiData'
-import { kpiSubjects, subjectKpi, woOf, type KpiSubject } from './subjects'
+import { kpiSubjects, subjectKpi, subjectPrior, woOf, type KpiSubject } from './subjects'
 import { SUBJECT_ITEMS, quarterMonths, type SubjectItemKey } from './todo'
 import type { Tone } from './tone'
 import type { IconName } from '../components/Icon'
@@ -18,7 +18,7 @@ import type { MenuItem } from './hues'
 
 // Home as a task list: everything to do, by name and due date. Urgent things
 // (overdue, due within 7 days) get a row each; later ones are grouped per
-// month. A month's declarations are due the 15th of the next month, its other
+// month. A month's documents are due the 15th of the next month, its other
 // KPIs by the end of the next month (src/lib/due.ts). Gaps are chased from
 // TASKS_FROM, for up to MAX_CARRY ended months; older ones fold into one row.
 
@@ -36,9 +36,9 @@ export interface Task {
   key: string
   kind: TaskKind
   group: TaskGroup
-  /** Who or what: "RPCO · WO 882", "Project Pioneers" (a ticket's contractor), "Camp 3", "October declarations". */
+  /** Who or what: "RPCO · WO 882", "Project Pioneers" (a ticket's contractor), "Camp 3", "October documents". */
   title: string
-  /** What: "Oct: WPS, Salary missing". */
+  /** What: "Oct: 4 of 11 in · Minutes, Water test +5". */
   detail: string
   /** YYYY-MM-DD, or null when there is no deadline. */
   due: string | null
@@ -52,7 +52,7 @@ export interface Task {
   weight: number
   /** The work order and month to fill in. */
   subject?: { contractorUuid: string; workOrderUuid: string; month: string }
-  sheet?: 'kpi' | 'manpower'
+  sheet?: 'kpi' | 'manpower' | 'submission'
   ticketUuid?: string
   /** A ticket row's tab on the Tickets card: D&C (tickets) or Cases (internal). */
   ticketSource?: SourceTab
@@ -120,7 +120,7 @@ const KPI_ITEMS: { key: SubjectItemKey; name: string }[] = [
 ]
 
 const HELP = {
-  declarations: 'WPS, manpower and salary declarations from every work order. A month’s are due by the 15th of the next month.',
+  declarations: 'The 11 monthly documents from every work order: reports, registers, declarations, minutes, camp records, WPS and salary. A month’s are due by the 15th of the next month.',
   kpis: 'Accommodation, onboarding, offboarding, worker counts and meeting attendance. A month’s are due by the end of the next month.',
   ticket: 'Tickets should close within 30 days.',
   camp: 'Every camp is inspected once per cycle (90 days).',
@@ -138,9 +138,11 @@ function subjectRows(d: AllData, subjects: KpiSubject[], m: string, today: strin
   const kpiDue = kpisDue(m)
   for (const sub of subjects) {
     const k = subjectKpi(sub, d.kpis, m)
-    // Declarations the contractor can't provide are not chased.
-    const declMissing = declWaiting(k).map((x) => x.short)
-    const notProvided = declNotProvided(k).map((x) => x.short)
+    const prior = subjectPrior(sub, d.kpis, m)
+    // Documents the contractor can't provide, or that don't apply, are not chased.
+    const declMissing = awaitedItems(k, prior)
+    const docCount = submissionCounts(k, prior)
+    const notProvided = DOCS.filter((i) => docState(k, i.key, prior) === 'notProvided').map((i) => i.short)
     const kpiMissing = KPI_ITEMS.filter((i) => !SUBJECT_ITEMS[i.key].done(d, sub, m))
     entered += (declMissing.length ? 0 : 1) + (KPI_ITEMS.length - kpiMissing.length)
     const subject = { contractorUuid: sub.contractor.uuid, workOrderUuid: woOf(sub), month: m }
@@ -152,7 +154,7 @@ function subjectRows(d: AllData, subjects: KpiSubject[], m: string, today: strin
         kind: 'declarations',
         group: g,
         title: sub.label,
-        detail: `${shortMonth(m)}: ${declMissing.join(', ')} missing`,
+        detail: docCount.in ? `${shortMonth(m)}: ${docCount.in} of ${docCount.required} in · ${shortList(declMissing)}` : `${shortMonth(m)}: nothing in yet`,
         due: declDue,
         dueText: chipFor(g, declDue, today),
         tone: toneFor(g),
@@ -160,7 +162,7 @@ function subjectRows(d: AllData, subjects: KpiSubject[], m: string, today: strin
         to,
         weight: 1,
         subject,
-        sheet: 'kpi',
+        sheet: 'submission',
         help: HELP.declarations,
       })
     }
@@ -217,8 +219,8 @@ function foldLater(rows: Task[], kind: 'declarations' | 'kpis', m: string): Task
       key: `${kind}:${m}`,
       kind,
       group: 'later',
-      title: `${longMonth(m)} ${kind === 'declarations' ? 'declarations' : 'KPIs'}`,
-      detail: `${n} work order${s(n)} · ${kind === 'declarations' ? 'WPS, manpower, salary' : 'scores, worker counts'}`,
+      title: `${longMonth(m)} ${kind === 'declarations' ? 'documents' : 'KPIs'}`,
+      detail: `${n} work order${s(n)} · ${kind === 'declarations' ? `${DOCS.length} documents each` : 'scores, worker counts'}`,
       due,
       dueText: `due ${dayMonth(due)}`,
       tone: 'info',
@@ -515,7 +517,7 @@ export const AREAS: AreaDef[] = [
     icon: 'file-text',
     hue: 'submission',
     help: HELP.declarations,
-    link: { label: 'Missing submissions', icon: 'file-text', to: ({ month }) => `/missing/submission?m=${month}` },
+    link: { label: 'Missing documents', icon: 'file-text', to: ({ month }) => `/missing/submission?m=${month}` },
   },
   { key: 'kpis', label: 'KPIs', icon: 'gauge', hue: 'kpis', help: HELP.kpis, link: { label: 'KPI dashboard', icon: 'gauge', to: ({ month }) => `/dashboard?v=kpis&m=${month}` } },
   { key: 'accommodation', label: 'Accommodation', icon: 'tent', hue: 'camps', help: HELP.camp, link: { label: 'Open Camps', icon: 'tent', to: () => '/camps' } },

@@ -21,6 +21,8 @@ import { monthLabel } from '../lib/dates'
 import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
 import { kpisForMonth, subjectKpis, type AllData } from '../lib/kpiData'
 import { priorityLabel } from '../lib/lists'
+import { kpiSubjects, subjectKpi, subjectPrior } from '../lib/subjects'
+import { SUBMISSION_ITEMS, docState, submissionCounts } from '../lib/submissions'
 import oxagonLogoUrl from '../assets/oxagon-logo.png'
 
 const fileBase = (month: string) => `WW_Monthly_${monthLabel(month).replace(' ', '_')}`
@@ -91,6 +93,34 @@ export async function buildMonthlyExcel(d: AllData, month: string): Promise<{ bl
       STATUS_LABEL[r.status],
     ]),
     [28, 11, ...KPI_PARTS.map(() => 12), 11, 12],
+  )
+
+  // The monthly documents: one row per work order, one column per document.
+  const ds = wb.addWorksheet('Submissions')
+  ds.addRow([`Monthly documents — ${monthLabel(month)} (date received, Not provided, N/A or Missing)`]).font = font({ size: 14, bold: true, color: { argb: NAVY } })
+  ds.addRow([])
+  addTable(
+    ds,
+    ['Contractor', 'Work order', 'In', ...SUBMISSION_ITEMS.map((i) => i.label), 'Notes'],
+    kpiSubjects(d.contractors, d.workOrders)
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+      .map((s) => {
+        const k = subjectKpi(s, d.kpis, month)
+        const prior = subjectPrior(s, d.kpis, month)
+        const c = submissionCounts(k, prior)
+        const cell = (key: (typeof SUBMISSION_ITEMS)[number]['key']) => {
+          const st = docState(k, key, prior)
+          if (st === 'in') return k?.docs?.[key]?.on ?? 'In'
+          return st === 'notProvided' ? 'Not provided' : st === 'na' ? 'N/A' : 'Missing'
+        }
+        const notes = SUBMISSION_ITEMS.flatMap((i) => {
+          const e = k?.docs?.[i.key]
+          const bits = [e?.variant === 'iap' ? 'IAP' : e?.variant === 'issueLog' ? 'issue log' : '', e?.note ?? ''].filter(Boolean)
+          return bits.length ? [`${i.short}: ${bits.join(', ')}`] : []
+        })
+        return [s.contractor.name, s.workOrder?.number ?? '—', `${c.in} of ${c.required}`, ...SUBMISSION_ITEMS.map((i) => cell(i.key)), notes.join('; ')]
+      }),
+    [28, 11, 9, ...SUBMISSION_ITEMS.map(() => 14), 40],
   )
 
   const ms = wb.addWorksheet('Manpower')

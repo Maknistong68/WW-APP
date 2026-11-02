@@ -1,10 +1,9 @@
 import { AGING_BUCKETS, ageDays, agingBucket, isOpen, type AgingBucket } from './aging'
 import { campState, type CampState } from './camps'
 import { addDays, addMonths, daysBetween, localDate, monthRange } from './dates'
-import { submissionsComplete } from './kpi'
 import { inspectionPct } from './inspectionScore'
 import { owedOf } from './money'
-import { subjectKpi, subjectManpower, type KpiSubject } from './subjects'
+import { docsSettled, subjectManpower, type KpiSubject } from './subjects'
 import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Ticket, WeeklyCount } from '../types'
 
 /** The Dashboard's three views. */
@@ -108,9 +107,9 @@ export function periodStats(
   }
 }
 
-/** Active work orders / contractors still awaiting WPS, manpower or salary for the month (not provided ones aren't awaited). */
+/** Active work orders / contractors still owing a document for the month (not provided and not applicable ones aren't owed). */
 export function missingSubmissions(subjects: KpiSubject[], kpis: KpiMonth[], month: string): KpiSubject[] {
-  return subjects.filter((s) => !submissionsComplete(subjectKpi(s, kpis, month)))
+  return subjects.filter((s) => !docsSettled(s, kpis, month))
 }
 
 /** Oldest open tickets past 30 days, oldest first. */
