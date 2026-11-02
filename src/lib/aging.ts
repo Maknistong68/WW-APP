@@ -18,6 +18,13 @@ export function agingBucket(days: number): AgingBucket {
   return '90+'
 }
 
+/** A ticket's age in three characters for its tile: "4D" under a week, "2W" under 30 days, then "1M", "14M" (no years). */
+export function ageLabel(days: number): string {
+  if (days < 7) return `${days}D`
+  if (days < 30) return `${Math.floor(days / 7)}W`
+  return `${Math.floor(days / 30)}M`
+}
+
 /** Chip tone: on track ≤10, at risk ≤30, late beyond. */
 export const ageTone = (days: number) => (days <= 10 ? 'ok' : days <= 30 ? 'risk' : 'late')
 

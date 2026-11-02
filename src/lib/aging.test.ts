@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ageDays, ageTone, agingBucket } from './aging'
+import { ageDays, ageLabel, ageTone, agingBucket } from './aging'
 import { addMonths, daysBetween, monthRange } from './dates'
 
 describe('aging', () => {
@@ -17,5 +17,13 @@ describe('aging', () => {
     expect(daysBetween('2026-02-27', '2026-03-01')).toBe(2)
     expect(monthRange('2026-02')).toEqual({ start: '2026-02-01', end: '2026-02-28' })
     expect(addMonths('2026-12', 1)).toBe('2027-01')
+  })
+})
+
+describe('age on the ticket tile', () => {
+  it('days under a week, weeks under 30 days, then months (no years)', () => {
+    expect([0, 1, 6].map(ageLabel)).toEqual(['0D', '1D', '6D'])
+    expect([7, 13, 14, 29].map(ageLabel)).toEqual(['1W', '1W', '2W', '4W'])
+    expect([30, 59, 60, 365, 430].map(ageLabel)).toEqual(['1M', '1M', '2M', '12M', '14M'])
   })
 })

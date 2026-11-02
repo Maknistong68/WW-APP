@@ -190,8 +190,9 @@ per screen.
   - Two tabs on top, **Tickets | Internal** (`?tab=internal`, `sourceTab` in
     `src/lib/ticketFilter.ts`): hotline tickets and the team's Internal ones apart. The Open / 30+d /
     Closed / All counts follow the tab. A link that names a source (a Dashboard bar) hides the tabs.
-  - A ticket row: the tile is the due date (its colour: green 0–10 days, amber 11–30, red over 30;
-    a check once closed), the title is the contractor's short name (`shortName`,
+  - A ticket row: the tile is its age in three characters (`ageLabel`, `src/lib/aging.ts`: "0D"–"6D",
+    then "1W"–"4W", then "1M", "14M"; no years) in its due colour (green 0–10 days, amber 11–30, red
+    over 30); a check once closed, the title is the contractor's short name (`shortName`,
     `src/lib/names.ts`: "… Contracting Company" and the like come off the end), and below it ticket
     number · WO · issue · money. No age chip and no ⋯: hold for the pop-up. On a contractor's own
     page the ticket number is the title.

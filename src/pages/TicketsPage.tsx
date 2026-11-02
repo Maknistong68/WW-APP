@@ -18,7 +18,7 @@ import { haptic } from '../lib/haptics'
 import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { memberCounts } from '../lib/groups'
-import { ageDays, isOpen } from '../lib/aging'
+import { ageDays, ageLabel, isOpen } from '../lib/aging'
 import { monthLabel } from '../lib/dates'
 import { contractorName, ticketSub, useContractors } from '../lib/useData'
 import { shortName } from '../lib/names'
@@ -39,8 +39,8 @@ export { ticketSub } from '../lib/useData'
 export { copyTicketNo } from '../components/menus'
 
 /**
- * Ticket row: the tile shows how due it is (its colour: 0–10 / 11–30 / over 30 days; a check once
- * closed); the contractor's short name is the title, with the ticket number · WO · issue · money
+ * Ticket row: the tile shows its age ("4D", "2W", "1M") in its due colour (0–10 / 11–30 / over 30
+ * days; a check once closed); the contractor's short name is the title, with the ticket number · WO · issue · money
  * below. No ⋯: hold opens the pop-up. Without `contractors` (a contractor's own page) the ticket
  * number is the title. In select mode a tap ticks it.
  */
@@ -85,8 +85,9 @@ export function TicketRow({
             {selected && <Icon name="check" size={16} strokeWidth={3} />}
           </span>
         ) : (
-          // the due date as the icon: green 0–10 days, amber 11–30, red over 30; a check once closed
-          <IconTile icon={isOpen(t) ? 'ticket' : 'check'} tone={tone} size={52} />
+          // how old it is ("4D", "2W", "1M") in its due colour: green 0–10 days, amber 11–30, red over 30;
+          // a check once closed
+          isOpen(t) ? <IconTile label={ageLabel(ageDays(t))} tone={tone} size={52} /> : <IconTile icon="check" tone={tone} size={52} />
         )
       }
       title={

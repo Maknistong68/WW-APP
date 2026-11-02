@@ -11,6 +11,7 @@ import type { Tone } from '../lib/tone'
 export default function IconTile({
   icon,
   text,
+  label,
   tone = 'info',
   hue,
   size = 52,
@@ -18,6 +19,8 @@ export default function IconTile({
   icon?: IconName
   /** Initials are taken from this when there is no icon. */
   text?: string
+  /** A short label shown as is ("2W"); wins over the icon. */
+  label?: string
   tone?: Tone
   /** Menu colour; wins over tone. */
   hue?: Hue
@@ -25,7 +28,7 @@ export default function IconTile({
 }) {
   return (
     <span className={`itile ${hue ? `h-${hue}` : tone} s${size}`} aria-hidden="true">
-      {icon ? <Icon name={icon} size={Math.round(size * 0.52)} fill /> : <b>{initials(text ?? '')}</b>}
+      {label ? <b>{label}</b> : icon ? <Icon name={icon} size={Math.round(size * 0.52)} fill /> : <b>{initials(text ?? '')}</b>}
     </span>
   )
 }
