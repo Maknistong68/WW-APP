@@ -21,9 +21,9 @@ describe('aging', () => {
 })
 
 describe('age on the ticket tile', () => {
-  it('days under a week, weeks under 30 days, then months (no years)', () => {
+  it('days under a week, weeks under 100 days, then months (no years)', () => {
     expect([0, 1, 6].map(ageLabel)).toEqual(['0D', '1D', '6D'])
-    expect([7, 13, 14, 29].map(ageLabel)).toEqual(['1W', '1W', '2W', '4W'])
-    expect([30, 59, 60, 365, 430].map(ageLabel)).toEqual(['1M', '1M', '2M', '12M', '14M'])
+    expect([7, 13, 14, 29, 30, 60, 99].map(ageLabel)).toEqual(['1W', '1W', '2W', '4W', '4W', '8W', '14W'])
+    expect([100, 119, 120, 365, 430].map(ageLabel)).toEqual(['3M', '3M', '4M', '12M', '14M'])
   })
 })

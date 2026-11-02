@@ -18,10 +18,13 @@ export function agingBucket(days: number): AgingBucket {
   return '90+'
 }
 
-/** A ticket's age in three characters for its tile: "4D" under a week, "2W" under 30 days, then "1M", "14M" (no years). */
+/** Months only from this many days (before that, weeks: up to "14W"). */
+export const MONTHS_FROM = 100
+
+/** A ticket's age in three characters for its tile: "4D" under a week, "9W" under 100 days, then "3M", "14M" (no years). */
 export function ageLabel(days: number): string {
   if (days < 7) return `${days}D`
-  if (days < 30) return `${Math.floor(days / 7)}W`
+  if (days < MONTHS_FROM) return `${Math.floor(days / 7)}W`
   return `${Math.floor(days / 30)}M`
 }
 
