@@ -45,7 +45,7 @@ export const viewerOnly = (ids: MenuAction[]) => ids.filter((a) => !EDIT_ACTIONS
 
 export function ticketActions(
   t: { status: string; contractorUuid: string; parentUuid?: string },
-  ctx: { members?: number } = {},
+  ctx: { members?: number; admin?: boolean } = {},
 ): MenuAction[] {
   const open = t.status !== 'Closed'
   const isMember = !!t.parentUuid
@@ -55,7 +55,9 @@ export function ticketActions(
   ids.push('edit')
   if (t.contractorUuid) ids.push('contractor')
   if (isMember) ids.push('main')
-  ids.push('copy', 'delete')
+  ids.push('copy')
+  // Removing a ticket is the admin's call alone, with a reason (it can be restored).
+  if (ctx.admin) ids.push('delete')
   return ids
 }
 

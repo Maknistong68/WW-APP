@@ -19,6 +19,7 @@ import type { FocusAction } from '../lib/focus'
 import { ticketLink } from '../lib/ticketFilter'
 import { removeRecord, saveRecord } from '../lib/records'
 import { attempt, tryWrite } from '../lib/safeWrite'
+import { isAdmin } from '../lib/actor'
 import { backgroundSync } from '../lib/sync'
 import { isFollowed, kpiSubjects, type KpiSubject } from '../lib/subjects'
 import { kpiTone, ticketTone, type Tone } from '../lib/tone'
@@ -80,7 +81,7 @@ export function ticketMenu(
       onSelect: () => openSheet({ kind: 'ticketDelete', uuid: t.uuid, after: o.onDeleted }),
     },
   }
-  const ids = ticketActions(t, { members: o.members })
+  const ids = ticketActions(t, { members: o.members, admin: isAdmin() })
   const actions = ids.filter((a) => a !== 'delete').map((a) => map[a])
   const facts: SheetFact[] = [
     open

@@ -5,8 +5,13 @@ const open = { status: 'Open' as const, contractorUuid: 'c', parentUuid: '' }
 const closed = { status: 'Closed' as const, contractorUuid: 'c', parentUuid: '' }
 
 describe('Ticket menu', () => {
-  it('an open ticket: close, edit, contractor, copy, delete (a tap already opens it)', () => {
-    expect(ticketActions(open)).toEqual(['close', 'edit', 'contractor', 'copy', 'delete'])
+  it('an open ticket: close, edit, contractor, copy (a tap already opens it)', () => {
+    expect(ticketActions(open)).toEqual(['close', 'edit', 'contractor', 'copy'])
+  })
+  it('only the admin can remove a ticket (never an editor)', () => {
+    expect(ticketActions(open)).not.toContain('delete')
+    expect(ticketActions(open, { admin: false })).not.toContain('delete')
+    expect(ticketActions(open, { admin: true })).toEqual(['close', 'edit', 'contractor', 'copy', 'delete'])
   })
   it('a main ticket closes its whole group; a combined one links to its main', () => {
     expect(ticketActions(open, { members: 2 })).toContain('closeGroup')
