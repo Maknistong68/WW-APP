@@ -2,13 +2,12 @@ import { addMonths, monthLabel } from './dates'
 import { meetingAttended, offboardingScore } from './kpi'
 import { auditPctFor, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectManpower, subjectPrior, type KpiSubject } from './subjects'
-import { SUBMISSION_ITEMS as DOCS, allSettled, awaitedItems, docState, docText, shortList, submissionCounts } from './submissions'
-import type { SubmissionKey } from '../types'
+import { SUBMISSION_ITEMS as DOCS, allSettled, awaitedItems, docState, shortList, submissionCounts } from './submissions'
 import { closeoutState } from './closeout'
 
 // The per-work-order checklist (the monthly documents, accommodation, …):
 // what counts as entered for a month. Home's task list (src/lib/tasks.ts) and
-// the "still missing" lists (/missing/:item) both read it.
+// Monthly entry (/entry, src/lib/entryItems.ts) both read it.
 
 /** The three months of the quarter that `month` falls in. */
 export function quarterMonths(month: string): string[] {
@@ -122,28 +121,4 @@ export function subjectRows(d: AllData, key: SubjectItemKey, month: string) {
   return kpiSubjects(d.contractors, d.workOrders)
     .map((s) => ({ s, done: item.done(d, s, month), value: item.value(d, s, month) }))
     .sort((a, b) => Number(a.done) - Number(b.done) || a.s.label.localeCompare(b.s.label))
-}
-
-/**
- * The documents list (/missing/submission): every work order with what is
- * still missing, or with `only`, whether each has sent that one document.
- */
-export function docRows(d: AllData, month: string, only?: SubmissionKey) {
-  return kpiSubjects(d.contractors, d.workOrders)
-    .map((s) => {
-      const k = subjectKpi(s, d.kpis, month)
-      const prior = subjectPrior(s, d.kpis, month)
-      const waiting = awaitedItems(k, prior)
-      return only
-        ? { s, done: docState(k, only, prior) !== 'awaited', value: docText(k, only, prior), waiting }
-        : { s, done: !waiting.length, value: SUBJECT_ITEMS.submission.value(d, s, month), waiting }
-    })
-    .sort((a, b) => Number(a.done) - Number(b.done) || a.s.label.localeCompare(b.s.label, undefined, { numeric: true }))
-}
-
-/** How many work orders still owe each document this month. */
-export function docMissing(d: AllData, month: string): Record<SubmissionKey, number> {
-  const out = Object.fromEntries(DOCS.map((i) => [i.key, 0])) as Record<SubmissionKey, number>
-  for (const r of docRows(d, month)) for (const i of r.waiting) out[i.key] += 1
-  return out
 }

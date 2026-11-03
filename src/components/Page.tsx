@@ -17,6 +17,7 @@ export default function Page({
   subtitle,
   back,
   backLabel = 'Back',
+  onBack,
   actions,
   large = true,
   album = false,
@@ -28,6 +29,8 @@ export default function Page({
   /** Route to go back to, or '..' for browser history back. */
   back?: string
   backLabel?: string
+  /** Instead of going back straight away (e.g. ask about unsaved changes first). */
+  onBack?: () => void
   actions?: ReactNode
   large?: boolean
   /** Kept for old call sites (no effect). */
@@ -97,7 +100,7 @@ export default function Page({
     <div className={`screen${expandable ? ' has-hero' : ''}${back ? ' detail' : ''}`}>
       <header className="nav-bar" ref={barRef}>
         {back && (
-          <button className="round-btn lead" onClick={() => goBack(back)} aria-label={`Back to ${backLabel}`}>
+          <button className="round-btn lead" onClick={() => (onBack ? onBack() : goBack(back))} aria-label={`Back to ${backLabel}`}>
             <Icon name="chevron-left" size={24} strokeWidth={2.4} />
           </button>
         )}

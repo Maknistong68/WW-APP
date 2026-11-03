@@ -12,6 +12,7 @@ import { ticketPeek, type Peek } from './peek'
 import { kpiSubjects } from './subjects'
 import { AGE_LABEL, openedIn, ticketLink, type ListTab, type TicketQuery } from './ticketFilter'
 import { WORDS, ticketsOf } from './dashSource'
+import { entryLink } from './entryItems'
 import { campTone, kpiTone, type Tone } from './tone'
 import type { IconName } from '../components/Icon'
 import type { AgingBucket } from './aging'
@@ -317,7 +318,7 @@ function kpiData(d: AllData, chip: string, o: Required<ExploreOptions>): Explore
         const tone = kpiTone(kpiStatus(q.avg))
         const findings = q.rows.reduce((s, r) => s + (r.findings ?? 0), 0)
         const closed = q.rows.reduce((s, r) => s + (r.closed ?? 0), 0)
-        const to = `/missing/quarterly?m=${q.lastMonth}`
+        const to = entryLink({ by: 'item', item: 'quarterly', m: q.lastMonth })
         return {
           key: q.key,
           label: q.label,

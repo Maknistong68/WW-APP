@@ -17,7 +17,7 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { key: 'home', label: 'Home', path: '/', match: (p) => p === '/' || p.startsWith('/today/') || p.startsWith('/missing') || p === '/closeouts' },
+  { key: 'home', label: 'Home', path: '/', match: (p) => p === '/' || p.startsWith('/today/') || p.startsWith('/missing') || p.startsWith('/entry') || p === '/closeouts' },
   { key: 'tickets', label: 'Tickets', path: '/tickets', match: (p) => p.startsWith('/tickets') },
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard', match: (p) => p.startsWith('/dashboard') || p.startsWith('/kpis') },
   {

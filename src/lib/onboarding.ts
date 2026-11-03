@@ -45,7 +45,7 @@ export function onboardingSteps(s: OnboardingState): { steps: OnboardingStep[]; 
   }
   if (edit) {
     steps.push({ id: 'hold', title: 'Hold a ticket', sub: 'In Tickets, hold any row to close, edit or more', button: 'Open Tickets', action: { to: '/tickets' }, done: s.seen.includes('hold') })
-    steps.push({ id: 'kpi', title: 'Fill in a month’s KPIs', sub: 'Tap + at the bottom, then Monthly KPIs', button: 'Open KPIs', action: { to: '/today/kpis' }, done: s.seen.includes('kpi') })
+    steps.push({ id: 'kpi', title: 'Fill in a month’s KPIs', sub: 'Tap + at the bottom, then Monthly entry', button: 'Open Monthly entry', action: { to: '/entry' }, done: s.seen.includes('kpi') })
   } else {
     steps.push({ id: 'dashboard', title: 'Open the Dashboard', sub: 'Tickets, camps and KPIs at a glance', button: 'Open Dashboard', action: { to: '/dashboard' }, done: s.seen.includes('dashboard') })
   }

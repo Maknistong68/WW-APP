@@ -10,13 +10,10 @@ import { MENU_HUE, type Hue } from '../lib/hues'
 import TicketSheet from './TicketSheet'
 import CampSheet from './CampSheet'
 import RoutineSheet from './RoutineSheet'
-import { MonthStepper, SubjectEditor, SubjectList } from './SubjectPicker'
 import { newCamp } from '../pages/CampsPage'
 import { useAuthInfo } from '../lib/auth'
 import { CAMP_STATUS_LABEL, campState } from '../lib/camps'
-import { monthOf } from '../lib/dates'
 import { useAllData } from '../lib/kpiData'
-import { kpiSubjects, subjectKpi, type KpiSubject } from '../lib/subjects'
 import { newCase, newRoutine, newTicket } from '../lib/useData'
 import { db } from '../db'
 import type { Camp, Routine, Ticket } from '../types'
@@ -25,12 +22,12 @@ const CREATE_EVENT = 'ww:create'
 /** Open the Create sheet from anywhere (the tab bar's + Create). */
 export const openCreate = () => window.dispatchEvent(new Event(CREATE_EVENT))
 
-type Step = 'menu' | 'kpi' | 'inspection'
+type Step = 'menu' | 'inspection'
 
 const CHOICES: { key: 'ticket' | 'case' | 'kpi' | 'inspection' | 'camp' | 'task'; label: string; sub: string; icon: IconName; hue: Hue }[] = [
   { key: 'ticket', label: 'Ticket', sub: 'Log a D&C ticket', icon: 'ticket', hue: MENU_HUE.ticket },
   { key: 'case', label: 'Case', sub: 'Raise with a contractor', icon: 'megaphone', hue: MENU_HUE.case },
-  { key: 'kpi', label: 'Monthly KPIs', sub: 'Score a work order', icon: 'gauge', hue: MENU_HUE.kpis },
+  { key: 'kpi', label: 'Monthly entry', sub: 'Documents and KPIs', icon: 'gauge', hue: MENU_HUE.kpis },
   { key: 'inspection', label: 'Inspection', sub: 'Start a camp inspection', icon: 'clipboard', hue: MENU_HUE.inspections },
   { key: 'camp', label: 'Camp', sub: 'Add a camp to track', icon: 'tent', hue: MENU_HUE.camps },
   { key: 'task', label: 'Task', sub: 'A to-do for the team, once or repeating', icon: 'checklist', hue: MENU_HUE.task },
@@ -38,7 +35,7 @@ const CHOICES: { key: 'ticket' | 'case' | 'kpi' | 'inspection' | 'camp' | 'task'
 
 const RANK = { never: 0, expired: 1, due: 2, ok: 3 } as const
 
-/** Create sheet (tab bar +): ticket, case, KPI month, inspection, camp or task. */
+/** Create sheet (tab bar +): ticket, case, Monthly entry, inspection, camp or task. */
 export default function AddButton() {
   const navigate = useNavigate()
   const { canEdit } = useAuthInfo()
@@ -46,8 +43,6 @@ export default function AddButton() {
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [camp, setCamp] = useState<Camp | null>(null)
   const [routine, setRoutine] = useState<Routine | null>(null)
-  const [subject, setSubject] = useState<KpiSubject | null>(null)
-  const [month, setMonth] = useState(monthOf())
 
   useEffect(() => {
     const on = () => setStep('menu')
@@ -75,8 +70,11 @@ export default function AddButton() {
     } else if (key === 'task') {
       close()
       setRoutine(newRoutine())
+    } else if (key === 'kpi') {
+      // documents and KPIs, by work order or by item
+      close()
+      navigate('/entry')
     } else {
-      setMonth(monthOf())
       setStep(key)
     }
   }
@@ -103,63 +101,13 @@ export default function AddButton() {
         </Modal>
       )}
 
-      {step === 'kpi' && (
-        <KpiStep
-          month={month}
-          setMonth={setMonth}
-          onClose={close}
-          onPick={(s) => {
-            close()
-            setSubject(s)
-          }}
-        />
-      )}
-
       {step === 'inspection' && <InspectionStep onClose={close} onPick={startInspection} />}
 
       {ticket && <TicketSheet ticket={ticket} onClose={() => setTicket(null)} />}
       {camp && <CampSheet camp={camp} onClose={() => setCamp(null)} />}
       {routine && <RoutineSheet routine={routine} onClose={() => setRoutine(null)} />}
-      {subject && <KpiEditor subject={subject} month={month} onClose={() => setSubject(null)} />}
     </>
   )
-}
-
-/** Step 2 of "KPI": month + which work order. */
-function KpiStep({
-  month,
-  setMonth,
-  onPick,
-  onClose,
-}: {
-  month: string
-  setMonth: (m: string) => void
-  onPick: (s: KpiSubject) => void
-  onClose: () => void
-}) {
-  const d = useAllData()
-  const rows = useMemo(
-    () =>
-      kpiSubjects(d.contractors, d.workOrders)
-        .map((s) => ({ s, done: !!subjectKpi(s, d.kpis, month) }))
-        .sort((a, b) => Number(a.done) - Number(b.done) || a.s.label.localeCompare(b.s.label)),
-    [d.contractors, d.workOrders, d.kpis, month],
-  )
-  return (
-    <Modal title="KPI · pick a work order" onClose={onClose}>
-      <div className="sheet-body">
-        <MonthStepper month={month} onChange={setMonth} />
-        <SubjectList rows={rows} onPick={onPick} />
-        <div className="list-foot">✓ already has KPIs this month · tap to add or change</div>
-      </div>
-    </Modal>
-  )
-}
-
-function KpiEditor({ subject, month, onClose }: { subject: KpiSubject; month: string; onClose: () => void }) {
-  const d = useAllData()
-  if (!d.loaded) return null
-  return <SubjectEditor d={d} subject={subject} month={month} sheet="kpi" onClose={onClose} />
 }
 
 /** Step 2 of "Inspection": which camp; expired ones first. */

@@ -25,6 +25,7 @@ import {
 import type { Contractor } from '../types'
 import AuditList from '../components/AuditList'
 import { contractorAudits } from '../lib/audits'
+import { entryLink } from '../lib/entryItems'
 
 const RANGES: { key: TrendRange; label: string }[] = [
   { key: '6m', label: '6 months' },
@@ -190,7 +191,7 @@ export default function ContractorTrends({ d, c, onOpenMonth }: { d: AllData; c:
         <MonthBars
           data={months.map((m, i) => ({ month: m, values: [workers[i]?.total ?? null] }))}
           series={['Workers']}
-          onOpen={(m) => navigate(`/missing/formal?m=${m}`)}
+          onOpen={(m) => navigate(entryLink({ by: 'item', item: 'workers', m }))}
           openLabel="Open"
         />
         {lastWorkers && (

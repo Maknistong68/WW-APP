@@ -16,7 +16,7 @@ import { saveRecord } from '../lib/records'
 import { localDate, monthLabel, shortDate } from '../lib/dates'
 import { declarationsDue } from '../lib/due'
 import { allSettled, awaitedItems, shortList, submissionCounts } from '../lib/submissions'
-import { emptyKpi } from '../lib/subjects'
+import { emptyKpi, emptyManpower } from '../lib/subjects'
 import { CLOSEOUT_DAYS, closeoutState, closeoutText, hasAudit, setAuditDate } from '../lib/closeout'
 import { attendedPct, meetingAttended, offboardingScore, setOffboarding } from '../lib/kpi'
 import type { Contractor, KpiMonth, Manpower } from '../types'
@@ -62,6 +62,12 @@ export default function KpiSheet({
 
   // The documents live in their own panel; this one shows where they stand, kept fresh.
   const [docsOpen, setDocsOpen] = useState(false)
+  // Workers (manpower) too, in their own panel.
+  const [workersOpen, setWorkersOpen] = useState(false)
+  const workers = useLiveQuery(
+    async () => (await db.manpower.where('[contractorUuid+workOrderUuid+month]').equals([k.contractorUuid, k.workOrderUuid, k.month]).first()) ?? null,
+    [k.contractorUuid, k.workOrderUuid, k.month],
+  )
   const docs = useLiveQuery(() => loadDocs(k.contractorUuid, k.workOrderUuid, k.month), [k.contractorUuid, k.workOrderUuid, k.month])
   const docCount = docs ? submissionCounts(docs.kpi, docs.prev) : null
   const docWaiting = docs ? awaitedItems(docs.kpi, docs.prev) : []
@@ -115,6 +121,20 @@ export default function KpiSheet({
             {docCount && (
               <StatusChip tone={docTone.tone} icon={docTone.icon}>
                 {docWaiting.length ? `${docCount.in}/${docCount.required}` : 'All in'}
+              </StatusChip>
+            )}
+            <Icon name="chevron-right" size={18} className="row-chev" />
+          </button>
+          <button className="row" onClick={() => setWorkersOpen(true)}>
+            <span className="row-main">
+              <div className="row-title">Workers</div>
+              <div className="row-sub">
+                {workers === undefined ? '…' : workers && workers.totalWorkers > 0 ? `${workers.totalWorkers} workers · ${workers.illegalOrFreelance} illegal` : 'Not declared yet'}
+              </div>
+            </span>
+            {workers !== undefined && (
+              <StatusChip tone={workers && workers.totalWorkers > 0 ? 'good' : 'info'} icon={workers && workers.totalWorkers > 0 ? 'check-circle' : 'clock'}>
+                {workers && workers.totalWorkers > 0 ? 'In' : 'Waiting'}
               </StatusChip>
             )}
             <Icon name="chevron-right" size={18} className="row-chev" />
@@ -176,6 +196,13 @@ export default function KpiSheet({
         <div className="list-foot">Grievance, ticket closure and formal vs illegal are calculated automatically.</div>
       </div>
     </Modal>
+    {workersOpen && workers !== undefined && (
+      <ManpowerSheet
+        subjectLabel={subjectLabel}
+        record={workers ?? emptyManpower(k.contractorUuid, k.workOrderUuid, k.month)}
+        onClose={() => setWorkersOpen(false)}
+      />
+    )}
     {docsOpen && docs && (
       <SubmissionSheet
         subjectLabel={subjectLabel}

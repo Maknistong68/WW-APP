@@ -16,8 +16,12 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
 - Roles: **Admin** (everything + Users page), **Editor** (add/change data), **Viewer** (read only).
   Writes are enforced by RLS `private.can_edit()`; viewers sync pull-only and the UI hides edit
   controls via `useAuthInfo().canEdit`. An admin cannot change their own role.
-- No Import and no bulk KPI entry: the history is already in Supabase. New data comes from the
-  one + button (`src/components/AddButton.tsx`). Home ("Good morning") is sections each person
+- No Import: the history is already in Supabase. New data comes from the one + button
+  (`src/components/AddButton.tsx`). The month's documents and KPIs are entered in **Monthly entry** (`/entry`,
+  `src/pages/EntryPage.tsx`, rules `src/lib/entryItems.ts`): **By work order** (each work order's progress, tap opens
+  its panels) or **By item** (one item typed for every work order in place, one Save; each row writes only that item
+  over a fresh copy, `src/lib/merge.ts`; unsaved rows kept in `src/lib/entryDraft.ts`). Old `/missing/:item` links
+  redirect there. Home ("Good morning") is sections each person
   orders with Edit Home (kept on the phone): Start here (every late or this-week job as a swipeable
   card with its button), All areas (six app icons: Tickets, Submission, KPIs, Accommodation, Audits,
   Tasks, with a count badge or the next date), Watch and Month progress. An area opens its named
@@ -44,7 +48,7 @@ npm run build   # strict tsc + vite build
 - Home task list: `src/lib/tasks.ts` (areas: `AREAS`, `areaSummaries`, `areaTile`, icons
   `src/components/AreaCard.tsx`; rows `src/components/TaskRow.tsx`; an area's list `src/pages/AreaPage.tsx`, `/today/:area`; due rules in `src/lib/due.ts`; the team's own routine tasks in
   `src/lib/routines.ts`, table `routines`, sheet `src/components/RoutineSheet.tsx`); the per-work-order checks and
-  the `/missing/:item` lists: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
+  Monthly entry: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
 - Long-press menus: `src/components/menus.tsx` (rules in `src/lib/menuSpec.ts`), sheets opened from
   anywhere via `SheetHost`; ticket drill-down filters: `src/lib/ticketFilter.ts`.
 - Tickets are D&C (hotline, WWCMPL…); the team's own items are **cases** (`src/lib/cases.ts`: stored as
@@ -59,8 +63,8 @@ npm run build   # strict tsc + vite build
   `KpiMonth.docs`; WPS / Manpower register / Salary also set the old fields the KPI score reads, so the score is
   unchanged (track only). Panel `src/components/SubmissionSheet.tsx` (sheet kind `submission`): saves only what was
   changed there onto a fresh copy (`applyDocChanges`); the KPI panel shows a Documents row. Every panel saves only
-  the fields it changed over a fresh copy (`src/lib/merge.ts`: `applyKpiChanges`, `mergeEdited`; inputs `Inputs.tsx`). Lists: Home › Submission (`tasks.ts`), `/missing/submission` with document chips and
-  reminders (`docRows`, `docMissing` in `todo.ts`, `chaseText`), contractor page, Excel sheet "Submissions".
+  the fields it changed over a fresh copy (`src/lib/merge.ts`: `applyKpiChanges`, `mergeEdited`; inputs `Inputs.tsx`). Lists: Home › Submission (`tasks.ts`), Monthly entry (a chip per
+  document, reminders via `chaseText`), contractor page, Excel sheet "Submissions".
 - Dashboard numbers: `src/lib/dashboard.ts`; the Tickets view's tabs **D&C Tickets | Cases | All** (`?src=`, list and
   wording `src/lib/dashSource.ts`; Cases/All have no Closure KPI but "Closed in 30 days" and "Turned into tickets");
   its three sections: Focus cards `src/lib/focus.ts`,

@@ -15,6 +15,7 @@ import { shortName } from './names'
 import { sourceTab, type SourceTab } from './ticketFilter'
 import type { Routine, Ticket } from '../types'
 import type { MenuItem } from './hues'
+import { MONTHLY_KPIS, entryLink } from './entryItems'
 
 // Home as a task list: everything to do, by name and due date. Urgent things
 // (overdue, due within 7 days) get a row each; later ones are grouped per
@@ -111,13 +112,8 @@ const groupFor = (due: string, today: string): TaskGroup => {
 const toneFor = (g: TaskGroup): Tone => (g === 'overdue' ? 'bad' : g === 'week' ? 'warn' : g === 'done' ? 'good' : 'info')
 const chipFor = (g: TaskGroup, due: string, today: string) => (g === 'overdue' ? `${daysDiff(due, today)}d late` : `due ${dayMonth(due)}`)
 
-const KPI_ITEMS: { key: SubjectItemKey; name: string }[] = [
-  { key: 'accommodation', name: 'Accommodation' },
-  { key: 'onboarding', name: 'Onboarding' },
-  { key: 'offboarding', name: 'Offboarding' },
-  { key: 'formal', name: 'Workers' },
-  { key: 'meeting', name: 'Meeting' },
-]
+// The five KPIs chased each month: the same list Monthly entry uses (src/lib/entryItems.ts).
+const KPI_ITEMS: { key: SubjectItemKey; name: string }[] = MONTHLY_KPIS.map((i) => ({ key: i.check!, name: i.short }))
 
 const HELP = {
   declarations: 'The 11 monthly documents from every work order: reports, registers, declarations, minutes, camp records, WPS and salary. A month’s are due by the 15th of the next month.',
@@ -225,7 +221,7 @@ function foldLater(rows: Task[], kind: 'declarations' | 'kpis', m: string): Task
       dueText: `due ${dayMonth(due)}`,
       tone: 'info',
       icon: kind === 'declarations' ? 'file-text' : 'gauge',
-      to: kind === 'declarations' ? `/missing/submission?m=${m}` : `/missing/accommodation?m=${m}`,
+      to: entryLink({ m }),
       weight: n,
       members: later,
       help: HELP[kind],
@@ -264,7 +260,7 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
       dueText: 'Late',
       tone: 'bad',
       icon: 'file-text',
-      to: `/missing/submission?m=${older[0]}`,
+      to: entryLink({ m: older[0] }),
       weight: 1,
     })
   }
@@ -407,7 +403,7 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
       dueText: chipFor(group, due, today),
       tone: toneFor(group),
       icon: 'seal',
-      to: `/missing/quarterly?m=${q[2] <= thisMonth ? q[2] : thisMonth}`,
+      to: entryLink({ by: 'item', item: 'quarterly', m: q[2] <= thisMonth ? q[2] : thisMonth }),
       weight: missing,
       help: HELP.quarterly,
     })
@@ -482,9 +478,9 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
   const wfMonth = wf.month ?? lm
   const watch: WatchItem[] = [
     { key: 'kpi', n: critical, text: `Contractor${s(critical)} below 70% KPI`, tone: 'bad' as Tone, to: `/kpis/overall?m=${lm}&s=bad` },
-    { key: 'illegal', n: wf.illegal, text: 'Illegal / freelance workers', tone: 'warn' as Tone, to: `/missing/formal?m=${wfMonth}` },
-    { key: 'visa', n: wf.visaExpiring, text: 'Visas expire within 30 days', tone: 'warn' as Tone, to: `/missing/formal?m=${wfMonth}` },
-    { key: 'fees', n: wf.paidFees, text: 'Paid recruitment fees', tone: 'bad' as Tone, to: `/missing/formal?m=${wfMonth}` },
+    { key: 'illegal', n: wf.illegal, text: 'Illegal / freelance workers', tone: 'warn' as Tone, to: entryLink({ by: 'item', item: 'workers', m: wfMonth }) },
+    { key: 'visa', n: wf.visaExpiring, text: 'Visas expire within 30 days', tone: 'warn' as Tone, to: entryLink({ by: 'item', item: 'workers', m: wfMonth }) },
+    { key: 'fees', n: wf.paidFees, text: 'Paid recruitment fees', tone: 'bad' as Tone, to: entryLink({ by: 'item', item: 'workers', m: wfMonth }) },
   ].filter((w) => w.n > 0)
 
   return { tasks: sorted, counts, progress, watch }
@@ -529,9 +525,9 @@ export const AREAS: AreaDef[] = [
     icon: 'file-text',
     hue: 'submission',
     help: HELP.declarations,
-    link: { label: 'Missing documents', icon: 'file-text', to: ({ month }) => `/missing/submission?m=${month}` },
+    link: { label: 'Monthly entry', icon: 'file-text', to: ({ month }) => entryLink({ m: month }) },
   },
-  { key: 'kpis', label: 'KPIs', icon: 'gauge', hue: 'kpis', help: HELP.kpis, link: { label: 'KPI dashboard', icon: 'gauge', to: ({ month }) => `/dashboard?v=kpis&m=${month}` } },
+  { key: 'kpis', label: 'KPIs', icon: 'gauge', hue: 'kpis', help: HELP.kpis, link: { label: 'Monthly entry', icon: 'gauge', to: ({ month }) => entryLink({ by: 'item', item: 'accommodation', m: month }) } },
   { key: 'accommodation', label: 'Accommodation', icon: 'tent', hue: 'camps', help: HELP.camp, link: { label: 'Open Camps', icon: 'tent', to: () => '/camps' } },
   {
     key: 'audits',

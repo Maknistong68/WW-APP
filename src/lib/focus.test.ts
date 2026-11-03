@@ -91,7 +91,7 @@ describe('focusCards · kpis', () => {
     expect(subs.meter?.pct).toBe(50)
     expect(subs.tone).toBe('info')
     expect(subs.line).toContain('due 15 Nov')
-    expect(subs.link.to).toBe('/missing/submission?m=2026-10')
+    expect(subs.link.to).toBe('/entry?m=2026-10')
     expect(audits.value).toBe('50%')
     expect(audits.line).toBe('2 findings open · 0 overdue · 4 findings logged')
     expect(audits.peek.facts[2].value).toBe('85%')

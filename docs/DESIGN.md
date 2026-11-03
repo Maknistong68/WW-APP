@@ -164,9 +164,23 @@ per screen.
     it came, a note, and for the issue log which was sent (Issue log / IAP). N/A carries on to the
     next months until changed ("N/A since last month"). History of the month is at the bottom.
     Opened from Home › Submission, the work order and contractor hold menus ("Documents for Oct"),
-    the KPI panel's Documents row (it opens over the KPI panel), the contractor page and
-    `/missing/submission`, whose chips (All · Report · … · Salary, with how many still owe each) show
-    who hasn't sent one document, with Copy reminder on hold and for all at the bottom.
+    the KPI panel's Documents row (it opens over the KPI panel), the contractor page and Monthly
+    entry.
+  - **Monthly entry** (`/entry`, `src/pages/EntryPage.tsx`; + → **Monthly entry**, Home › Submission
+    and KPIs): a `.segmented.fit` switch **By work order | By item**, then the month (the month that
+    ended last by default).
+    - **By work order**: every work order with "Docs 4/11 · KPIs 3/5" (tile green when complete);
+      tap opens its KPI panel (Documents and Workers rows open their panels over it); hold for
+      Documents / KPIs / Workers / Copy reminder / Open contractor; "Copy all N reminders" below.
+    - **By item**: a chip per item, the 11 documents | KPIs (Accommodation, Onboarding,
+      Offboarding, Meeting, Workers, Quarterly audit), each with how many are left. Each work
+      order's row (≥ 76 px) takes the item in place: a document's In · Waiting · Not provided · N/A
+      (and the date when In; More › opens the full panel), a % box, Yes / No, or Workers' total and
+      Quarterly's score with ⌄ for the rest. A quarter's audit entered in another month shows there.
+      Changed rows get a blue dot; the action bar says **Save 6 changes** (with Discard). Each row
+      saves only its item over a fresh copy; problems are named by work order first.
+    - Leaving with unsaved rows asks "Discard N changes?" (Back, the phone's Back); the rows are also
+      kept for the browser tab, so switching screens doesn't lose them. Viewers see values only.
   - Gaps are chased from October 2026 (`TASKS_FROM`), for up to 3 ended months.
   - **Editors:** tap or swipe left to do it (Fill in / Close / Start). **Viewers:** tap opens the
     record. Everyone can hold for more.

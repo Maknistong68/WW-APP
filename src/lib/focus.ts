@@ -23,6 +23,7 @@ import { ageParts, countDomain, partsTone, type Peek, type PeekPart } from './pe
 import { docsSettled, kpiSubjects } from './subjects'
 import { closedIn, monthEnd, openOn, openedIn, ticketLink, type ListTab, type TicketQuery } from './ticketFilter'
 import { WORDS, closedWithin, openTrend, ticketsOf } from './dashSource'
+import { entryLink } from './entryItems'
 import { turnedIntoTickets } from './caseLinks'
 import { kpiTone, type Tone } from './tone'
 import type { IconName } from '../components/Icon'
@@ -311,7 +312,7 @@ function kpiCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
     icon: 'file-text',
     meter: { pct: total ? (inCount / total) * 100 : null },
     line: `Work orders with all ${SUBMISSION_ITEMS.length} documents for ${short(kpiMonth)} · due ${dayMonth(due)} · ${missing} missing`,
-    link: { label: 'Missing documents', to: `/missing/submission?m=${kpiMonth}` },
+    link: { label: 'Monthly entry', to: entryLink({ m: kpiMonth }) },
     peek: {
       sub: `${monthLabel(kpiMonth)} · due ${dayMonth(due)}`,
       facts: [
@@ -321,7 +322,7 @@ function kpiCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
       ],
       spark: { values: subSpark, label: `Work orders with every document in, last ${SPARK_MONTHS} months`, tone: subTone === 'info' ? 'none' : subTone, guide: 100 },
       actions: [
-        { label: 'Missing documents', icon: 'file-text', to: `/missing/submission?m=${kpiMonth}` },
+        { label: 'Monthly entry', icon: 'file-text', to: entryLink({ m: kpiMonth }) },
         { label: 'Submission KPI page', icon: 'gauge', to: `/kpis/submission?m=${kpiMonth}` },
       ],
     },
@@ -352,7 +353,7 @@ function kpiCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
       spark: qSpark.length ? { values: qSpark, label: `Quarter average, last ${qSpark.length} quarters`, tone: latestQ ? kpiTone(kpiStatus(latestQ.avg)) : 'none', guide: 90 } : undefined,
       actions: [
         { label: 'Close-outs', icon: 'seal', to: '/closeouts' },
-        { label: 'Quarterly audits', icon: 'clipboard', to: `/missing/quarterly?m=${latestQ?.lastMonth ?? kpiMonth}` },
+        { label: 'Quarterly audits', icon: 'clipboard', to: entryLink({ by: 'item', item: 'quarterly', m: latestQ?.lastMonth ?? kpiMonth }) },
       ],
     },
   }
@@ -372,7 +373,7 @@ function kpiCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
       { label: 'Illegal / freelance', value: wf.illegal, tone: 'bad' },
     ],
     line: `${wf.illegal} illegal · ${wf.visaExpiring} visas expiring · ${wf.missing} not declared${wf.month && wf.month !== kpiMonth ? ` · ${short(wf.month)}` : ''}`,
-    link: { label: 'Workers', to: `/missing/formal?m=${wfMonth}` },
+    link: { label: 'Workers', to: entryLink({ by: 'item', item: 'workers', m: wfMonth }) },
     peek: {
       sub: `Counts only · ${monthLabel(wfMonth)}`,
       facts: [
@@ -382,8 +383,8 @@ function kpiCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
       ],
       spark: { values: wfSpark, label: `Workers declared, last ${SPARK_MONTHS} months`, tone: wf.total ? 'info' : 'none', domain: countDomain(wfSpark) },
       actions: [
-        { label: 'Workers', icon: 'users', to: `/missing/formal?m=${wfMonth}` },
-        { label: 'Not declared', icon: 'alert', to: `/missing/formal?m=${kpiMonth}` },
+        { label: 'Workers', icon: 'users', to: entryLink({ by: 'item', item: 'workers', m: wfMonth }) },
+        { label: 'Not declared', icon: 'alert', to: entryLink({ by: 'item', item: 'workers', m: kpiMonth }) },
       ],
     },
   }

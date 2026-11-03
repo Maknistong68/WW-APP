@@ -38,12 +38,15 @@ export function SubjectList({
   onPick,
   onMore,
   search = true,
+  chip = true,
 }: {
   rows: SubjectRow[]
   onPick?: (s: KpiSubject) => void
   /** Long-press / ⋯ on a row. */
   onMore?: (s: KpiSubject) => void
   search?: boolean
+  /** The Done / Missing chip (off: the tile's colour says it, the name gets the room). */
+  chip?: boolean
 }) {
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
@@ -66,9 +69,8 @@ export function SubjectList({
               tile={<IconTile text={s.contractor.name} tone={done ? 'good' : 'bad'} size={52} />}
               title={s.label}
               sub={value || (done ? 'Entered' : 'Not entered')}
-              trail={
-                done ? <StatusChip tone="good">Done</StatusChip> : <StatusChip tone="bad">Missing</StatusChip>
-              }
+              wrap={!chip}
+              trail={chip ? done ? <StatusChip tone="good">Done</StatusChip> : <StatusChip tone="bad">Missing</StatusChip> : undefined}
               onOpen={onPick ? () => onPick(s) : undefined}
               onMore={
                 onMore

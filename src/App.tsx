@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, type ReactNode } from 'react'
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import TodoPage from './pages/TodoPage'
 import AreaPage from './pages/AreaPage'
 import CampsPage from './pages/CampsPage'
@@ -29,7 +29,8 @@ import LibraryPage from './pages/LibraryPage'
 
 // The 3D view (three.js) loads only when opened, so the app stays light.
 const City3DPage = lazy(() => import('./pages/City3DPage'))
-import MissingPage from './pages/MissingPage'
+import EntryPage from './pages/EntryPage'
+import { entryFromMissing } from './lib/entryItems'
 import CloseoutPage from './pages/CloseoutPage'
 import LoginPage, { SetPasswordPage, WaitingPage } from './pages/LoginPage'
 import { gateScreen } from './lib/gate'
@@ -201,7 +202,9 @@ function AppRoutes() {
         />
         <Route path="/kpis/:key" element={<KpiDetailPage />} />
         <Route path="/compare" element={<ComparePage />} />
-        <Route path="/missing/:item" element={<MissingPage />} />
+        <Route path="/entry" element={<EntryPage />} />
+        {/* the old "still missing" lists open Monthly entry */}
+        <Route path="/missing/:item" element={<MissingRedirect />} />
         <Route path="/closeouts" element={<CloseoutPage />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/new/:templateId" element={<EditOnly><InfoFormPage mode="new" /></EditOnly>} />
@@ -221,4 +224,11 @@ function AppRoutes() {
 function EditOnly({ children }: { children: ReactNode }) {
   const { canEdit } = useAuthInfo()
   return canEdit ? <>{children}</> : <Navigate to="/" replace />
+}
+
+/** An old /missing/:item link (Home, the Dashboard, a bookmark): the same list in Monthly entry. */
+function MissingRedirect() {
+  const { item = '' } = useParams()
+  const [params] = useSearchParams()
+  return <Navigate to={entryFromMissing(item, params)} replace />
 }
