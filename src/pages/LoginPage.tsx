@@ -1,7 +1,8 @@
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
+import Icon from '../components/Icon'
 import PasswordInput from '../components/PasswordInput'
 import { sendPasswordReset, setNewPassword, signInWithLogin, signUpWithPassword } from '../lib/auth'
-import { authProblemText, emailProblem, nameProblem, normUsername, parseLogin, passwordProblem, signUpProblem, usernameProblem } from '../lib/authForm'
+import { authProblemText, emailProblem, nameProblem, parseLogin, passwordChecks, passwordProblem, retypeProblem, signUpProblem } from '../lib/authForm'
 import { getClient } from '../lib/sync'
 import { APP_NAME } from '../lib/appInfo'
 
@@ -28,6 +29,21 @@ export function Frame({ title, sub, children }: { title: string; sub?: string; c
         {children}
       </div>
     </main>
+  )
+}
+
+/** The new-password rules, ticked as they are met (a filled green ✓; a grey outline until then). */
+function PasswordRules({ password, again }: { password: string; again: string }) {
+  return (
+    <ul className="pw-rules" aria-label="Password rules">
+      {passwordChecks(password, again).map((c) => (
+        <li key={c.label} className={c.ok ? 'ok' : ''}>
+          <Icon name="check-circle" size={18} fill={c.ok} />
+          {c.label}
+          <span className="sr-only">{c.ok ? ' — done' : ' — not yet'}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -86,7 +102,7 @@ function SignIn({ onDone, linkError, onForgot, onSignUp }: { onDone: () => void;
   const [problem, setProblem] = useState(linkError)
   const loginId = useId()
   const pwId = useId()
-  const loginErr = touched.login && !login.trim() ? 'Type your username or email' : null
+  const loginErr = touched.login && !login.trim() ? 'Type your email' : null
   const pwErr = touched.password && !password ? 'Type your password' : null
 
   const submit = async (e: FormEvent) => {
@@ -111,10 +127,12 @@ function SignIn({ onDone, linkError, onForgot, onSignUp }: { onDone: () => void;
     <Frame title="Sign in" sub="Worker Welfare · tickets, KPIs, camps">
       <form onSubmit={(e) => void submit(e)} noValidate>
         <Alert text={problem} />
-        <Field label="Username or email" id={loginId} error={loginErr}>
+        {/* an email; a username from before still works (parseLogin) */}
+        <Field label="Email" id={loginId} error={loginErr}>
           <input
             id={loginId}
             value={login}
+            inputMode="email"
             autoComplete="username"
             autoCapitalize="none"
             autoCorrect="off"
@@ -153,30 +171,30 @@ function SignIn({ onDone, linkError, onForgot, onSignUp }: { onDone: () => void;
 }
 
 function SignUp({ onDone, onSent, onBack }: { onDone: () => void; onSent: (email: string) => void; onBack: () => void }) {
-  const [f, setF] = useState({ name: '', username: '', email: '', password: '' })
+  const [f, setF] = useState({ name: '', email: '', password: '', again: '' })
   const [touched, setTouched] = useState<Partial<Record<keyof typeof f, boolean>>>({})
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
-  const ids = { name: useId(), username: useId(), email: useId(), password: useId() }
+  const ids = { name: useId(), email: useId(), password: useId(), again: useId() }
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }))
   const blur = (k: keyof typeof f) => () => setTouched((t) => ({ ...t, [k]: true }))
   const err = {
     name: touched.name ? nameProblem(f.name) : null,
-    username: touched.username ? usernameProblem(f.username) : null,
     email: touched.email ? emailProblem(f.email) : null,
     password: touched.password ? passwordProblem(f.password) : null,
+    again: touched.again ? retypeProblem(f.password, f.again) : null,
   }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    setTouched({ name: true, username: true, email: true, password: true })
+    setTouched({ name: true, email: true, password: true, again: true })
     if (signUpProblem(f)) return
     setBusy(true)
     setProblem('')
     try {
       const c = await getClient()
       if (!c) throw new Error('Cloud sync is not set up')
-      const signedIn = await signUpWithPassword(c, f.email, f.password, { username: normUsername(f.username), fullName: f.name })
+      const signedIn = await signUpWithPassword(c, f.email, f.password, { fullName: f.name })
       if (signedIn) onDone()
       else onSent(f.email.trim())
     } catch (er) {
@@ -193,19 +211,6 @@ function SignUp({ onDone, onSent, onBack }: { onDone: () => void; onSent: (email
         <Field label="Your name" id={ids.name} error={err.name}>
           <input id={ids.name} value={f.name} autoComplete="name" enterKeyHint="next" onBlur={blur('name')} onChange={(e) => set('name')(e.target.value)} />
         </Field>
-        <Field label="Username" id={ids.username} error={err.username} hint="You can sign in with it. Letters and numbers.">
-          <input
-            id={ids.username}
-            value={f.username}
-            autoComplete="username"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="next"
-            onBlur={blur('username')}
-            onChange={(e) => set('username')(e.target.value)}
-          />
-        </Field>
         <Field label="Email" id={ids.email} error={err.email}>
           <input
             id={ids.email}
@@ -219,9 +224,13 @@ function SignUp({ onDone, onSent, onBack }: { onDone: () => void; onSent: (email
             onChange={(e) => set('email')(e.target.value)}
           />
         </Field>
-        <Field label="Password" id={ids.password} error={err.password} hint="8 or more characters.">
-          <PasswordInput id={ids.password} value={f.password} onChange={set('password')} onBlur={blur('password')} autoComplete="new-password" enterKeyHint="go" />
+        <Field label="Password" id={ids.password} error={err.password}>
+          <PasswordInput id={ids.password} value={f.password} onChange={set('password')} onBlur={blur('password')} autoComplete="new-password" enterKeyHint="next" />
         </Field>
+        <Field label="Retype password" id={ids.again} error={err.again}>
+          <PasswordInput id={ids.again} value={f.again} onChange={set('again')} onBlur={blur('again')} autoComplete="new-password" enterKeyHint="go" />
+        </Field>
+        <PasswordRules password={f.password} again={f.again} />
         <button className="btn primary block" disabled={busy}>
           {busy ? 'Creating…' : 'Create account'}
         </button>
@@ -293,16 +302,19 @@ function Forgot({ onSent, onBack }: { onSent: (email: string) => void; onBack: (
 /** After an invite or a reset link: choose the password, then the app opens. */
 export function SetPasswordPage({ name, invited, onDone, onSignOut }: { name: string; invited: boolean; onDone: () => void; onSignOut: () => void }) {
   const [password, setPassword] = useState('')
-  const [touched, setTouched] = useState(false)
+  const [again, setAgain] = useState('')
+  const [touched, setTouched] = useState<{ password?: boolean; again?: boolean }>({})
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
   const id = useId()
-  const err = touched ? passwordProblem(password) : null
+  const againId = useId()
+  const err = touched.password ? passwordProblem(password) : null
+  const againErr = touched.again ? retypeProblem(password, again) : null
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    setTouched(true)
-    if (passwordProblem(password)) return
+    setTouched({ password: true, again: true })
+    if (passwordProblem(password) || retypeProblem(password, again)) return
     setBusy(true)
     setProblem('')
     try {
@@ -321,9 +333,13 @@ export function SetPasswordPage({ name, invited, onDone, onSignOut }: { name: st
     <Frame title={name ? `Welcome, ${name}` : 'Welcome'} sub={invited ? 'Choose a password to finish your account.' : 'Choose a new password.'}>
       <form onSubmit={(e) => void submit(e)} noValidate>
         <Alert text={problem} />
-        <Field label="New password" id={id} error={err} hint="8 or more characters.">
-          <PasswordInput id={id} value={password} onChange={setPassword} onBlur={() => setTouched(true)} autoComplete="new-password" enterKeyHint="done" />
+        <Field label="New password" id={id} error={err}>
+          <PasswordInput id={id} value={password} onChange={setPassword} onBlur={() => setTouched((t) => ({ ...t, password: true }))} autoComplete="new-password" enterKeyHint="next" />
         </Field>
+        <Field label="Retype password" id={againId} error={againErr}>
+          <PasswordInput id={againId} value={again} onChange={setAgain} onBlur={() => setTouched((t) => ({ ...t, again: true }))} autoComplete="new-password" enterKeyHint="done" />
+        </Field>
+        <PasswordRules password={password} again={again} />
         <button className="btn primary block" disabled={busy}>
           {busy ? 'Saving…' : 'Save password'}
         </button>
@@ -340,24 +356,19 @@ export function WaitingPage({
   email,
   rejected,
   fullName,
-  username: savedUsername,
   onRefresh,
   onSignOut,
 }: {
   email: string
   rejected: boolean
   fullName: string
-  username: string
   onRefresh: () => void
   onSignOut: () => void
 }) {
-  // A name but no username: the username typed at sign-up was already taken.
-  const usernameTaken = !!fullName && !savedUsername
   const [name, setName] = useState(fullName)
-  const [username, setUsername] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
-  const ids = { name: useId(), username: useId() }
+  const nameId = useId()
   // Approval can come any minute: look again every 30 seconds.
   useEffect(() => {
     if (rejected) return
@@ -367,14 +378,15 @@ export function WaitingPage({
 
   const saveName = async (e: FormEvent) => {
     e.preventDefault()
-    const p = nameProblem(name) ?? usernameProblem(username)
+    const p = nameProblem(name)
     if (p) return setProblem(p)
     setBusy(true)
     setProblem('')
     try {
       const c = await getClient()
       if (!c) throw new Error('Cloud sync is not set up')
-      const { error } = await c.rpc('set_my_profile', { p_username: normUsername(username), p_full_name: name.trim() })
+      // the name only (a username from before is kept)
+      const { error } = await c.rpc('set_my_profile', { p_username: '', p_full_name: name.trim() })
       if (error) throw new Error(error.message)
       onRefresh()
     } catch (er) {
@@ -389,19 +401,14 @@ export function WaitingPage({
       title={rejected ? 'No access' : 'Waiting for approval'}
       sub={rejected ? `${email} does not have access. Ask the admin.` : `${email} is signed in. The admin approves new accounts; then the team’s data opens here.`}
     >
-      {!rejected && !savedUsername && (
+      {!rejected && !fullName && (
         <form onSubmit={(e) => void saveName(e)} noValidate style={{ marginBottom: 8 }}>
           <p className="login-note" style={{ margin: '0 0 12px' }}>
-            {usernameTaken
-              ? 'The username you picked is already taken. Choose another one.'
-              : 'While you wait: add your name, so the admin knows who you are.'}
+            While you wait: add your name, so the admin knows who you are.
           </p>
           <Alert text={problem} />
-          <Field label="Your name" id={ids.name}>
-            <input id={ids.name} value={name} autoComplete="name" onChange={(e) => setName(e.target.value)} />
-          </Field>
-          <Field label="Username" id={ids.username} hint="You can sign in with it.">
-            <input id={ids.username} value={username} autoComplete="username" autoCapitalize="none" spellCheck={false} onChange={(e) => setUsername(e.target.value)} />
+          <Field label="Your name" id={nameId}>
+            <input id={nameId} value={name} autoComplete="name" onChange={(e) => setName(e.target.value)} />
           </Field>
           <button className="btn block" disabled={busy}>
             Save name

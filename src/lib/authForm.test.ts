@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { authProblemText, emailProblem, nameProblem, normUsername, parseLogin, passwordProblem, signUpProblem, usernameProblem } from './authForm'
+import { authProblemText, emailProblem, nameProblem, normUsername, parseLogin, passwordChecks, passwordProblem, retypeProblem, signUpProblem, usernameProblem } from './authForm'
 
 describe('A username', () => {
   it('is typed loosely and kept clean: lower case, no @, no spaces around', () => {
@@ -33,23 +33,38 @@ describe('Signing in with a username or an email', () => {
 })
 
 describe('Passwords and new accounts', () => {
-  it('a password of 8 or more', () => {
+  it('a password: 8 or more, with a letter and a number', () => {
     expect(passwordProblem('')).toBe('Type a password')
-    expect(passwordProblem('1234567')).toBe('Use at least 8 characters')
-    expect(passwordProblem('12345678')).toBeNull()
+    expect(passwordProblem('abc123')).toBe('Use at least 8 characters')
+    expect(passwordProblem('12345678')).toBe('Use a letter and a number')
+    expect(passwordProblem('abcdefgh')).toBe('Use a letter and a number')
+    expect(passwordProblem('welfare1')).toBeNull()
+  })
+  it('typed twice, the same both times', () => {
+    expect(retypeProblem('welfare1', '')).toBe('Type the password again')
+    expect(retypeProblem('welfare1', 'welfare2')).toBe('The passwords don’t match')
+    expect(retypeProblem('welfare1', 'welfare1')).toBeNull()
+  })
+  it('the checklist ticks as you type', () => {
+    const ok = (pw: string, again: string) => passwordChecks(pw, again).map((c) => c.ok)
+    expect(passwordChecks('', '').map((c) => c.label)).toEqual(['At least 8 characters', 'A letter and a number', 'Both passwords match'])
+    expect(ok('abc', '')).toEqual([false, false, false])
+    expect(ok('abcdefg1', '')).toEqual([true, true, false])
+    expect(ok('abcdefg1', 'abcdefg1')).toEqual([true, true, true])
+    expect(ok('abcdefg1', 'abcdefg2')).toEqual([true, true, false])
   })
   it('an email that looks like one', () => {
     expect(emailProblem('')).toBe('Type your email')
     expect(emailProblem('ali@')).toBe('Check the email')
     expect(emailProblem('ali@example.com')).toBeNull()
   })
-  it('a new account checks every field, top to bottom', () => {
-    const ok = { name: 'Ali Hassan', username: 'ali', email: 'ali@example.com', password: '12345678' }
+  it('a new account: name, email, password, the same password again (no username)', () => {
+    const ok = { name: 'Ali Hassan', email: 'ali@example.com', password: 'welfare1', again: 'welfare1' }
     expect(signUpProblem(ok)).toBeNull()
     expect(signUpProblem({ ...ok, name: '' })).toBe('Type your name')
-    expect(signUpProblem({ ...ok, username: 'a' })).toMatch(/3 to 24/)
     expect(signUpProblem({ ...ok, email: 'x' })).toBe('Check the email')
-    expect(signUpProblem({ ...ok, password: 'short' })).toBe('Use at least 8 characters')
+    expect(signUpProblem({ ...ok, password: 'short', again: 'short' })).toBe('Use at least 8 characters')
+    expect(signUpProblem({ ...ok, again: 'welfare2' })).toBe('The passwords don’t match')
   })
 })
 

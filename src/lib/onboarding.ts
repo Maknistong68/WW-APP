@@ -50,7 +50,7 @@ export function onboardingSteps(s: OnboardingState): { steps: OnboardingStep[]; 
     steps.push({ id: 'dashboard', title: 'Open the Dashboard', sub: 'Tickets, camps and KPIs at a glance', button: 'Open Dashboard', action: { to: '/dashboard' }, done: s.seen.includes('dashboard') })
   }
   if (s.role === 'admin' && s.cloud)
-    steps.push({ id: 'invite', title: 'Invite your team', sub: 'Users › Invite: name, username, email, role', button: 'Invite', action: { to: '/users' }, done: s.teamSize >= 2 })
+    steps.push({ id: 'invite', title: 'Invite your team', sub: 'Users › Invite: name, email, role', button: 'Invite', action: { to: '/users' }, done: s.teamSize >= 2 })
   const doneCount = steps.filter((x) => x.done).length
   return { steps, next: steps.find((x) => !x.done), doneCount, allDone: doneCount === steps.length }
 }

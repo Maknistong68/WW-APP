@@ -1,5 +1,6 @@
-// Invite a person (admins only). The app sends { name, username, email, role }
-// with the admin's session. The person gets an email link to set their
+// Invite a person (admins only). The app sends { name, email, role } with the
+// admin's session (an older copy may also send a username: it is checked and
+// kept). The person gets an email link to set their
 // password; when no email can go out (Supabase's built-in sender only reaches
 // its own team), a link comes back for the admin to send by hand.
 // { resendFor: userId } makes a fresh link for someone invited who never joined.
@@ -61,16 +62,18 @@ Deno.serve(async (req) => {
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   const role = typeof body.role === 'string' ? body.role : ''
   if (!name || name.length > 60) return reply({ error: 'Type their name.' }, 400)
-  if (!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)) return reply({ error: 'Username: 3 to 24 letters or numbers (. _ - allowed).' }, 400)
+  if (username && !/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)) return reply({ error: 'Username: 3 to 24 letters or numbers (. _ - allowed).' }, 400)
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply({ error: 'Check the email.' }, 400)
   if (!ROLES.includes(role)) return reply({ error: 'Pick a role.' }, 400)
 
-  const { data: taken } = await admin.from('profiles').select('id').eq('username', username).maybeSingle()
-  if (taken) return reply({ error: 'That username is taken.' }, 409)
+  if (username) {
+    const { data: taken } = await admin.from('profiles').select('id').eq('username', username).maybeSingle()
+    if (taken) return reply({ error: 'That username is taken.' }, 409)
+  }
   const { data: exists } = await admin.from('profiles').select('id').eq('email', email).maybeSingle()
   if (exists) return reply({ error: 'This email already has an account.' }, 409)
 
-  const meta = { username, full_name: name }
+  const meta = { ...(username ? { username } : {}), full_name: name }
   let userId = ''
   let emailed = true
   let link: string | undefined
@@ -89,11 +92,11 @@ Deno.serve(async (req) => {
     link = tokenLink(app, made.data.properties.hashed_token, 'invite')
   }
 
-  // Approved straight away, with the role and names the admin chose.
+  // Approved straight away, with the role and name the admin chose.
   const now = new Date().toISOString()
   const { error: upd } = await admin
     .from('profiles')
-    .update({ status: 'approved', role, username, full_name: name, invited_by: me.user.id, invited_at: now, decided_at: now })
+    .update({ status: 'approved', role, ...(username ? { username } : {}), full_name: name, invited_by: me.user.id, invited_at: now, decided_at: now })
     .eq('id', userId)
   if (upd) {
     await admin.auth.admin.deleteUser(userId)

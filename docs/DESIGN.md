@@ -423,5 +423,5 @@ is in `src/three/`.
   focus); `interactive-widget=resizes-content` keeps sheets and Save above the Android keyboard; copy buttons use
   `src/lib/clipboard.ts` (falls back where the clipboard API is missing); ResizeObserver and pointer capture are
   guarded. Settings › Sync log shows the version, installed or tab, and the phone storage used / kept.
-- Real-device check list: sign in (username and email), add a task, close a ticket, edit an old ticket, KPI
+- Real-device check list: sign in (email; an older username too), add a task, close a ticket, edit an old ticket, KPI
   close-out, filter rows, a sheet with the keyboard open, dark mode, install flow.

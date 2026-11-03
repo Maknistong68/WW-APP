@@ -8,7 +8,6 @@ import CardList from '../components/CardList'
 import Modal, { ConfirmSheet, type ModalHandle } from '../components/Modal'
 import SaveButton from '../components/SaveButton'
 import { displayName } from '../lib/actor'
-import { normUsername } from '../lib/authForm'
 import { callFunction } from '../lib/functions'
 import { copyText } from '../lib/clipboard'
 import { inviteProblem, inviteStatus } from '../lib/invite'
@@ -56,10 +55,10 @@ function LinkSheet({ name, link, noEmail, onClose }: { name: string; link: strin
   )
 }
 
-/** Invite a person: name, username, email, role. They set their own password from the email. */
+/** Invite a person: name, email, role. They set their own password from the email. */
 function InviteSheet({ onClose, onDone }: { onClose: () => void; onDone: (r: { name: string; link?: string }) => void }) {
-  const [f, setF] = useState({ name: '', username: '', email: '', role: 'editor' as Role })
-  const ids = { name: useId(), username: useId(), email: useId() }
+  const [f, setF] = useState({ name: '', email: '', role: 'editor' as Role })
+  const ids = { name: useId(), email: useId() }
   const sheet = useRef<ModalHandle>(null)
   const { saving, alert, run } = useSave('Invite')
   const send = () =>
@@ -70,11 +69,10 @@ function InviteSheet({ onClose, onDone }: { onClose: () => void; onDone: (r: { n
       try {
         const r = await callFunction<{ id: string; emailed: boolean; link?: string }>('invite-user', {
           name: f.name.trim(),
-          username: normUsername(f.username),
           email: f.email.trim(),
           role: f.role,
         })
-        logActivity('user', r.id, 'add', `@${normUsername(f.username)} invited as ${ROLE_LABEL[f.role]}`)
+        logActivity('user', r.id, 'add', `${f.name.trim()} invited as ${ROLE_LABEL[f.role]}`)
         const done = () => onDone({ name: f.name.trim(), link: r.link })
         if (sheet.current) sheet.current.close(done)
         else done()
@@ -100,18 +98,6 @@ function InviteSheet({ onClose, onDone }: { onClose: () => void; onDone: (r: { n
             <span className="row-label">Name</span>
             <input id={ids.name} value={f.name} autoFocus autoComplete="off" placeholder="e.g. Mona Ali" onChange={(e) => setF({ ...f, name: e.target.value })} />
           </label>
-          <label className="row" htmlFor={ids.username}>
-            <span className="row-label">Username</span>
-            <input
-              id={ids.username}
-              value={f.username}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder="e.g. mona"
-              onChange={(e) => setF({ ...f, username: e.target.value })}
-            />
-          </label>
           <label className="row" htmlFor={ids.email}>
             <span className="row-label">Email</span>
             <input id={ids.email} type="email" inputMode="email" autoCapitalize="none" value={f.email} placeholder="name@company.com" onChange={(e) => setF({ ...f, email: e.target.value })} />
@@ -133,7 +119,7 @@ function InviteSheet({ onClose, onDone }: { onClose: () => void; onDone: (r: { n
             </button>
           ))}
         </div>
-        <div className="list-foot">They get an email to choose their password, then sign in with the username or email. No approval needed.</div>
+        <div className="list-foot">They get an email to choose their password, then sign in with their email. No approval needed.</div>
       </div>
     </Modal>
   )
@@ -168,16 +154,15 @@ function UserSheet({
   onClose,
 }: {
   p: Profile
-  onSave: (role: Role, status: AccessStatus, names: { full_name: string; username: string }) => void
+  onSave: (role: Role, status: AccessStatus, names: { full_name: string }) => void
   onRemove: () => void
   onResend: () => void
   onClose: () => void
 }) {
   const [role, setRole] = useState<Role>(p.status === 'approved' ? p.role : p.role === 'admin' ? 'admin' : 'editor')
   const [name, setName] = useState(p.full_name ?? '')
-  const [username, setUsername] = useState(p.username ?? '')
-  const namesChanged = name.trim() !== (p.full_name ?? '') || normUsername(username) !== (p.username ?? '')
-  const names = { full_name: name.trim(), username: normUsername(username) }
+  const namesChanged = name.trim() !== (p.full_name ?? '')
+  const names = { full_name: name.trim() }
   return (
     <Modal title={displayName(p) || p.email} onClose={onClose}>
       <div className="sheet-body">
@@ -185,10 +170,6 @@ function UserSheet({
           <label className="row">
             <span className="row-label">Name</span>
             <input value={name} placeholder="Their name" onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label className="row">
-            <span className="row-label">Username</span>
-            <input value={username} autoCapitalize="none" spellCheck={false} placeholder="e.g. mona" onChange={(e) => setUsername(e.target.value)} />
           </label>
         </div>
         <div className="list-foot" style={{ marginTop: -8 }}>{p.email}</div>
@@ -273,22 +254,22 @@ export default function UsersPage() {
       .catch((err: unknown) => showToast({ text: err instanceof Error ? err.message : String(err), tone: 'bad' }))
   useEffect(() => void load(), [load])
 
-  const update = async (p: Profile, role: Role, status: AccessStatus, names?: { full_name: string; username: string }) => {
+  const update = async (p: Profile, role: Role, status: AccessStatus, names?: { full_name: string }) => {
     const c = await getClient()
     if (!c) return
-    const nameChange = names && (names.full_name !== (p.full_name ?? '') || names.username !== (p.username ?? ''))
+    const nameChange = names && names.full_name !== (p.full_name ?? '')
     const { error } = await c
       .from('profiles')
       .update({
         role,
         status,
         decided_at: new Date().toISOString(),
-        ...(nameChange ? { full_name: names.full_name || null, username: names.username || null } : {}),
+        ...(nameChange ? { full_name: names.full_name || null } : {}),
       })
       .eq('id', p.id)
     if (error)
       return showToast({
-        text: error.code === '23505' ? 'That username is taken' : error.code === '23514' ? 'Check the name and username' : error.message,
+        text: error.code === '23514' ? 'Check the name' : error.message,
         tone: 'bad',
       })
     const changes = [
@@ -348,10 +329,10 @@ export default function UsersPage() {
                   return (
                     <ItemRow
                       key={p.id}
-                      tile={<IconTile text={p.full_name || p.username || p.email} tone={status === 'pending' ? 'warn' : status === 'rejected' ? 'none' : 'info'} size={52} />}
+                      tile={<IconTile text={p.full_name || p.email} tone={status === 'pending' ? 'warn' : status === 'rejected' ? 'none' : 'info'} size={52} />}
                       title={name || p.email}
                       sub={[
-                        name ? (p.username ? `@${p.username} · ${p.email}` : p.email) : '',
+                        name ? p.email : '',
                         `${status === 'approved' ? ROLE_LABEL[p.role] : status === 'pending' ? 'New account' : 'No access'}${self ? ' · you' : ''}`,
                         invited ?? `joined ${shortDate((p.joined_at ?? p.created_at).slice(0, 10))}`,
                       ]

@@ -95,19 +95,22 @@ npm run build   # strict tsc + vite build
   the signed-in person is set in `App.tsx` via `setActor`, `src/lib/actor.ts`). The server stamps them again
   from the sender (trigger `private.stamp_activity`). Names come from `team_members()` (names only, cached by
   `useTeam`, `src/lib/team.ts`); `whoName` reads "You" / name. History, the Activity log (Who filter) and a
-  closed ticket's status line show it. Each person sets name + username in Settings (`ProfileCard`,
-  RPC `set_my_profile`; rules in `src/lib/authForm.ts`). Deleting a user never deletes their records (FKs restrict).
+  closed ticket's status line show it. Each person sets their name in Settings (`ProfileCard`, RPC
+  `set_my_profile` with an empty username, which keeps an older account's username; rules in `src/lib/authForm.ts`).
+  No one is asked for a username any more: name + email only. Deleting a user never deletes their records (FKs restrict).
 - Removing tickets: only the Admin, with a reason (`RemoveTicketSheet`, `removeTicket` in `records.ts`, rules in
   `src/lib/removal.ts`, menu via `ticketActions(…, { admin })` and `isAdmin()`/`setRole` in `actor.ts`). The server
   keeps a non-admin's change to `deleted` back (trigger `private.guard_ticket_removal`). Removed tickets are listed
   with who/when/why and restored at `/tickets/removed` (`RemovedTicketsPage`, admin, online).
-- Sign-in (`src/pages/LoginPage.tsx`): Sign in (username or email) · Create account (name, username, email,
-  password) · Forgot password · Check your email · Set password · Waiting. Which screen: `src/lib/gate.ts`.
+- Sign-in (`src/pages/LoginPage.tsx`): Sign in (email; an older username still works) · Create account (name,
+  email, password + retype) · Forgot password · Check your email · Set password (password + retype) · Waiting (name).
+  New passwords: 8+ characters with a letter and a number, shown as a checklist that ticks as you type
+  (`PasswordRules`, `passwordChecks` / `passwordProblem` / `retypeProblem`). Which screen: `src/lib/gate.ts`.
   Rules: `src/lib/authForm.ts`. A username signs in through the Edge Function `supabase/functions/sign-in`
   (service-role lookup, same answer for any wrong login, 10 tries / 15 min). Email links of every shape are read
   once in `main.tsx` (`src/lib/authReturn.ts`) and finished in `src/lib/auth.ts` (`detectSessionInUrl: false`);
   invite and reset links open Set password first.
-- Invites (Users page → Invite, admin): name, username, email, role → Edge Function `supabase/functions/invite-user`
+- Invites (Users page → Invite, admin): name, email, role → Edge Function `supabase/functions/invite-user`
   (checks the caller is an approved admin; `inviteUserByEmail`, else a copy-able link via `generateLink`; the profile
   is approved with the chosen role). Rows show "Invited · not joined yet" until `joined_at` (set on first sign-in);
   "Send a new link" for them. Rules: `src/lib/invite.ts`; calls: `src/lib/functions.ts` (`callFunction`).

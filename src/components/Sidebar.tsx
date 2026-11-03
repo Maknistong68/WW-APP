@@ -14,11 +14,11 @@ import { usePresence } from '../lib/usePresence'
 import { useBackClose, useFocusTrap } from '../lib/useBackClose'
 
 const OPEN_EVENT = 'ww:sidebar'
-/** "MN" from Mark Nieva; else the username's or email's first letter. */
-function initials(me: { fullName: string; username: string; email: string }): string {
+/** "MN" from Mark Nieva; else the email's first letter. */
+function initials(me: { fullName: string; email: string }): string {
   const words = me.fullName.trim().split(/\s+/).filter(Boolean)
   if (words.length) return (words[0][0] + (words.length > 1 ? words[words.length - 1][0] : '')).toUpperCase()
-  return (me.username || me.email || 'W').slice(0, 1).toUpperCase()
+  return (me.email || 'W').slice(0, 1).toUpperCase()
 }
 
 /** Open the drawer from anywhere (the ☰ menu button). */
@@ -112,8 +112,7 @@ export default function Sidebar() {
             {initials(me)}
           </span>
           <div className="side-who">
-            <div className="side-email">{me.fullName || (me.username ? `@${me.username}` : me.email || 'This phone only')}</div>
-            {me.fullName && me.email && <div className="side-sub">{me.email}</div>}
+            <div className="side-email">{me.fullName || me.email || 'This phone only'}</div>
             <span className="role-chip">{ROLE_LABEL[me.role]}</span>
           </div>
           <button className="round-btn" aria-label="Close menu" onClick={() => setOpen(false)}>

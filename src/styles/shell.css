@@ -138,7 +138,6 @@ body.has-actionbar .tabbar { display: none; }
 }
 .side-who { flex: 1; min-width: 0; }
 .side-email { font-weight: 600; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.side-sub { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .role-chip { display: inline-block; margin-top: 4px; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--brand-tint); color: var(--brand); }
 .side-rule { height: 6px; }
 .side-item {

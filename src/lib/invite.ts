@@ -1,12 +1,12 @@
-import { emailProblem, nameProblem, usernameProblem } from './authForm'
+import { emailProblem, nameProblem } from './authForm'
 import type { Role } from './auth'
 
 // Inviting a person (Users page → Invite). The invite-user Edge Function
 // checks the same rules (supabase/functions/invite-user).
 
+/** Name, email and role (no username: people are known by their name). */
 export interface InviteInput {
   name: string
-  username: string
   email: string
   role: Role
 }
@@ -15,7 +15,7 @@ const ROLES: Role[] = ['admin', 'editor', 'viewer']
 
 export function inviteProblem(f: InviteInput): string | null {
   if (nameProblem(f.name)) return 'Type their name'
-  return usernameProblem(f.username) ?? emailProblem(f.email) ?? (ROLES.includes(f.role) ? null : 'Pick a role')
+  return emailProblem(f.email) ?? (ROLES.includes(f.role) ? null : 'Pick a role')
 }
 
 /** "Invited · not joined yet" until they first sign in; nothing after (or for people who signed up themselves). */

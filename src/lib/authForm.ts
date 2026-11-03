@@ -27,10 +27,31 @@ export function parseLogin(raw: string): { kind: 'email' | 'username'; value: st
   return { kind: 'username', value: normUsername(v) }
 }
 
+const LONG_ENOUGH = (pw: string) => pw.length >= 8
+const LETTER_AND_NUMBER = (pw: string) => /\p{L}/u.test(pw) && /\d/.test(pw)
+
+/** A new password: 8 or more characters, with a letter and a number. */
 export function passwordProblem(pw: string): string | null {
   if (!pw) return 'Type a password'
-  if (pw.length < 8) return 'Use at least 8 characters'
+  if (!LONG_ENOUGH(pw)) return 'Use at least 8 characters'
+  if (!LETTER_AND_NUMBER(pw)) return 'Use a letter and a number'
   return null
+}
+
+/** The password typed a second time, to be sure of it. */
+export function retypeProblem(pw: string, again: string): string | null {
+  if (!again) return 'Type the password again'
+  if (again !== pw) return 'The passwords don’t match'
+  return null
+}
+
+/** The rules shown under a new password, ticked as they are met. */
+export function passwordChecks(pw: string, again: string): { label: string; ok: boolean }[] {
+  return [
+    { label: 'At least 8 characters', ok: LONG_ENOUGH(pw) },
+    { label: 'A letter and a number', ok: LETTER_AND_NUMBER(pw) },
+    { label: 'Both passwords match', ok: !!again && again === pw },
+  ]
 }
 
 export function emailProblem(raw: string): string | null {
@@ -40,9 +61,9 @@ export function emailProblem(raw: string): string | null {
   return null
 }
 
-/** The first thing to fix on Create account, top to bottom. */
-export function signUpProblem(f: { name: string; username: string; email: string; password: string }): string | null {
-  return nameProblem(f.name) ?? usernameProblem(f.username) ?? emailProblem(f.email) ?? passwordProblem(f.password)
+/** The first thing to fix on Create account, top to bottom (name, email, password, the same password again). */
+export function signUpProblem(f: { name: string; email: string; password: string; again: string }): string | null {
+  return nameProblem(f.name) ?? emailProblem(f.email) ?? passwordProblem(f.password) ?? retypeProblem(f.password, f.again)
 }
 
 /** Supabase Auth's messages, in plain words. */

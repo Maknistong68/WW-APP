@@ -53,7 +53,7 @@ export default function App() {
   if (screen === 'install') {
     return (
       <>
-        <InstallPage signInAs={auth.session ? (auth.username ? `@${auth.username}` : auth.email) : undefined} linkError={auth.linkError} />
+        <InstallPage signInAs={auth.session ? auth.email : undefined} linkError={auth.linkError} />
         <ToastHost />
       </>
     )
@@ -62,7 +62,7 @@ export default function App() {
     return (
       <>
         <SetPasswordPage
-          name={auth.fullName || (auth.username ? `@${auth.username}` : '')}
+          name={auth.fullName}
           invited={auth.invited}
           onDone={auth.refresh}
           onSignOut={() => void auth.signOut()}
@@ -86,7 +86,6 @@ export default function App() {
           email={auth.email}
           rejected={auth.phase === 'rejected'}
           fullName={auth.fullName}
-          username={auth.username}
           onRefresh={auth.refresh}
           onSignOut={() => void auth.signOut()}
         />

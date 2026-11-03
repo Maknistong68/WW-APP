@@ -371,19 +371,25 @@ $$;
 revoke all on function public.team_members() from public, anon;
 grant execute on function public.team_members() to authenticated;
 
--- Anyone signed in (pending too) sets their own name and username.
+-- Anyone signed in (pending too) sets their own name. The app asks for the name
+-- only: an empty username keeps the one they have (older accounts still sign in
+-- with it); a username given is checked as before.
 create or replace function public.set_my_profile(p_username text, p_full_name text)
 returns void language plpgsql security definer set search_path = '' as $$
 declare
-  u text := lower(trim(coalesce(p_username, '')));
+  u text := lower(trim(both '@' from trim(coalesce(p_username, ''))));
   n text := trim(coalesce(p_full_name, ''));
 begin
   if (select auth.uid()) is null then raise exception 'Sign in first'; end if;
-  if u !~ '^[a-z0-9][a-z0-9._-]{2,23}$' then
-    raise exception 'Username: 3 to 24 letters or numbers (. _ - allowed)' using errcode = '22023';
-  end if;
   if char_length(n) not between 1 and 60 then
     raise exception 'Type your name' using errcode = '22023';
+  end if;
+  if u = '' then
+    update public.profiles set full_name = n where id = (select auth.uid());
+    return;
+  end if;
+  if u !~ '^[a-z0-9][a-z0-9._-]{2,23}$' then
+    raise exception 'Username: 3 to 24 letters or numbers (. _ - allowed)' using errcode = '22023';
   end if;
   if exists (select 1 from public.profiles p where lower(p.username) = u and p.id <> (select auth.uid())) then
     raise exception 'That username is taken' using errcode = '23505';
