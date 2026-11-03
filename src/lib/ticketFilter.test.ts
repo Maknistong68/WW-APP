@@ -48,6 +48,13 @@ describe('Ticket filters in the link', () => {
     )
     expect(chips.map((c) => c.label)).toEqual(['RPCO', 'Opened in Oct 2026', 'Food', '11–30 days', 'Money owed'])
   })
+  it('cases that turned into D&C tickets, or not', () => {
+    const cases = [T({ source: 'Internal', linkedTicketUuid: 't1' }), T({ source: 'Internal' }), T({ source: 'Internal' })]
+    expect(filterTickets(cases, { link: 'yes' }, today)).toHaveLength(1)
+    expect(filterTickets(cases, { link: 'no' }, today)).toHaveLength(2)
+    expect(parseTicketQuery(new URLSearchParams('link=yes')).link).toBe('yes')
+    expect(queryChips({ link: 'yes' }, { contractor: () => '', workOrder: () => '' }).map((c) => c.label)).toEqual(['Turned into tickets'])
+  })
 })
 
 describe('Ticket log tabs: Tickets | Internal', () => {

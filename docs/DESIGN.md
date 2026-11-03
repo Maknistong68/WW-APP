@@ -220,6 +220,14 @@ per screen.
     never combined (`sameKind`). Only D&C tickets count in the KPIs and every number labelled
     "tickets": `useAllData` gives `tickets` (D&C) and `cases` apart; cases show only where labelled
     (Cases tab, Home card, a contractor's "Open cases", the Dashboard source bars, the Excel export).
+  - **A case that turned into a D&C ticket** (`src/lib/caseLinks.ts`): hold the case → **Turned into
+    a ticket** (or its page's "Turned into a ticket" section) opens `LinkTicketSheet`: search D&C
+    tickets (open ones, same contractor first; typing finds closed ones), or **New D&C ticket from
+    this case** (contractor, WO, issue, workers prefilled; the WWCMPL number is typed). The link is
+    stored on the case only (`linkedTicketUuid`); the case is never closed by it. Rows say
+    "CASE-0001 → WWCMPL…" with a grey **→ D&C** chip; the ticket says "From CASE-0001" (**From case**)
+    and lists its cases on its page. Closing that ticket asks **"Close CASE-0001 too?"**
+    (Yes / Keep open; `askCloseLinkedCases`). The list filter `link=yes|no` shows "Turned into tickets".
   - A ticket row: the tile is its age in three characters (`ageLabel`, `src/lib/aging.ts`: "0D"–"6D",
     then weeks "1W"–"14W", and months only from 100 days: "3M", "14M"; no years) in its due colour (green 0–10 days, amber 11–30, red
     over 30); a check once closed, the title is the contractor's short name (`shortName`,

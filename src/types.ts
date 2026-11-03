@@ -319,6 +319,8 @@ export interface Ticket extends RecordBase {
   amountOwed: number | null
   /** Main ticket this one was combined into ('' = standalone or main). */
   parentUuid: string
+  /** Cases only: the D&C ticket this case turned into (absent = not linked). The case stays as it is. */
+  linkedTicketUuid?: string
   assignedTo: string
   status: TicketStatus
   /** YYYY-MM-DD */

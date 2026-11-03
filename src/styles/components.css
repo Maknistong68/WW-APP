@@ -285,7 +285,9 @@ button.row { cursor: pointer; }
 .badge { font-size: 13px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
 .badge.draft { background: var(--warn-tint); color: var(--warn); }
 .badge.completed { background: var(--good-tint); color: var(--good); }
-.group-chip { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--info-tint); color: var(--info); vertical-align: 2px; }
+.group-chip { display: inline-block; margin-left: 8px; font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--info-tint); color: var(--info); vertical-align: 2px; }
+/* a case that turned into a D&C ticket, and the ticket it came from */
+.link-chip { background: var(--none-tint); color: var(--none); }
 .select-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--faint); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--brand-ink); transition: background-color var(--dur-fast) var(--ease-80), border-color var(--dur-fast) var(--ease-80); }
 .select-dot.on { background: var(--brand); border-color: var(--brand); }
 .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }

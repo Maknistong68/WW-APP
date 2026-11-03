@@ -10,6 +10,7 @@ import { saveRecord } from '../lib/records'
 import { closingAmount, owedOf, parseSar, sar } from '../lib/money'
 import { ticketLabel, useContractors } from '../lib/useData'
 import { noun } from '../lib/cases'
+import { askCloseLinkedCases } from './closeLinked'
 import type { Ticket } from '../types'
 
 /**
@@ -81,6 +82,8 @@ export default function CloseTogetherSheet({
         duration: 5000,
       })
       onClose(true)
+      // cases that turned into these tickets: asked about, never closed on their own
+      if (close) void askCloseLinkedCases(updates, date)
     })
 
   return (

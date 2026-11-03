@@ -47,6 +47,9 @@ export default function ActivityPage() {
   const filterRow = useRef<HTMLDivElement>(null)
   useChipScroll(filterRow, filter)
   const entries = useCachedLiveQuery('activity', () => db.activity.orderBy('time').reverse().toArray())
+  // ticket numbers, so a case's link to its D&C ticket reads as the number
+  const tickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
+  const ticketNos = useMemo(() => new Map((tickets ?? []).map((t) => [t.uuid, t.ticketNo])), [tickets])
 
   const visible = useMemo(
     () => filterActivity(entries ?? [], { entity: filter, action, period, query, by: who }),
@@ -162,7 +165,7 @@ export default function ActivityPage() {
                   {whoName(e, team, userId) && <span className="by"> · by {whoName(e, team, userId)}</span>}
                 </div>
                 {e.action === 'edit' || e.action === 'close' || e.action === 'delete'
-                  ? changeLines(e.changes, byUuid)
+                  ? changeLines(e.changes, byUuid, ticketNos)
                       .slice(0, 2)
                       .map((line, i) => (
                         <div key={i} className="row-sub">

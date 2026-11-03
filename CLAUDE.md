@@ -49,7 +49,9 @@ npm run build   # strict tsc + vite build
   anywhere via `SheetHost`; ticket drill-down filters: `src/lib/ticketFilter.ts`.
 - Tickets are D&C (hotline, WWCMPL…); the team's own items are **cases** (`src/lib/cases.ts`: stored as
   `source: 'Internal'`, numbered CASE-0001…, tabs D&C Tickets | Cases). `useAllData` gives `tickets` (D&C only:
-  KPIs, Dashboard, counts) and `cases` apart.
+  KPIs, Dashboard, counts) and `cases` apart. A case that turned into a D&C ticket is **linked**, never closed by it:
+  `linkedTicketUuid` on the case only (rules `src/lib/caseLinks.ts`, sheet `LinkTicketSheet`, menu `link`/`linked`);
+  closing the ticket asks to close its open cases too (`src/components/closeLinked.ts`).
 - Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
 - Monthly documents (per work order, 11: the owner's 9 + WPS + Salary; due the 15th of the next month):
   rules `src/lib/submissions.ts` (`SUBMISSION_ITEMS`; each in with a date / not provided / N/A / waiting, a note,

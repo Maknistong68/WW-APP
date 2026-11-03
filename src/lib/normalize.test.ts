@@ -11,6 +11,11 @@ describe('normalize older records', () => {
     expect(normalizeTicket({ ticketNo: 'WWCMPL9', amountOwed: -5 }).amountOwed).toBeNull()
     expect(normalizeTicket({ ticketNo: 'WWCMPL9', amountOwed: 0 }).amountOwed).toBe(0)
   })
+  it('keeps a case’s link to its D&C ticket only when it names one', () => {
+    expect(normalizeTicket({ ticketNo: 'CASE-0001', source: 'Internal', linkedTicketUuid: 't1' }).linkedTicketUuid).toBe('t1')
+    expect('linkedTicketUuid' in normalizeTicket({ ticketNo: 'CASE-0001', source: 'Internal', linkedTicketUuid: '' })).toBe(false)
+    expect('linkedTicketUuid' in normalizeTicket({ ticketNo: 'CASE-0001', source: 'Internal' })).toBe(false)
+  })
   it('adds the work-order key to KPI months', () => {
     expect(normalizeKpi({ uuid: 'k', month: '2026-10' }).workOrderUuid).toBe('')
   })

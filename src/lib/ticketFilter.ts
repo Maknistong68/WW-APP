@@ -23,10 +23,12 @@ export interface TicketQuery {
   src?: string
   age?: AgingBucket
   owed?: TicketOwed
+  /** Cases that turned into a D&C ticket (yes) or not (no). */
+  link?: 'yes' | 'no'
 }
 
 /** The filter keys (everything except the tab). */
-export const QUERY_KEYS = ['c', 'wo', 'm', 'in', 'issue', 'cat', 'src', 'age', 'owed'] as const
+export const QUERY_KEYS = ['c', 'wo', 'm', 'in', 'issue', 'cat', 'src', 'age', 'owed', 'link'] as const
 type QueryKey = (typeof QUERY_KEYS)[number]
 
 /** Open at the end of `date`. Closed tickets without a date count as closed. */
@@ -61,6 +63,7 @@ export function parseTicketQuery(p: URLSearchParams): TicketQuery {
     const v = p.get(k)
     if (v) (q as Record<string, string>)[k] = v
   }
+  if (q.link !== undefined && q.link !== 'yes' && q.link !== 'no') delete q.link
   return q
 }
 
@@ -96,6 +99,8 @@ export function filterTickets(tickets: Ticket[], q: TicketQuery, today = localDa
     if (q.owed === 'open' && !(priced(t) && isOpen(t))) return false
     if (q.owed === 'paid' && !(priced(t) && !isOpen(t))) return false
     if (q.owed === 'any' && !priced(t)) return false
+    if (q.link === 'yes' && !t.linkedTicketUuid) return false
+    if (q.link === 'no' && !!t.linkedTicketUuid) return false
     return true
   })
 }
@@ -134,6 +139,7 @@ export function queryChips(q: TicketQuery, names: { contractor: (uuid: string) =
   if (q.src) chips.push({ keys: ['src'], label: q.src === 'Internal' ? 'Cases' : 'D&C' })
   if (q.age) chips.push({ keys: ['age'], label: AGE_LABEL[q.age] })
   if (q.owed) chips.push({ keys: ['owed'], label: OWED_LABEL[q.owed] })
+  if (q.link) chips.push({ keys: ['link'], label: q.link === 'yes' ? 'Turned into tickets' : 'Not turned into tickets' })
   return chips
 }
 

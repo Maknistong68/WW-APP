@@ -277,6 +277,12 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
     return name ? shortName(name) : 'No contractor'
   }
   const allOpen = [...d.tickets, ...d.cases].filter((t) => isOpen(t) && !t.parentUuid && t.openedAt)
+  const numberOf = new Map(d.tickets.map((t) => [t.uuid, t.ticketNo]))
+  // "CASE-0004 → WWCMPL-123": a case that turned into a D&C ticket says which
+  const numberLine = (t: (typeof allOpen)[number]) => {
+    const no = t.ticketNo || 'No number'
+    return t.linkedTicketUuid ? `${no} → ${numberOf.get(t.linkedTicketUuid) ?? 'ticket removed'}` : no
+  }
   for (const tab of ['tickets', 'internal'] as const) {
     const open = allOpen.filter((t) => sourceTab(t) === tab)
     const internal = tab === 'internal'
@@ -286,7 +292,7 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
       kind: 'ticket',
       group,
       title: whoOf(t.contractorUuid),
-      detail: `${t.ticketNo || 'No number'} · ${detail}`,
+      detail: `${numberLine(t)} · ${detail}`,
       due: addDays(t.openedAt, 30),
       dueText: `${ageDays(t, today)}d`,
       tone: toneFor(group),

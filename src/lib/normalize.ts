@@ -12,9 +12,11 @@ function legacyNumber(o: Record<string, unknown>): string {
 }
 
 export function normalizeTicket(raw: Record<string, unknown>): Ticket {
-  const t = raw as unknown as Ticket
+  const { linkedTicketUuid, ...t } = raw as unknown as Ticket
   return {
     ...t,
+    // a case's link to its D&C ticket: kept only when it names one (absent = not linked)
+    ...(typeof linkedTicketUuid === 'string' && linkedTicketUuid ? { linkedTicketUuid } : {}),
     ticketNo: (typeof raw.ticketNo === 'string' && raw.ticketNo) || legacyNumber(raw),
     source: raw.source === 'Internal' ? 'Internal' : 'System',
     workOrderUuid: typeof raw.workOrderUuid === 'string' ? raw.workOrderUuid : '',

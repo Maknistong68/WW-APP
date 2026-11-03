@@ -9,6 +9,8 @@ export type MenuAction =
   | 'edit'
   | 'contractor'
   | 'main'
+  | 'link'
+  | 'linked'
   | 'copy'
   | 'delete'
   | 'fill'
@@ -30,6 +32,7 @@ export const EDIT_ACTIONS: ReadonlySet<MenuAction> = new Set<MenuAction>([
   'closeGroup',
   'reopen',
   'edit',
+  'link',
   'delete',
   'fill',
   'docs',
@@ -46,7 +49,7 @@ export const EDIT_ACTIONS: ReadonlySet<MenuAction> = new Set<MenuAction>([
 export const viewerOnly = (ids: MenuAction[]) => ids.filter((a) => !EDIT_ACTIONS.has(a))
 
 export function ticketActions(
-  t: { status: string; contractorUuid: string; parentUuid?: string },
+  t: { status: string; contractorUuid: string; parentUuid?: string; source?: string; linkedTicketUuid?: string },
   ctx: { members?: number; admin?: boolean } = {},
 ): MenuAction[] {
   const open = t.status !== 'Closed'
@@ -55,6 +58,11 @@ export function ticketActions(
   if (open) ids.push(!isMember && (ctx.members ?? 0) > 0 ? 'closeGroup' : 'close')
   else ids.push('reopen')
   ids.push('edit')
+  // A case that turned into a D&C ticket: open that ticket; link (or change the link).
+  if (t.source === 'Internal') {
+    if (t.linkedTicketUuid) ids.push('linked')
+    ids.push('link')
+  }
   if (t.contractorUuid) ids.push('contractor')
   if (isMember) ids.push('main')
   ids.push('copy')

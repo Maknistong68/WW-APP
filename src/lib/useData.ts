@@ -117,6 +117,7 @@ export const FIELD_LABELS: Record<string, string> = {
   removed: 'Removed',
   source: 'Source',
   ticketNo: 'Ticket no.',
+  linkedTicketUuid: 'D&C ticket',
   channel: 'Channel',
   contractorUuid: 'Contractor',
   workOrderUuid: 'Work order',

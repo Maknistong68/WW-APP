@@ -71,6 +71,13 @@ export function ticketMenu(
     edit: { label: 'Edit', icon: 'pencil', onSelect: () => openSheet({ kind: 'ticketEdit', uuid: t.uuid }), edit: true },
     contractor: { label: 'Open contractor', icon: 'buildings', onSelect: () => go(`/contractors/${t.contractorUuid}`) },
     main: { label: `Open main ${kind}`, icon: 'arrow-right', onSelect: () => go(`/tickets/${t.parentUuid}`) },
+    linked: { label: 'Open D&C ticket', icon: 'arrow-right', onSelect: () => go(`/tickets/${t.linkedTicketUuid}`) },
+    link: {
+      label: t.linkedTicketUuid ? 'Change D&C ticket' : 'Turned into a ticket',
+      icon: 'ticket',
+      edit: true,
+      onSelect: () => openSheet({ kind: 'caseLink', uuid: t.uuid }),
+    },
     copy: { label: 'Copy number', icon: 'copy', onSelect: () => copyTicketNo(t) },
     delete: {
       label: `Remove ${kind}`,

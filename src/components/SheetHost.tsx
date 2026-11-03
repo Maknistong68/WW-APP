@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, type NavigateFunction } from 'react-router-dom'
 import { db } from '../db'
 import RemoveTicketSheet from './RemoveTicketSheet'
+import LinkTicketSheet from './LinkTicketSheet'
 import TicketSheet, { CloseTicketSheet } from './TicketSheet'
 import CloseTogetherSheet from './CloseTogetherSheet'
 import KpiSheet, { ManpowerSheet } from './KpiSheet'
@@ -24,9 +25,10 @@ import type { Camp, Contractor, KpiMonth, Manpower, Routine, Ticket } from '../t
 export type SheetRequest =
   | { kind: 'ticketEdit' | 'ticketClose'; uuid: string }
   | { kind: 'ticketDelete'; uuid: string; after?: () => void }
+  | { kind: 'caseLink'; uuid: string }
   | { kind: 'kpi' | 'manpower' | 'submission'; contractorUuid: string; workOrderUuid: string; month: string }
   | { kind: 'campEdit' | 'contractorEdit' | 'routineEdit'; uuid: string }
-  | { kind: 'confirm'; title: string; message: string; confirmLabel: string; destructive?: boolean; onConfirm: () => void }
+  | { kind: 'confirm'; title: string; message: string; confirmLabel: string; cancelLabel?: string; destructive?: boolean; onConfirm: () => void }
 
 type Shown =
   | { kind: 'campEdit'; camp: Camp }
@@ -35,10 +37,11 @@ type Shown =
   | { kind: 'ticketEdit' | 'ticketClose'; ticket: Ticket }
   | { kind: 'ticketGroup'; group: Ticket[]; all: Ticket[] }
   | { kind: 'ticketDelete'; ticket: Ticket; label: string; after?: () => void }
+  | { kind: 'caseLink'; kase: Ticket }
   | { kind: 'kpi'; contractor: Contractor; label: string; kpi: KpiMonth; auditPct: number | null }
   | { kind: 'manpower'; label: string; record: Manpower }
   | { kind: 'submission'; label: string; kpi: KpiMonth; prev?: KpiMonth }
-  | { kind: 'confirm'; title: string; message: string; confirmLabel: string; destructive?: boolean; onConfirm: () => void }
+  | { kind: 'confirm'; title: string; message: string; confirmLabel: string; cancelLabel?: string; destructive?: boolean; onConfirm: () => void }
 
 let opener: ((r: SheetRequest) => void) | null = null
 let nav: NavigateFunction | null = null
@@ -75,6 +78,10 @@ async function load(r: SheetRequest): Promise<Shown | null> {
     case 'routineEdit': {
       const routine = await db.routines.get(r.uuid)
       return routine ? { kind: 'routineEdit', routine } : null
+    }
+    case 'caseLink': {
+      const kase = await db.tickets.get(r.uuid)
+      return kase ? { kind: 'caseLink', kase } : null
     }
     case 'ticketEdit':
     case 'ticketDelete':
@@ -147,6 +154,8 @@ export default function SheetHost() {
       return <CloseTicketSheet ticket={shown.ticket} onClose={done} />
     case 'ticketGroup':
       return <CloseTogetherSheet selected={shown.group} all={shown.all} close onClose={done} />
+    case 'caseLink':
+      return <LinkTicketSheet kase={shown.kase} onClose={done} />
     case 'ticketDelete':
       return <RemoveTicketSheet ticket={shown.ticket} label={shown.label} after={shown.after} onClose={done} />
     case 'kpi':
@@ -161,6 +170,7 @@ export default function SheetHost() {
           title={shown.title}
           message={shown.message}
           confirmLabel={shown.confirmLabel}
+          cancelLabel={shown.cancelLabel}
           destructive={shown.destructive}
           onCancel={done}
           onConfirm={() => {

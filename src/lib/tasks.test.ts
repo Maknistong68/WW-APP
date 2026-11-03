@@ -121,6 +121,12 @@ describe('Home tasks: tickets, camps, drafts', () => {
     expect(late('tickets')[5].to).toBe('/tickets?f=late')
     expect(counts.overdue).toBe(13)
   })
+  it('a case that turned into a D&C ticket stays on Home (it is still open) and names the ticket', () => {
+    const hotline = [ticket('01', '2026-09-01')]
+    const cases = [{ ...ticket('11', '2026-09-02'), ticketNo: 'CASE-0011', source: 'Internal', linkedTicketUuid: '01' } as Ticket]
+    const row = buildTasks(base({ tickets: hotline, cases }), '2026-11-01').tasks.find((t) => t.ticketSource === 'internal')!
+    expect(row.detail.split(' · ')[0]).toBe('CASE-0011 → WWCMPL-01')
+  })
   it('a ticket row is named by the contractor\'s short name ("No contractor" when there is none)', () => {
     const long = { uuid: 'c2', name: 'Project Pioneers Contracting Company', active: true, aliases: [] } as unknown as Contractor
     const tickets = [{ ...ticket('08', '2026-09-01'), contractorUuid: 'c2' }, { ...ticket('09', '2026-09-02'), contractorUuid: '' }]

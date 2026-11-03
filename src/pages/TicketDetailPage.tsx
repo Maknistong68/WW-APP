@@ -28,6 +28,8 @@ import { ticketTone } from '../lib/tone'
 import { ticketMenu } from '../components/menus'
 import { useAuthInfo } from '../lib/auth'
 import { isCase, noun, sourceLabel } from '../lib/cases'
+import { casesFor, linkedTicket } from '../lib/caseLinks'
+import { openSheet } from '../components/SheetHost'
 
 function Field({ label, value, onOpen }: { label: string; value: string | number; onOpen?: () => void }) {
   if (value === '' || value === null || value === undefined) return null
@@ -95,6 +97,10 @@ export default function TicketDetailPage() {
     )
   const more = () =>
     ticketMenu(t, { members: isMain ? group.members.length : 0, onDeleted: () => navigate(list) })
+  // A case that turned into a D&C ticket, or the cases a D&C ticket came from.
+  const linkedTo = isCase(t) ? linkedTicket(t, allTickets ?? []) : undefined
+  const fromCases = isCase(t) ? [] : casesFor(t.uuid, allTickets ?? [])
+  const ticketNos = new Map((allTickets ?? []).map((x) => [x.uuid, x.ticketNo]))
 
   return (
     <Page title={t.ticketNo || Kind} back={list} backLabel={listLabel} album>
@@ -197,7 +203,42 @@ export default function TicketDetailPage() {
         </>
       )}
 
-      <History uuid={t.uuid} contractors={byUuid} />
+      {isCase(t) && (linkedTo || t.linkedTicketUuid || canEdit) && (
+        <>
+          <div className="section-label">Turned into a ticket</div>
+          <div className="list">
+            {linkedTo ? (
+              <TicketRow t={linkedTo} contractors={byUuid} wos={woByUuid} />
+            ) : t.linkedTicketUuid ? (
+              <div className="row">
+                <span className="row-main">
+                  <div className="row-title">That D&C ticket was removed</div>
+                </span>
+              </div>
+            ) : null}
+            {canEdit && (
+              <button className="row tint" onClick={() => openSheet({ kind: 'caseLink', uuid: t.uuid })}>
+                {t.linkedTicketUuid ? 'Change or unlink' : 'Link to the D&C ticket'}
+              </button>
+            )}
+          </div>
+          <div className="list-foot">
+            {t.linkedTicketUuid ? `The case stays ${open ? 'open' : 'closed'} on its own; closing the ticket asks about it.` : 'If this case became a D&C ticket, link it here. It stays open.'}
+          </div>
+        </>
+      )}
+      {fromCases.length > 0 && (
+        <>
+          <div className="section-label">From cases · {fromCases.length}</div>
+          <div className="list">
+            {fromCases.map((c) => (
+              <TicketRow key={c.uuid} t={c} contractors={byUuid} wos={woByUuid} />
+            ))}
+          </div>
+        </>
+      )}
+
+      <History uuid={t.uuid} contractors={byUuid} ticketNos={ticketNos} />
 
       <ActionBar
         secondary={[

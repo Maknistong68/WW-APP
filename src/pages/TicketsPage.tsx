@@ -18,6 +18,7 @@ import { haptic } from '../lib/haptics'
 import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
 import { memberCounts, sameKind } from '../lib/groups'
+import { linkIndex, linkText } from '../lib/caseLinks'
 import { showToast } from '../components/Toast'
 import { ageDays, ageLabel, isOpen } from '../lib/aging'
 import { monthLabel } from '../lib/dates'
@@ -51,6 +52,7 @@ export function TicketRow({
   wos,
   sub,
   group,
+  link,
   selected,
   onSelect,
   onMore,
@@ -64,6 +66,8 @@ export function TicketRow({
   sub?: string
   /** "+2" on a main ticket, "↳ WWCMPL…" on a combined one */
   group?: string
+  /** "→ WWCMPL-123" on a case that turned into a D&C ticket, "From CASE-0004" on that ticket */
+  link?: string
   selected?: boolean
   onSelect?: () => void
   /** Long-press actions; defaults to the shared ticket menu. */
@@ -76,7 +80,10 @@ export function TicketRow({
   const more = onMore ?? (() => ticketMenu(t, { sub: ticketSub(t, contractors, wos), members }))
   const number = t.ticketNo || 'No number'
   const who = contractors?.get(t.contractorUuid)?.name
-  const line = [contractors ? number : '', sub ?? ticketSub(t, undefined, wos)].filter(Boolean).join(' · ')
+  // "CASE-0001 → WWCMPL0009001" on a linked case; "From CASE-0001" after a ticket's number
+  const toTicket = !!link && link.startsWith('→')
+  const lead = contractors ? (toTicket ? `${number} ${link}` : number) : toTicket ? link : ''
+  const line = [lead, !toTicket ? link : '', sub ?? ticketSub(t, undefined, wos)].filter(Boolean).join(' · ')
   return (
     <ItemRow
       selected={selected}
@@ -95,6 +102,7 @@ export function TicketRow({
         <span style={contractors ? undefined : { fontVariantNumeric: 'tabular-nums' }}>
           {contractors ? (who ? shortName(who) : 'No contractor') : number}
           {group && <span className="group-chip">{group}</span>}
+          {link && <span className="group-chip link-chip">{toTicket ? '→ D&C' : 'From case'}</span>}
         </span>
       }
       sub={<span style={{ fontVariantNumeric: 'tabular-nums' }}>{line}</span>}
@@ -197,6 +205,8 @@ export default function TicketsPage() {
   const workers = visible.reduce((s, t) => s + (t.workers || 0), 0)
   const byTicketUuid = useMemo(() => new Map((tickets ?? []).map((t) => [t.uuid, t])), [tickets])
   const members = useMemo(() => memberCounts(tickets ?? []), [tickets])
+  const links = useMemo(() => linkIndex(tickets ?? []), [tickets])
+  const linkLabel = (t: Ticket) => linkText(t, links, byTicketUuid) || undefined
   const groupLabel = (t: Ticket) =>
     t.parentUuid ? `↳ ${byTicketUuid.get(t.parentUuid)?.ticketNo ?? 'combined'}` : members.get(t.uuid) ? `+${members.get(t.uuid)}` : undefined
   const toggle = (uuid: string) =>
@@ -315,15 +325,16 @@ export default function TicketsPage() {
                   contractors={byUuid}
                   wos={woByUuid}
                   group={groupLabel(t)}
+                  link={linkLabel(t)}
                   selected={picked.has(t.uuid)}
                   onSelect={() => toggle(t.uuid)}
                 />
               ) : isOpen(t) && canEdit ? (
                 <SwipeRow key={t.uuid} actionLabel="Close" onAction={() => openSheet({ kind: 'ticketClose', uuid: t.uuid })}>
-                  <TicketRow t={t} contractors={byUuid} wos={woByUuid} group={groupLabel(t)} onMore={() => more(t)} />
+                  <TicketRow t={t} contractors={byUuid} wos={woByUuid} group={groupLabel(t)} link={linkLabel(t)} onMore={() => more(t)} />
                 </SwipeRow>
               ) : (
-                <TicketRow key={t.uuid} t={t} contractors={byUuid} wos={woByUuid} group={groupLabel(t)} onMore={() => more(t)} />
+                <TicketRow key={t.uuid} t={t} contractors={byUuid} wos={woByUuid} group={groupLabel(t)} link={linkLabel(t)} onMore={() => more(t)} />
               ),
             )}
             </CardList>

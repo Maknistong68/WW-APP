@@ -144,6 +144,7 @@ export function ConfirmSheet({
   title,
   message,
   confirmLabel,
+  cancelLabel = 'Cancel',
   destructive,
   onConfirm,
   onCancel,
@@ -151,6 +152,8 @@ export function ConfirmSheet({
   title: string
   message: string
   confirmLabel: string
+  /** The other button ("Keep open"); Cancel when not given. */
+  cancelLabel?: string
   destructive?: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -164,7 +167,7 @@ export function ConfirmSheet({
       </div>
       <div className="dialog-actions">
         <button className="dialog-btn" onClick={() => ref.current?.close()}>
-          Cancel
+          {cancelLabel}
         </button>
         <button className={`dialog-btn ${destructive ? 'danger' : 'strong'}`} onClick={() => ref.current?.close(onConfirm)}>
           {confirmLabel}

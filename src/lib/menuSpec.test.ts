@@ -29,6 +29,14 @@ describe('Ticket menu', () => {
     expect(viewerOnly(ticketActions(open))).toEqual(['contractor', 'copy'])
     expect(EDIT_ACTIONS.has('delete')).toBe(true)
   })
+  it('a case can be linked to the D&C ticket it turned into; a linked one opens it', () => {
+    const kase = { ...open, source: 'Internal' }
+    expect(ticketActions(kase)).toEqual(['close', 'edit', 'link', 'contractor', 'copy'])
+    expect(ticketActions({ ...kase, linkedTicketUuid: 't1' })).toEqual(['close', 'edit', 'linked', 'link', 'contractor', 'copy'])
+    expect(viewerOnly(ticketActions({ ...kase, linkedTicketUuid: 't1' }))).toEqual(['linked', 'contractor', 'copy'])
+    // D&C tickets: nothing new
+    expect(ticketActions({ ...open, source: 'System' })).toEqual(['close', 'edit', 'contractor', 'copy'])
+  })
 })
 
 describe('Other menus', () => {

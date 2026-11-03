@@ -14,6 +14,7 @@ import SaveButton from './SaveButton'
 import { closingAmount, parseSar, sarInput } from '../lib/money'
 import { isCase, nextCaseNo, noun } from '../lib/cases'
 import { db } from '../db'
+import { askCloseLinkedCases } from './closeLinked'
 import type { Ticket } from '../types'
 
 const NEW = '__new__'
@@ -53,7 +54,16 @@ const usedNumbers = async () => (await db.tickets.orderBy('ticketNo').keys()) as
  * Add / edit a D&C ticket or one of the team's own cases (the + menu picks which).
  * Four things up front; the rest under "More". A case's number is given, not typed.
  */
-export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClose: () => void }) {
+export default function TicketSheet({
+  ticket,
+  onClose,
+  onSaved,
+}: {
+  ticket: Ticket
+  onClose: () => void
+  /** After it saved (e.g. link the case a new D&C ticket came from); an error shows like a save error. */
+  onSaved?: (saved: Ticket) => Promise<void>
+}) {
   const { all: contractors, byUuid, workOrders } = useContractors()
   const [t, setT] = useState(ticket)
   const [more, setMore] = useState(!!ticket.updatedAt)
@@ -95,8 +105,9 @@ export default function TicketSheet({ ticket, onClose }: { ticket: Ticket; onClo
         byUuid.set(c.uuid, c)
         rec = { ...rec, contractorUuid: c.uuid }
       }
-      await saveRecord('tickets', rec, ticketLabel(rec, byUuid))
-      showToast({ text: isNew ? `${kind} added` : `${kind} saved` })
+      const saved = await saveRecord('tickets', rec, ticketLabel(rec, byUuid))
+      if (onSaved) await onSaved(saved)
+      else showToast({ text: isNew ? `${kind} added` : `${kind} saved` })
       // slide the sheet away, then close
       if (sheet.current) sheet.current.close()
       else onClose()
@@ -334,7 +345,7 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
         if ('error' in r) return r.error
         amountOwed = r.amount
       }
-      await saveRecord(
+      const saved = await saveRecord<Ticket>(
         'tickets',
         { ...ticket, status: 'Closed', closedAt: date, amountOwed, wwAction: action.trim(), contractorAction: contractorAction.trim() },
         ticketLabel(ticket, byUuid),
@@ -342,9 +353,13 @@ export function CloseTicketSheet({ ticket, onClose }: { ticket: Ticket; onClose:
       )
       haptic('success')
       showToast({ text: `${Noun(ticket)} closed` })
-      // slide the sheet away, then close
-      if (sheet.current) sheet.current.close()
-      else onClose()
+      // slide the sheet away, then ask about cases that turned into this ticket
+      const after = () => {
+        onClose()
+        void askCloseLinkedCases([saved], date)
+      }
+      if (sheet.current) sheet.current.close(after)
+      else after()
     })
 
   return (
