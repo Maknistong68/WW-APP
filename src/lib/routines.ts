@@ -98,3 +98,11 @@ export function repeatText(r: Schedule): string {
  * the task late on day one (a daily or weekly one due today still shows).
  */
 export const freshDoneThrough = (repeat: RoutineRepeat, today: string) => (repeat === 'once' ? '' : addDays(today, -1))
+
+/** Someone else's task that only they see (on a shared phone). */
+export const isForeignTask = (r: Pick<Routine, 'visibility' | 'ownerId'>, userId: string) =>
+  r.visibility === 'me' && !!r.ownerId && r.ownerId !== userId
+
+/** The tasks this person sees: everyone's, and their own private ones. A phone-only copy (no one signed in) shows all. */
+export const visibleRoutines = <T extends Pick<Routine, 'visibility' | 'ownerId'>>(rows: T[], userId: string): T[] =>
+  userId ? rows.filter((r) => !isForeignTask(r, userId)) : rows

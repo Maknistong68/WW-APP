@@ -53,8 +53,8 @@ export default function ActivityPage() {
   const ticketNos = useMemo(() => new Map((tickets ?? []).map((t) => [t.uuid, t.ticketNo])), [tickets])
 
   const visible = useMemo(
-    () => filterActivity(entries ?? [], { entity: filter, action, period, query, by: who }),
-    [entries, filter, action, period, query, who],
+    () => filterActivity(entries ?? [], { entity: filter, action, period, query, by: who, me: userId }),
+    [entries, filter, action, period, query, who, userId],
   )
 
   /** Open what the entry is about (deleted things have nowhere to go). */

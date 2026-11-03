@@ -8,3 +8,7 @@ import type { ActivityEntry } from '../types'
  */
 export const mineToSend = (entries: ActivityEntry[], userId: string): ActivityEntry[] =>
   entries.filter((a) => !a.synced && (!a.by || a.by === userId))
+
+/** Someone else's private entries already on the server: they leave a shared phone (their owner pulls them back). */
+export const foreignPrivate = (entries: ActivityEntry[], userId: string): ActivityEntry[] =>
+  entries.filter((a) => a.private && a.synced && !!a.by && a.by !== userId)

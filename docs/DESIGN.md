@@ -196,6 +196,9 @@ per screen.
       day they are late. Missed repeats don't pile up: only the latest one shows.
     - Tap or swipe to tick off (check, slide away, Undo toast); hold for Done / Skip this time /
       Edit / Delete.
+    - **Who sees it**: a `.segmented.fit` **Everyone | Only me** in the task sheet (for whoever adds
+      it, and later only its owner; not on a phone-only copy). Only me hides the task and its changes
+      from everyone else, the admin too; its Home row starts "Only me ·".
 - **Contractor:** two tabs, **This month | Trends** (`?tab=trends`).
   - Active = followed: switched on with an active work order, or with none at all
     (`isFollowed`, `src/lib/subjects.ts`). All work orders off means Inactive. Hold a contractor to

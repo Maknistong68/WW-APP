@@ -1,7 +1,7 @@
 import type { ActivityChange } from '../types'
 
 /** Fields never shown in the activity log. */
-const IGNORED = new Set(['uuid', 'updatedAt'])
+const IGNORED = new Set(['uuid', 'updatedAt', 'ownerId'])
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
 

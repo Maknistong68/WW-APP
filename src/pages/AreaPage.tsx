@@ -9,9 +9,7 @@ import { useAuthInfo } from '../lib/auth'
 import { localDate } from '../lib/dates'
 import { lastEndedMonth } from '../lib/due'
 import { useAllData } from '../lib/kpiData'
-import { useCachedLiveQuery } from '../lib/useCachedQuery'
-import { newRoutine } from '../lib/useData'
-import { db } from '../db'
+import { newRoutine, useRoutines } from '../lib/useData'
 import { AREAS, areaSummaries, buildTasks, isArea, tasksIn } from '../lib/tasks'
 import { parseSourceTab, type SourceTab } from '../lib/ticketFilter'
 import type { Routine } from '../types'
@@ -26,10 +24,10 @@ export default function AreaPage() {
   const tab = parseSourceTab(params)
   const d = useAllData()
   const navigate = useNavigate()
-  const { canEdit } = useAuthInfo()
+  const { canEdit, userId } = useAuthInfo()
   const today = localDate()
   const [adding, setAdding] = useState<Routine | null>(null)
-  const routines = useCachedLiveQuery('routines', () => db.routines.toArray())
+  const routines = useRoutines(userId)
   const list = useMemo(() => (d.loaded && routines ? buildTasks(d, today, { routines }) : null), [d, today, routines])
   const inArea = useMemo(() => (list && isArea(area) ? tasksIn(list.tasks, area) : null), [list, area])
   const tabbed = area === 'tickets'

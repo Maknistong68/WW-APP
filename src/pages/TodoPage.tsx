@@ -18,9 +18,7 @@ import { lastEndedMonth } from '../lib/due'
 import { haptic } from '../lib/haptics'
 import { DEFAULT_ORDER, greeting, loadOrder, moveSection, saveOrder, type HomeSection } from '../lib/homeLayout'
 import { useAllData } from '../lib/kpiData'
-import { useCachedLiveQuery } from '../lib/useCachedQuery'
-import { newRoutine } from '../lib/useData'
-import { db } from '../db'
+import { newRoutine, useRoutines } from '../lib/useData'
 import { AREAS, areaSummaries, buildTasks } from '../lib/tasks'
 import type { Routine } from '../types'
 
@@ -46,13 +44,13 @@ function burstToday(today: string): boolean {
 export default function TodoPage() {
   const d = useAllData()
   const navigate = useNavigate()
-  const { canEdit } = useAuthInfo()
+  const { canEdit, userId } = useAuthInfo()
   const today = localDate()
   const [adding, setAdding] = useState<Routine | null>(null)
   const [order, setOrder] = useState<HomeSection[]>(loadOrder)
   const [editing, setEditing] = useState(false)
   // Routine tasks the team added (+ → Task); shown once both have loaded.
-  const routines = useCachedLiveQuery('routines', () => db.routines.toArray())
+  const routines = useRoutines(userId)
   const list = useMemo(() => (d.loaded && routines ? buildTasks(d, today, { routines }) : null), [d, today, routines])
   const areas = useMemo(() => (list ? areaSummaries(list.tasks) : null), [list])
   const urgent = useMemo(() => (list ? list.tasks.filter((t) => t.group === 'overdue' || t.group === 'week') : []), [list])

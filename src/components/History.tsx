@@ -31,6 +31,7 @@ function show(v: unknown, field: string, contractors?: Map<string, Contractor>, 
   if (v === null || v === undefined || v === '') return '—'
   if (field === 'contractorUuid' && contractors) return contractors.get(String(v))?.name ?? '—'
   if (field === 'linkedTicketUuid') return ticketNos?.get(String(v)) ?? 'a removed ticket'
+  if (field === 'visibility') return v === 'me' ? 'Only me' : 'Everyone'
   if (typeof v === 'boolean') return v ? 'Yes' : 'No'
   if (field === 'source') return sourceLabel(String(v))
   if (field === 'meetingPct' && typeof v === 'number') return meetingAttended(v) ? 'Yes' : 'No'
@@ -74,12 +75,14 @@ export default function History({
   const entries = useLiveQuery(() => db.activity.where('entityUuid').equals(uuid).reverse().sortBy('time'), [uuid])
   const team = useTeam()
   const { userId } = useAuthInfo()
-  if (!entries || entries.length === 0) return null
+  // someone else's private task entries (a shared phone): not shown
+  const shown = (entries ?? []).filter((e) => !(userId && e.private && e.by && e.by !== userId))
+  if (shown.length === 0) return null
   return (
     <>
       <div className="section-label">History</div>
       <div className="list">
-        {entries.map((e) => (
+        {shown.map((e) => (
           <div key={e.uuid} className="row" style={{ alignItems: 'flex-start' }}>
             <div className="row-main">
               <div className="row-title" style={{ fontSize: 15 }}>

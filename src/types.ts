@@ -276,6 +276,10 @@ export type RoutineRepeat = 'once' | 'daily' | 'weekly' | 'monthly'
  */
 export interface Routine extends RecordBase {
   title: string
+  /** Who sees it: the whole team (default) or only the person who added it (enforced by the server). */
+  visibility?: 'everyone' | 'me'
+  /** Who added it (user id; '' on a phone-only copy). Never changes. */
+  ownerId?: string
   repeat: RoutineRepeat
   /** YYYY-MM-DD: the due date (once) or the first one (repeats). */
   start: string
@@ -444,4 +448,6 @@ export interface ActivityEntry {
   byName?: string
   /** Set once the entry reached Supabase. */
   synced?: boolean
+  /** About a task only its owner sees: the server shows the entry to them only. */
+  private?: true
 }

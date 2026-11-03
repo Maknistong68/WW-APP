@@ -1,8 +1,10 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { db, logEvent, newUuid } from '../db'
 import { NORMALIZE } from './normalize'
-import { mineToSend } from './activityPush'
+import { foreignPrivate, mineToSend } from './activityPush'
 import { monthTwinKeepsPulled, newer } from './syncRules'
+import { planRecordSync } from './syncPlan'
+import { isForeignTask } from './routines'
 
 export { newer }
 import type { ActivityEntry, Inspection, Photo, RecordTable } from '../types'
@@ -129,7 +131,8 @@ async function selectAll<T>(c: SupabaseClient, table: string, columns: string): 
   const PAGE = 1000
   const rows: T[] = []
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await c.from(table).select(columns).range(from, from + PAGE - 1)
+    // a fixed order, so paging never skips or repeats a row (the task rules need the full list)
+    const { data, error } = await c.from(table).select(columns).order('uuid').range(from, from + PAGE - 1)
     if (error) throw new Error(error.message)
     rows.push(...((data ?? []) as unknown as T[]))
     if (!data || data.length < PAGE) return rows
@@ -494,42 +497,49 @@ async function syncRecordTable(
     delete(k: string): Promise<void>
   }
   const remote = await selectAll<RemoteInspectionRow>(c, remoteName, 'uuid, updated_at, deleted')
-  const remoteMap = new Map(remote.map((r) => [r.uuid, r]))
-  const localMap = new Map((await local.toArray()).map((r) => [r.uuid, r]))
-
-  for (const r of remote) {
-    const l = localMap.get(r.uuid)
-    if (!r.deleted || !l || newer(l.updatedAt, r.updated_at)) continue
-    await local.delete(r.uuid)
-    localMap.delete(r.uuid)
+  const remoteUuids = new Set(remote.map((r) => r.uuid))
+  // Tasks can be private (only their owner sees them): remember what the server showed, so one
+  // that disappears (made private by its owner) leaves this phone, and never send someone else's.
+  const tasks = table === 'routines'
+  const plan = planRecordSync({
+    local: await local.toArray(),
+    remote,
+    readOnly,
+    ...(tasks ? { seen: readSeen(), foreign: (r: SyncedRecord) => isForeignTask(r as { visibility?: 'everyone' | 'me'; ownerId?: string }, userId) } : {}),
+  })
+  for (const uuid of [...plan.remove, ...plan.hidden]) {
+    await local.delete(uuid)
     result.deleted++
   }
+  if (tasks) writeSeen(plan.seen)
 
-  const toPush = [...localMap.values()].filter((l) => {
-    if (readOnly) return false
-    const r = remoteMap.get(l.uuid)
-    return !r || newer(l.updatedAt, r.updated_at)
-  })
+  const rowOf = (l: SyncedRecord) => ({ uuid: l.uuid, user_id: userId, data: l, updated_at: l.updatedAt, deleted: false })
+  const toPush = plan.push
   for (let i = 0; i < toPush.length; i += 200) {
     const batch = toPush.slice(i, i + 200)
     try {
-      const { error } = await c.from(remoteName).upsert(
-        batch.map((l) => ({ uuid: l.uuid, user_id: userId, data: l, updated_at: l.updatedAt, deleted: false })),
-      )
+      const { error } = await c.from(remoteName).upsert(batch.map(rowOf))
       if (error) throw new Error(error.message)
       result.records += batch.length
     } catch (err) {
-      fail(`Push ${table}`, err)
+      if (!tasks) {
+        fail(`Push ${table}`, err)
+        continue
+      }
+      // Tasks: one refused row (a task made private by its owner before this phone knew)
+      // must not hold back the rest. One at a time; a refused one that isn't visible leaves.
+      for (const l of batch) {
+        const { error } = await c.from(remoteName).upsert([rowOf(l)])
+        if (!error) result.records++
+        else if (!remoteUuids.has(l.uuid)) {
+          await local.delete(l.uuid)
+          result.deleted++
+        } else fail(`Push ${table} ${l.uuid}`, new Error(error.message))
+      }
     }
   }
 
-  const toPull = remote
-    .filter((r) => {
-      if (r.deleted) return false
-      const l = localMap.get(r.uuid)
-      return !l || newer(r.updated_at, l.updatedAt)
-    })
-    .map((r) => r.uuid)
+  const toPull = plan.pull
   for (let i = 0; i < toPull.length; i += 200) {
     const ids = toPull.slice(i, i + 200)
     try {
@@ -554,8 +564,32 @@ async function syncRecordTable(
   }
 }
 
+/**
+ * Tasks this phone saw on the server last time (whoever was signed in), for the
+ * private-task rule: one that was there and now isn't for this person leaves the phone.
+ */
+const SEEN_KEY = 'ww.seen.routines'
+function readSeen(): Record<string, string> | undefined {
+  try {
+    const v = localStorage.getItem(SEEN_KEY)
+    return v ? (JSON.parse(v) as Record<string, string>) : undefined
+  } catch {
+    return undefined
+  }
+}
+function writeSeen(seen: Record<string, string>) {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify(seen))
+  } catch {
+    // private mode: the rule starts again next time
+  }
+}
+
 /** Activity log is append-only: push unsent entries, pull ones this device lacks. */
 async function syncActivity(c: SupabaseClient, userId: string, result: SyncResult, readOnly = false): Promise<void> {
+  // Someone else's private task entries (a shared phone) leave once they are on the server.
+  const theirs = foreignPrivate(await db.activity.toArray(), userId)
+  if (theirs.length) await db.activity.bulkDelete(theirs.map((a) => a.uuid))
   const unsent = readOnly ? [] : mineToSend(await db.activity.toArray(), userId)
   for (let i = 0; i < unsent.length; i += 200) {
     const batch = unsent.slice(i, i + 200)

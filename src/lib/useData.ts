@@ -2,7 +2,9 @@ import { useMemo } from 'react'
 import { useCachedLiveQuery } from './useCachedQuery'
 import { db, newUuid } from '../db'
 import { localDate } from './dates'
+import { getActor } from './actor'
 import { isCase, nextCaseNo } from './cases'
+import { visibleRoutines } from './routines'
 import { TICKET_PREFIX } from './lists'
 import { sar } from './money'
 import type { Contractor, Routine, Ticket, WorkOrder } from '../types'
@@ -65,9 +67,9 @@ export function newTicket(): Ticket {
   }
 }
 
-/** A new routine task: weekly from today, not done yet. */
-export function newRoutine(today = localDate()): Routine {
-  return { uuid: newUuid(), updatedAt: '', title: '', repeat: 'weekly', start: today, doneThrough: '', notes: '' }
+/** A new routine task: weekly from today, not done yet, seen by everyone; owned by whoever adds it. */
+export function newRoutine(today = localDate(), ownerId = getActor()?.id ?? ''): Routine {
+  return { uuid: newUuid(), updatedAt: '', title: '', repeat: 'weekly', start: today, doneThrough: '', notes: '', visibility: 'everyone', ownerId }
 }
 
 export function newContractor(name = ''): Contractor {
@@ -148,6 +150,7 @@ export const FIELD_LABELS: Record<string, string> = {
   manpowerDecl: 'Manpower register',
   salaryDecl: 'Salary declaration',
   notProvided: 'Not provided',
+  visibility: 'Who sees it',
   docs: 'Documents',
   accommodationPct: 'Accommodation %',
   onboardingPct: 'Onboarding %',
@@ -161,4 +164,10 @@ export const FIELD_LABELS: Record<string, string> = {
   visaExpiring30d: 'Visas expiring',
   paidRecruitmentFees: 'Paid recruitment fees',
   month: 'Month',
+}
+
+/** The tasks this person sees: everyone's and their own private ones (src/lib/routines.ts). */
+export function useRoutines(userId: string): Routine[] | undefined {
+  const rows = useCachedLiveQuery('routines', () => db.routines.toArray())
+  return useMemo(() => (rows ? visibleRoutines(rows, userId) : undefined), [rows, userId])
 }

@@ -23,12 +23,14 @@ export const PERIODS: { key: Period; label: string }[] = [
 /** Pure filter so it can be unit-tested. */
 export function filterActivity(
   entries: ActivityEntry[],
-  f: { entity: 'all' | ActivityEntity; action: ActionFilter; period: Period; query: string; by?: string },
+  f: { entity: 'all' | ActivityEntity; action: ActionFilter; period: Period; query: string; by?: string; me?: string },
   now = Date.now(),
 ): ActivityEntry[] {
   const q = f.query.trim().toLowerCase()
   const since = f.period === 'all' ? 0 : now - Number(f.period) * 86400000
   return entries.filter((e) => {
+    // someone else's private task (a shared phone): not shown
+    if (f.me && e.private && e.by && e.by !== f.me) return false
     const entityOk =
       f.entity === 'all' ||
       e.entity === f.entity ||

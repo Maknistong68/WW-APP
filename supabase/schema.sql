@@ -634,3 +634,65 @@ revoke all on function private.purge_deleted() from public, anon, authenticated;
 create extension if not exists pg_cron;
 select cron.unschedule(jobid) from cron.job where jobname = 'ww-purge-deleted';
 select cron.schedule('ww-purge-deleted', '17 2 * * *', 'select private.purge_deleted()');
+
+-- ---------------------------------------------------------------------------
+-- Tasks: Everyone / Only me (migration task_visibility). A private task
+-- (data.visibility = 'me') is seen and changed only by its owner
+-- (data.ownerId), and so are its activity entries; the admin too sees only
+-- their own. The owner never changes, and only the owner picks who sees a
+-- task (kept quietly, like the ticket-removal guard). Safe to re-run.
+-- ---------------------------------------------------------------------------
+alter table public.routines add column if not exists owner_id text
+  generated always as (nullif(data ->> 'ownerId', '')) stored;
+alter table public.routines add column if not exists is_private boolean
+  generated always as (coalesce(data ->> 'visibility', 'everyone') = 'me') stored;
+
+alter policy "team read" on public.routines
+  using ((select private.is_approved()) and (not is_private or owner_id = (select auth.uid())::text));
+alter policy "team add" on public.routines
+  with check ((select private.can_edit()) and (not is_private or owner_id = (select auth.uid())::text));
+alter policy "team change" on public.routines
+  using ((select private.can_edit()) and (not is_private or owner_id = (select auth.uid())::text))
+  with check ((select private.can_edit()) and (not is_private or owner_id = (select auth.uid())::text));
+alter policy "team remove" on public.routines
+  using ((select private.can_edit()) and (not is_private or owner_id = (select auth.uid())::text));
+
+create or replace function private.guard_routine_owner() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  was_owner text := nullif(old.data ->> 'ownerId', '');
+  me text := (select auth.uid())::text;
+begin
+  if me is null or was_owner is null then
+    return new;
+  end if;
+  if (new.data ->> 'ownerId') is distinct from was_owner then
+    new.data := jsonb_set(new.data, '{ownerId}', to_jsonb(was_owner));
+    new.updated_at := greatest(now(), old.updated_at + interval '1 millisecond');
+  end if;
+  if was_owner <> me
+     and coalesce(new.data ->> 'visibility', 'everyone') is distinct from coalesce(old.data ->> 'visibility', 'everyone') then
+    new.data := jsonb_set(new.data, '{visibility}', to_jsonb(coalesce(old.data ->> 'visibility', 'everyone')));
+    new.updated_at := greatest(now(), old.updated_at + interval '1 millisecond');
+  end if;
+  return new;
+end $$;
+revoke all on function private.guard_routine_owner() from public, anon, authenticated;
+create or replace trigger guard_routine_owner before update on public.routines
+  for each row execute function private.guard_routine_owner();
+
+-- Older tasks: the owner is whoever added them (from the activity log).
+update public.routines r
+set data = r.data || jsonb_build_object('ownerId', a.user_id::text),
+    updated_at = r.updated_at + interval '1 millisecond'
+from (
+  select distinct on (data ->> 'entityUuid') data ->> 'entityUuid' as uuid, user_id
+  from public.activity_log
+  where data ->> 'entity' = 'routine' and data ->> 'action' = 'add'
+  order by data ->> 'entityUuid', time
+) a
+where a.uuid = r.uuid::text and coalesce(r.data ->> 'ownerId', '') = '' and not r.deleted;
+
+-- A private task's activity entries: only their author sees them.
+alter policy "team activity read" on public.activity_log
+  using ((select private.is_approved()) and ((data ->> 'private') is distinct from 'true' or user_id = (select auth.uid())));

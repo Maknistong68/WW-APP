@@ -1,6 +1,6 @@
 import type { Table } from 'dexie'
 import { db, logEvent } from '../db'
-import { activityEntry } from './activityEntry'
+import { activityEntry, entryIsPrivate } from './activityEntry'
 
 export { activityEntry }
 import { diffRecords } from './diff'
@@ -81,8 +81,9 @@ export async function saveRecord<T extends AnyRecord>(
     if (before && changes.length === 0) return before
     const saved = { ...record, updatedAt: nowIso() }
     await t.put(saved)
+    // a task only its owner sees: so is its log entry (as the task is now saved)
     await db.activity.add(
-      activityEntry(ENTITY_OF[table], record.uuid, action ?? (before ? 'edit' : 'add'), label, changes),
+      activityEntry(ENTITY_OF[table], record.uuid, action ?? (before ? 'edit' : 'add'), label, changes, { private: entryIsPrivate(table, saved) }),
     )
     return saved
   })
@@ -105,8 +106,9 @@ export async function removeTicket(uuid: string, reason: string, label: string):
 export async function removeRecord(table: RecordTable, uuid: string, label: string): Promise<void> {
   const t = tableOf(table)
   await db.transaction('rw', t, db.tombstones, db.activity, async () => {
+    const was = await t.get(uuid)
     await t.delete(uuid)
     await db.tombstones.add({ table, uuid })
-    await db.activity.add(activityEntry(ENTITY_OF[table], uuid, 'delete', label))
+    await db.activity.add(activityEntry(ENTITY_OF[table], uuid, 'delete', label, [], { private: entryIsPrivate(table, was) }))
   })
 }

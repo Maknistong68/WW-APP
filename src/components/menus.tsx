@@ -342,7 +342,7 @@ export function routineMenu(r: Routine, o: { due: string; sub: string; tone: Ton
         openSheet({
           kind: 'confirm',
           title: `Delete “${title}”?`,
-          message: 'It disappears for the whole team. The activity log keeps a record.',
+          message: r.visibility === 'me' ? 'It disappears. Your activity log keeps a record.' : 'It disappears for the whole team. The activity log keeps a record.',
           confirmLabel: 'Delete task',
           destructive: true,
           onConfirm: () =>

@@ -47,7 +47,11 @@ npm run build   # strict tsc + vite build
   `src/components/HomeEditor.tsx`; Start here `src/components/StartHere.tsx` (cards: `TaskCard`).
 - Home task list: `src/lib/tasks.ts` (areas: `AREAS`, `areaSummaries`, `areaTile`, icons
   `src/components/AreaCard.tsx`; rows `src/components/TaskRow.tsx`; an area's list `src/pages/AreaPage.tsx`, `/today/:area`; due rules in `src/lib/due.ts`; the team's own routine tasks in
-  `src/lib/routines.ts`, table `routines`, sheet `src/components/RoutineSheet.tsx`); the per-work-order checks and
+  `src/lib/routines.ts`, table `routines`, sheet `src/components/RoutineSheet.tsx`; each task is **Everyone** or **Only me**:
+  `visibility` + `ownerId`, hidden from everyone else — the admin too — by the server (policies on `routines` and
+  "team activity read" via generated `owner_id` / `is_private`, owner guard trigger `private.guard_routine_owner`), on
+  the phone by `visibleRoutines` / `useRoutines`, log entries marked `private` (`entryIsPrivate`); sync drops a task
+  that vanished from the server and never sends someone else's private one: `src/lib/syncPlan.ts`); the per-work-order checks and
   Monthly entry: `src/lib/todo.ts` (`SUBJECT_ITEMS`).
 - Long-press menus: `src/components/menus.tsx` (rules in `src/lib/menuSpec.ts`), sheets opened from
   anywhere via `SheetHost`; ticket drill-down filters: `src/lib/ticketFilter.ts`.

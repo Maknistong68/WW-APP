@@ -442,7 +442,7 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
       kind: 'routine',
       group,
       title: r.title || 'Task',
-      detail: [repeatText(r), r.notes.trim().split('\n')[0]].filter(Boolean).join(' · '),
+      detail: [r.visibility === 'me' ? 'Only me' : '', repeatText(r), r.notes.trim().split('\n')[0]].filter(Boolean).join(' · '),
       due,
       dueText: group === 'overdue' ? `${daysDiff(due, today)}d late` : due === today ? 'Today' : `due ${dayMonth(due)}`,
       tone: toneFor(group),
