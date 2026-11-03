@@ -15,7 +15,10 @@ import { isOpen } from '../lib/aging'
 import { CAMP_STATUS_LABEL, campState } from '../lib/camps'
 import { dashView, lastMonths, type DashView } from '../lib/dashboard'
 import { addMonths, localDate, monthLabel, monthOf } from '../lib/dates'
-import { exploreChip, exploreData, type ExploreHold } from '../lib/explore'
+import { exploreChip, exploreChips, exploreData, type ExploreHold } from '../lib/explore'
+import { dashSource } from '../lib/dashSource'
+import SourceTabs from '../components/SourceTabs'
+import type { ListTab } from '../lib/ticketFilter'
 import { focusCards, type FocusCard } from '../lib/focus'
 import { MENU_HUE } from '../lib/hues'
 import { kpisForMonth, useAllData } from '../lib/kpiData'
@@ -47,6 +50,8 @@ export default function DashboardPage() {
   const [params, setParams] = useSearchParams()
   // Old links (?v=overview, money, workers, camps) open the view that now holds them.
   const view = dashView(params.get('v'))
+  // Tickets view: D&C Tickets | Cases | All (?src=internal|all; none = D&C, so old links keep working)
+  const src: ListTab = view === 'tickets' ? dashSource(params.get('src')) : 'tickets'
   const viewRow = useRef<HTMLDivElement>(null)
   useEffect(() => markSeen('dashboard'), [])
   useChipScroll(viewRow, view, 8)
@@ -56,7 +61,7 @@ export default function DashboardPage() {
   // The view, month and chips live in the link, so Back and drill-downs keep them.
   const mParam = params.get('m')
   const picked: string | null = mParam === 'all' ? null : mParam && /^\d{4}-\d{2}$/.test(mParam) ? mParam : thisMonth
-  const setLink = (key: 'v' | 'm' | 'x' | 't', value: string | null) => {
+  const setLink = (key: 'v' | 'm' | 'x' | 't' | 'src', value: string | null) => {
     const next = new URLSearchParams(params)
     if (value === null) next.delete(key)
     else next.set(key, value)
@@ -71,18 +76,27 @@ export default function DashboardPage() {
     setParams(next, { replace: true })
   }
   const setPicked = (m: string | null) => setLink('m', m === thisMonth ? null : (m ?? 'all'))
+  const setSrc = (s: ListTab) => {
+    const next = new URLSearchParams(params)
+    if (s === 'tickets') next.delete('src')
+    else next.set('src', s)
+    // "D&C vs cases" lives on All only
+    if (s !== 'all' && next.get('x') === 'source') next.delete('x')
+    setParams(next, { replace: true })
+  }
   const [exporting, setExporting] = useState(false)
   const allowAll = ALL_TIME.includes(view)
   const month = allowAll ? picked : (picked ?? thisMonth)
   const kpiMonth = picked ?? thisMonth
   const from = `/dashboard?${params.toString()}`
-  const xChip = exploreChip(view, params.get('x'))
+  const xChips = exploreChips(view, src)
+  const xChip = exploreChip(view, params.get('x'), src)
   const tChip = overTimeChip(view, params.get('t'))
   const setChip = (key: 'x' | 't', value: string, first: string) => setLink(key, value === first ? null : value)
 
-  const focus = useMemo(() => focusCards(d, view, { month, kpiMonth, today, from }), [d, view, month, kpiMonth, today, from])
-  const explore = useMemo(() => exploreData(d, view, xChip, { month, kpiMonth, today, from }), [d, view, xChip, month, kpiMonth, today, from])
-  const series = useMemo(() => overTimeSeries(d, view, tChip, kpiMonth, today), [d, view, tChip, kpiMonth, today])
+  const focus = useMemo(() => focusCards(d, view, { month, kpiMonth, today, from, src }), [d, view, month, kpiMonth, today, from, src])
+  const explore = useMemo(() => exploreData(d, view, xChip, { month, kpiMonth, today, from, src }), [d, view, xChip, month, kpiMonth, today, from, src])
+  const series = useMemo(() => overTimeSeries(d, view, tChip, kpiMonth, today, src), [d, view, tChip, kpiMonth, today, src])
   const kpiMap = useMemo(() => kpisForMonth(d, kpiMonth), [d, kpiMonth])
 
   /** Hold a contractor anywhere: its pop-up with a 6-month trend. */
@@ -113,7 +127,7 @@ export default function DashboardPage() {
   const openMonth = (m: string, open: NonNullable<OverTimeSeries['open']>) => {
     if (open === 'month') return setPicked(m)
     const q: TicketQuery = open === 'opened' ? { m, in: 'opened' } : open === 'closed' ? { m, in: 'closed' } : { m, in: 'closed', owed: 'paid' }
-    navigate(ticketLink(q, from))
+    navigate(ticketLink({ ...q, tab: src === 'tickets' ? undefined : src }, from))
   }
 
   const doExport = async (kind: ExportKind) => {
@@ -163,6 +177,8 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {view === 'tickets' && <SourceTabs value={src} onChange={setSrc} all />}
+
       <div className="segmented" style={{ gridTemplateColumns: '44px 1fr 44px 64px', gridAutoFlow: 'unset', display: 'grid' }}>
         <button aria-label="Previous month" onClick={() => setPicked(addMonths(kpiMonth, -1))}>
           ‹
@@ -189,7 +205,7 @@ export default function DashboardPage() {
           <h2 className="clist-head">
             Explore <span className="clist-count">{exploreWhen}</span>
           </h2>
-          <ExploreCard view={view} chip={xChip} onChip={(k) => setChip('x', k, exploreChip(view, null))} data={explore} d={d} onHold={holdExplore} />
+          <ExploreCard chips={xChips} chip={xChip} onChip={(k) => setChip('x', k, exploreChip(view, null, src))} data={explore} d={d} onHold={holdExplore} />
         </section>
 
         <section aria-label="Over time">

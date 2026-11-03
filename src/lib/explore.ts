@@ -10,7 +10,8 @@ import { itemStats, kpisForMonth, subjectKpis, type AllData, type KpiItemKey, ty
 import { moneyStats, owedOf } from './money'
 import { ticketPeek, type Peek } from './peek'
 import { kpiSubjects } from './subjects'
-import { AGE_LABEL, openedIn, ticketLink, type TicketQuery } from './ticketFilter'
+import { AGE_LABEL, openedIn, ticketLink, type ListTab, type TicketQuery } from './ticketFilter'
+import { WORDS, ticketsOf } from './dashSource'
 import { campTone, kpiTone, type Tone } from './tone'
 import type { IconName } from '../components/Icon'
 import type { AgingBucket } from './aging'
@@ -50,9 +51,15 @@ export const EXPLORE_CHIPS: Record<DashView, ExploreChip[]> = {
   ],
 }
 
+/** The chips a view shows: "D&C vs cases" only on the Tickets view's All tab. */
+export const exploreChips = (view: DashView, src: ListTab = 'tickets'): ExploreChip[] =>
+  view === 'tickets' && src !== 'all' ? EXPLORE_CHIPS.tickets.filter((c) => c.key !== 'source') : EXPLORE_CHIPS[view]
+
 /** The chip a link names, or the view's first one. */
-export const exploreChip = (view: DashView, key: string | null): string =>
-  EXPLORE_CHIPS[view].some((c) => c.key === key) ? (key as string) : EXPLORE_CHIPS[view][0].key
+export const exploreChip = (view: DashView, key: string | null, src: ListTab = 'tickets'): string => {
+  const chips = exploreChips(view, src)
+  return chips.some((c) => c.key === key) ? (key as string) : chips[0].key
+}
 
 /** What holding an item opens: a record's own pop-up, or a built one. */
 export type ExploreHold =
@@ -95,12 +102,13 @@ export interface ExploreOptions {
   kpiMonth: string
   today?: string
   from?: string
+  /** Tickets view: D&C tickets (default), cases, or all. */
+  src?: ListTab
 }
 
 const SPARK_MONTHS = 6
 const AGE_TONE: Record<AgingBucket, Tone> = { '0-10': 'good', '11-30': 'warn', '31-60': 'bad', '61-90': 'bad', '90+': 'bad' }
 const workersText = (w: number) => `${w.toLocaleString('en-US')} worker${w === 1 ? '' : 's'}`
-const ticketsText = (c: number) => `${c} ticket${c === 1 ? '' : 's'}`
 
 /** "3 on track · 1 critical · 9 no data" — zeros left out. */
 export const countsText = (s: KpiItemStats) =>
@@ -109,18 +117,23 @@ export const countsText = (s: KpiItemStats) =>
     .join(' · ') || '—'
 
 function ticketData(d: AllData, chip: string, o: Required<ExploreOptions>): ExploreData {
-  const { month, kpiMonth, today, from } = o
-  const tix = (q: TicketQuery) => ticketLink(q, from)
-  const stats = periodStats(d.tickets, month, d.byUuid, today)
-  const scope = month ? stats.opened : d.tickets
+  const { month, kpiMonth, today, from, src } = o
+  // The tab's list (D&C tickets, cases, or both); links open the list on the same tab.
+  const list = ticketsOf(d, src)
+  const w = WORDS[src]
+  const tab = src === 'tickets' ? undefined : src
+  const tix = (q: TicketQuery) => ticketLink({ ...q, tab }, from)
+  const ticketsText = (c: number) => `${c} ${c === 1 ? w.one : w.many}`
+  const stats = periodStats(list, month, d.byUuid, today)
+  const scope = month ? stats.opened : list
   const opened: TicketQuery = month ? { m: month, in: 'opened' } : {}
   const months = lastMonths(kpiMonth, SPARK_MONTHS)
-  const when = month ? `Opened in ${monthLabel(month)}` : 'All tickets'
+  const when = month ? `Opened in ${monthLabel(month)}` : `All ${w.many}`
   const sub = `${when} · ${ticketsText(scope.length)} · ${workersText(scope.reduce((s, t) => s + (t.workers || 0), 0))}`
-  const empty = 'No tickets in this period.'
+  const empty = `No ${w.many} in this period.`
   const peekOf = (title: string, icon: IconName, tickets: Ticket[], to: string, extra: FocusAction[] = []): ExploreHold => {
-    const peek = ticketPeek(tickets, months, today)
-    return { kind: 'peek', title, sub: when, icon, tone: peek.spark?.tone ?? 'none', peek, actions: [{ label: 'Open tickets', icon: 'ticket', to }, ...extra] }
+    const peek = ticketPeek(tickets, months, today, w.Title)
+    return { kind: 'peek', title, sub: when, icon, tone: peek.spark?.tone ?? 'none', peek, actions: [{ label: `Open ${w.many}`, icon: 'ticket', to }, ...extra] }
   }
   const contractorActions = (uuid: string): FocusAction[] =>
     d.byUuid.has(uuid)
@@ -151,7 +164,8 @@ function ticketData(d: AllData, chip: string, o: Required<ExploreOptions>): Expl
     }
   }
   if (chip === 'source') {
-    // D&C tickets (every other number on this view) next to the team's own cases (src/lib/cases.ts).
+    // All tab: D&C tickets next to the team's own cases (src/lib/cases.ts).
+    const dncScope = month ? d.tickets.filter((t) => openedIn(t, month)) : d.tickets
     const caseScope = month ? d.cases.filter((t) => openedIn(t, month)) : d.cases
     const dnc = tix({ ...opened, src: 'System' })
     const cases = tix({ ...opened, src: 'Internal' })
@@ -162,7 +176,7 @@ function ticketData(d: AllData, chip: string, o: Required<ExploreOptions>): Expl
       sub: `${when} · D&C hotline tickets next to the team's own cases`,
       empty: 'No tickets or cases in this period.',
       items: [
-        { key: 'System', label: 'D&C tickets', value: scope.length, detail: workersText(scope.reduce((s, t) => s + (t.workers || 0), 0)), to: dnc, hold: peekOf('D&C tickets', 'ticket', scope, dnc) },
+        { key: 'System', label: 'D&C tickets', value: dncScope.length, detail: workersText(dncScope.reduce((s, t) => s + (t.workers || 0), 0)), to: dnc, hold: peekOf('D&C tickets', 'ticket', dncScope, dnc) },
         { key: 'Internal', label: 'Cases', value: caseScope.length, detail: workersText(caseScope.reduce((s, t) => s + (t.workers || 0), 0)), to: cases, hold: peekOf('Cases', 'ticket', caseScope, cases) },
       ],
     }
@@ -183,7 +197,7 @@ function ticketData(d: AllData, chip: string, o: Required<ExploreOptions>): Expl
     }
   }
   if (chip === 'age' || chip === 'owed') {
-    const aging = openAging(d.tickets, today)
+    const aging = openAging(list, today)
     const money = chip === 'owed'
     const rows = money ? aging.filter((r) => r.owed > 0) : aging
     const open = aging.reduce((s, r) => s + r.count, 0)
@@ -191,11 +205,11 @@ function ticketData(d: AllData, chip: string, o: Required<ExploreOptions>): Expl
       kind: 'bars',
       format: money ? 'sar' : 'count',
       other: 'none',
-      sub: money ? `SAR still owed on open tickets today · ${ticketsText(open)} open` : `Open tickets today · ${ticketsText(open)}`,
-      empty: money ? 'No open ticket has money owed.' : 'No open tickets.',
+      sub: money ? `SAR still owed on open ${w.many} today · ${ticketsText(open)} open` : `Open ${w.many} today · ${ticketsText(open)}`,
+      empty: money ? `No open ${w.one} has money owed.` : `No open ${w.many}.`,
       items: rows.map((r) => {
         const to = tix(money ? { age: r.bucket, owed: 'open' } : { age: r.bucket })
-        const mine = d.tickets.filter((t) => t.status !== 'Closed' && openAging([t], today).some((x) => x.bucket === r.bucket && x.count))
+        const mine = list.filter((t) => t.status !== 'Closed' && openAging([t], today).some((x) => x.bucket === r.bucket && x.count))
         return {
           key: r.bucket,
           label: AGE_LABEL[r.bucket],
@@ -215,7 +229,7 @@ function ticketData(d: AllData, chip: string, o: Required<ExploreOptions>): Expl
       format: 'sar',
       other: 'sum',
       sub: `${when} · SAR ${Math.round(money.total).toLocaleString('en-US')} on ${ticketsText(money.withAmount)}`,
-      empty: 'No ticket has a money-owed amount in this period.',
+      empty: `No ${w.one} has a money-owed amount in this period.`,
       items: money.byKey((t) => t.contractorUuid).map((m) => {
         const label = d.byUuid.get(m.key)?.name ?? 'No contractor'
         const to = tix({ ...opened, owed: 'any', c: m.key === '—' ? 'none' : m.key })
@@ -231,7 +245,7 @@ function ticketData(d: AllData, chip: string, o: Required<ExploreOptions>): Expl
     format: 'sar',
     other: 'none',
     sub: `${when} · the ${Math.min(5, priced.length)} biggest amounts`,
-    empty: 'No ticket has a money-owed amount in this period.',
+    empty: `No ${w.one} has a money-owed amount in this period.`,
     items: [],
     tickets: priced.slice(0, 5),
   }
@@ -482,7 +496,7 @@ function campData(d: AllData, chip: string, o: Required<ExploreOptions>): Explor
 
 /** What the chosen chip shows. */
 export function exploreData(d: AllData, view: DashView, chip: string, options: ExploreOptions): ExploreData {
-  const o: Required<ExploreOptions> = { today: localDate(), from: '/dashboard', ...options }
+  const o: Required<ExploreOptions> = { today: localDate(), from: '/dashboard', src: 'tickets', ...options }
   if (view === 'tickets') return ticketData(d, chip, o)
   if (view === 'kpis') return kpiData(d, chip, o)
   return campData(d, chip, o)

@@ -61,7 +61,9 @@ npm run build   # strict tsc + vite build
   changed there onto a fresh copy (`applyDocChanges`); the KPI panel shows a Documents row and keeps the documents
   on save (`withDocsOf`). Lists: Home › Submission (`tasks.ts`), `/missing/submission` with document chips and
   reminders (`docRows`, `docMissing` in `todo.ts`, `chaseText`), contractor page, Excel sheet "Submissions".
-- Dashboard numbers: `src/lib/dashboard.ts`; its three sections: Focus cards `src/lib/focus.ts`,
+- Dashboard numbers: `src/lib/dashboard.ts`; the Tickets view's tabs **D&C Tickets | Cases | All** (`?src=`, list and
+  wording `src/lib/dashSource.ts`; Cases/All have no Closure KPI but "Closed in 30 days" and "Turned into tickets");
+  its three sections: Focus cards `src/lib/focus.ts`,
   Explore chips `src/lib/explore.ts`, Over time series `src/lib/overTime.ts`, hold-to-drill pop-up data
   `src/lib/peek.ts` (`peekMenu` in `menus.tsx`); section components `src/components/dash/`, figures
   (`Ring`, `Meter`, `SplitBar`, `RankBars`, `TrendLine`) in `src/components/charts/`, styles `src/styles/dash.css`.

@@ -8,8 +8,7 @@ import { TicketRow } from '../../pages/TicketsPage'
 import { memberCounts } from '../../lib/groups'
 import { sar } from '../../lib/money'
 import { useLongPress } from '../../lib/useLongPress'
-import type { DashView } from '../../lib/dashboard'
-import { EXPLORE_CHIPS, type ExploreData, type ExploreHold, type ExploreItem } from '../../lib/explore'
+import { type ExploreChip, type ExploreData, type ExploreHold, type ExploreItem } from '../../lib/explore'
 import type { AllData } from '../../lib/kpiData'
 
 const FORMAT: Record<ExploreData['format'], (v: number) => string> = {
@@ -54,14 +53,15 @@ function Row({ item, onOpen, onHold }: { item: ExploreItem; onOpen?: () => void;
  * behind an item, hold opens its pop-up.
  */
 export default function ExploreCard({
-  view,
+  chips,
   chip,
   onChip,
   data,
   d,
   onHold,
 }: {
-  view: DashView
+  /** The chips this view (and tab) shows. */
+  chips: ExploreChip[]
   chip: string
   onChip: (key: string) => void
   data: ExploreData
@@ -70,11 +70,12 @@ export default function ExploreCard({
 }) {
   const navigate = useNavigate()
   const format = FORMAT[data.format]
-  const groups = data.kind === 'tickets' ? memberCounts(d.tickets) : null
+  // groups never mix a case and a D&C ticket, so one count covers every tab
+  const groups = data.kind === 'tickets' ? memberCounts([...d.tickets, ...d.cases]) : null
   const empty = data.kind === 'tickets' ? !data.tickets?.length : data.kind === 'grid' ? !data.grid?.rows.length : data.items.length === 0
   return (
     <div className="chart-card xcard">
-      <Chips chips={EXPLORE_CHIPS[view]} value={chip} onChange={onChip} label="Explore" />
+      <Chips chips={chips} value={chip} onChange={onChip} label="Explore" />
       <div className="chart-sub">{data.sub}</div>
       {!d.loaded ? (
         <div className="skeleton xcard-skeleton" role="status" aria-label="Loading" style={{ height: 220 }} />

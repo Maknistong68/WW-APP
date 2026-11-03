@@ -25,6 +25,8 @@ export interface TicketQuery {
   owed?: TicketOwed
   /** Cases that turned into a D&C ticket (yes) or not (no). */
   link?: 'yes' | 'no'
+  /** The list's tab (Cases, All); not a filter chip. D&C when absent. */
+  tab?: 'internal' | 'all'
 }
 
 /** The filter keys (everything except the tab). */
@@ -75,6 +77,7 @@ export function ticketLink(q: TicketQuery, from?: string): string {
   const p = new URLSearchParams()
   p.set('f', q.f ?? 'all')
   for (const k of QUERY_KEYS) if (q[k]) p.set(k, String(q[k]))
+  if (q.tab) p.set('tab', q.tab)
   if (from) p.set('from', from)
   return `/tickets?${p.toString()}`
 }
@@ -145,6 +148,18 @@ export function queryChips(q: TicketQuery, names: { contractor: (uuid: string) =
 
 /** The ticket log's two tabs, D&C Tickets | Cases: D&C hotline tickets, and the team's own cases (src/lib/cases.ts). */
 export type SourceTab = 'tickets' | 'internal'
+
+/** The ticket log and the Dashboard also have All: D&C tickets and cases together. */
+export type ListTab = SourceTab | 'all'
+
+/** The tab in the link: `?tab=internal` (Cases), `?tab=all`, else D&C. */
+export const parseListTab = (params: URLSearchParams): ListTab => {
+  const v = params.get('tab')
+  return v === 'internal' || v === 'all' ? v : 'tickets'
+}
+
+/** Is this record on that tab? */
+export const inListTab = (t: Pick<Ticket, 'source'>, tab: ListTab) => tab === 'all' || sourceTab(t) === tab
 
 /** Which tab a record sits in: cases (stored as Internal) apart, everything else (System, or no source) under D&C. */
 export const sourceTab = (t: Pick<Ticket, 'source'>): SourceTab => (t.source === 'Internal' ? 'internal' : 'tickets')

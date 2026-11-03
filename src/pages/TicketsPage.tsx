@@ -13,7 +13,7 @@ import { ticketTone } from '../lib/tone'
 import SwipeRow from '../components/SwipeRow'
 import { ticketMenu } from '../components/menus'
 import { openSheet } from '../components/SheetHost'
-import { QUERY_KEYS, filterTickets, hasQuery, parseSourceTab, parseTicketQuery, queryChips, sourceTab, type SourceTab } from '../lib/ticketFilter'
+import { QUERY_KEYS, filterTickets, hasQuery, inListTab, parseListTab, parseTicketQuery, queryChips, type ListTab } from '../lib/ticketFilter'
 import { haptic } from '../lib/haptics'
 import { useAuthInfo } from '../lib/auth'
 import CloseTogetherSheet from '../components/CloseTogetherSheet'
@@ -142,11 +142,13 @@ export default function TicketsPage() {
   // Filters from the link (a Dashboard number, a chart bar, a contractor…)
   const linkQuery = useMemo(() => parseTicketQuery(params), [params])
   const drilled = hasQuery(linkQuery)
-  // D&C Tickets | Cases; a link that names a source (a Dashboard bar) decides it instead.
-  const source = parseSourceTab(params)
+  // D&C Tickets | Cases | All; a link that names a source (a Dashboard bar) decides it instead.
+  const source = parseListTab(params)
   const bySource = linkQuery.src === undefined
   /** Showing the team's own cases: the title, search and counts say "case". */
   const showingCases = bySource ? source === 'internal' : linkQuery.src === 'Internal'
+  /** Both together (the All tab). */
+  const showingAll = bySource && source === 'all'
   const noun = showingCases ? 'case' : 'ticket'
   const [query, setQuery] = useState('')
   const { canEdit, role } = useAuthInfo()
@@ -159,7 +161,7 @@ export default function TicketsPage() {
 
   /** The tickets the link and the D&C Tickets | Cases tab point at, before the filter and the search. */
   const scoped = useMemo(
-    () => filterTickets(tickets ?? [], { ...linkQuery, f: undefined }).filter((t) => !bySource || sourceTab(t) === source),
+    () => filterTickets(tickets ?? [], { ...linkQuery, f: undefined }).filter((t) => !bySource || inListTab(t, source)),
     [tickets, linkQuery, bySource, source],
   )
   const visible = useMemo(() => {
@@ -203,7 +205,7 @@ export default function TicketsPage() {
     if (keys === 'all') next.delete('from')
     setParams(next, { replace: true })
   }
-  const setSource = (k: SourceTab) => {
+  const setSource = (k: ListTab) => {
     // a case and a D&C ticket are never ticked together
     setPicked(new Set())
     const next = new URLSearchParams(params)
@@ -272,7 +274,7 @@ export default function TicketsPage() {
 
   return (
     <Page
-      title={showingCases ? 'Cases' : 'Tickets'}
+      title={showingAll ? 'Tickets & cases' : showingCases ? 'Cases' : 'Tickets'}
       back={drilled ? (from ?? '/dashboard') : undefined}
       backLabel={drilled ? (from?.startsWith('/contractors') ? 'Contractor' : from?.startsWith('/kpis') ? 'KPI' : 'Dashboard') : undefined}
       actions={
@@ -289,10 +291,16 @@ export default function TicketsPage() {
         )
       }
     >
-      {bySource && <SourceTabs value={source} onChange={setSource} />}
+      {bySource && <SourceTabs value={source} onChange={setSource} all />}
       <label className="ios-search">
         <Icon name="search" size={18} />
-        <input type="search" aria-label={showingCases ? 'Search cases' : 'Search tickets'} placeholder={`${showingCases ? 'Case' : 'Ticket'} no., contractor, WO, issue`} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input
+          type="search"
+          aria-label={showingAll ? 'Search tickets and cases' : showingCases ? 'Search cases' : 'Search tickets'}
+          placeholder={showingAll ? 'Number, contractor, WO, issue' : `${showingCases ? 'Case' : 'Ticket'} no., contractor, WO, issue`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </label>
       {drilled && (
         <div className="chip-row drill-chips" aria-label="Filters">
@@ -362,7 +370,7 @@ export default function TicketsPage() {
           )}
           {visible.length > 0 && (
             <div className="list-foot">
-              {visible.length} {noun}{visible.length === 1 ? '' : 's'} · {workers} workers
+              {visible.length} {showingAll ? (visible.length === 1 ? 'ticket or case' : 'tickets and cases') : `${noun}${visible.length === 1 ? '' : 's'}`} · {workers} workers
               {!selecting && (filter === 'open' && canEdit ? ' · swipe left to close · hold for more' : ' · hold for more')}
             </div>
           )}

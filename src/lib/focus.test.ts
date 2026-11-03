@@ -48,6 +48,38 @@ describe('focusCards · tickets', () => {
   })
 })
 
+describe('focusCards · Cases and All tabs', () => {
+  it('D&C stays as it was: open, Closure KPI, money', () => {
+    expect(focusCards(fixture(), 'tickets', opts).map((c) => c.key)).toEqual(['open', 'closure', 'money'])
+    expect(focusCards(fixture(), 'tickets', { ...opts, src: 'tickets' }).map((c) => c.key)).toEqual(['open', 'closure', 'money'])
+  })
+  it('cases: their own numbers and words, how many turned into tickets, no Closure KPI', () => {
+    const cards = focusCards(fixture(), 'tickets', { ...opts, src: 'internal' })
+    expect(cards.map((c) => c.key)).toEqual(['open', 'linked', 'closed30', 'money'])
+    const [open, linked, closed30, money] = cards
+    expect([open.title, open.value]).toEqual(['Open cases', '1'])
+    expect(open.link.to).toContain('tab=internal')
+    expect(open.peek.spark?.label).toBe('Open cases, last 12 weeks')
+    expect([linked.title, linked.value]).toEqual(['Turned into tickets', '1'])
+    expect(linked.parts?.map((p) => p.value)).toEqual([1, 1])
+    expect(linked.line).toBe('1 of 2 cases opened in Oct turned into D&C tickets')
+    expect(linked.link.to).toContain('link=yes')
+    expect(linked.link.to).toContain('tab=internal')
+    expect([closed30.value, closed30.meter?.target]).toEqual(['100%', undefined])
+    expect(closed30.line).toBe('1 of 1 closed in Oct took 30 days or less')
+    expect(money.parts?.map((p) => p.value)).toEqual([500, 0])
+    expect(money.peek.sub).toContain('from cases only')
+  })
+  it('all: tickets and cases together', () => {
+    const cards = focusCards(fixture(), 'tickets', { ...opts, src: 'all' })
+    expect(cards.map((c) => c.key)).toEqual(['open', 'linked', 'closed30', 'money'])
+    expect([cards[0].title, cards[0].value]).toEqual(['Open tickets & cases', '4'])
+    expect(cards[0].link.to).toContain('tab=all')
+    // the linked card is about cases: its list opens on Cases
+    expect(cards[1].link.to).toContain('tab=internal')
+  })
+})
+
 describe('focusCards · kpis', () => {
   it('four cards: overall ring, submissions meter, audits meter, workers split', () => {
     const cards = focusCards(fixture(), 'kpis', opts)

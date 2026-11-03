@@ -9,7 +9,6 @@ import {
   missingSubmissions,
   periodStats,
   recoveredPerMonth,
-  weeklyTrend,
   workersPerMonth,
   workforce,
   type DashView,
@@ -22,7 +21,9 @@ import { itemStats, subjectKpis, type AllData } from './kpiData'
 import { moneyStats, owedOf, sarShort } from './money'
 import { ageParts, countDomain, partsTone, type Peek, type PeekPart } from './peek'
 import { docsSettled, kpiSubjects } from './subjects'
-import { closedIn, monthEnd, openOn, ticketLink, type TicketQuery } from './ticketFilter'
+import { closedIn, monthEnd, openOn, openedIn, ticketLink, type ListTab, type TicketQuery } from './ticketFilter'
+import { WORDS, closedWithin, openTrend, ticketsOf } from './dashSource'
+import { turnedIntoTickets } from './caseLinks'
 import { kpiTone, type Tone } from './tone'
 import type { IconName } from '../components/Icon'
 
@@ -64,6 +65,8 @@ export interface FocusOptions {
   today?: string
   /** Where the Tickets list comes back to. */
   from?: string
+  /** Tickets view: D&C tickets (default), cases, or all. */
+  src?: ListTab
 }
 
 const SPARK_MONTHS = 6
@@ -81,18 +84,22 @@ const n = (v: number, one: string, many = `${one}s`) => `${v.toLocaleString('en-
 const daysTone = (avg: number | null): Tone => (avg === null ? 'none' : avg <= 10 ? 'good' : avg <= 30 ? 'warn' : 'bad')
 
 function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
-  const { month, kpiMonth, today, from } = o
-  const tix = (q: TicketQuery) => ticketLink(q, from)
-  const stats = periodStats(d.tickets, month, d.byUuid, today)
+  const { month, kpiMonth, today, from, src } = o
+  // The tab's list (D&C tickets, cases, or both) and its words; links open the list on the same tab.
+  const list = ticketsOf(d, src)
+  const w = WORDS[src]
+  const tab = src === 'tickets' ? undefined : src
+  const tix = (q: TicketQuery) => ticketLink({ ...q, tab }, from)
+  const stats = periodStats(list, month, d.byUuid, today)
   const opened: TicketQuery = month ? { m: month, in: 'opened' } : {}
   const when = month ? monthLabel(month) : 'All time'
   const end = month ? monthEnd(month, today) : today
-  const parts = ageParts(d.tickets, end)
+  const parts = ageParts(list, end)
   const open = parts.reduce((s, p) => s + p.value, 0)
   const late = parts[2].value
-  const monthStats = month ? stats : periodStats(d.tickets, kpiMonth, d.byUuid, today)
+  const monthStats = month ? stats : periodStats(list, kpiMonth, d.byUuid, today)
   const months = lastMonths(kpiMonth, SPARK_MONTHS)
-  const trend = weeklyTrend(d.weekly, d.tickets, today).slice(-12).map((p) => p.open)
+  const trend = openTrend(d, src, today).slice(-12).map((p) => p.open)
   const avg = monthStats.avgDaysToClose
   const dayFacts = [
     { label: 'Closed', value: monthStats.closed.length },
@@ -101,22 +108,23 @@ function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
   ]
   const openCard: FocusCard = {
     key: 'open',
-    title: 'Open tickets',
+    title: `Open ${w.Title.toLowerCase()}`,
     kind: 'ring',
     value: String(open),
     tone: partsTone(parts),
     icon: 'ticket',
     parts,
-    line: month ? `${n(stats.opened.length, 'opened', 'opened')} · ${stats.closed.length} closed in ${short(month)}` : `${n(open, 'ticket')} open today`,
+    line: month ? `${n(stats.opened.length, 'opened', 'opened')} · ${stats.closed.length} closed in ${short(month)}` : `${n(open, w.one, w.many)} open today`,
     link: late
       ? { label: `See the ${late} late`, to: tix(month ? { m: month, in: 'lateAtEnd' } : { in: 'lateAtEnd' }) }
-      : { label: 'Open tickets', to: tix(month ? { m: month, in: 'openAtEnd' } : { in: 'openAtEnd' }) },
+      : { label: `Open ${w.many}`, to: tix(month ? { m: month, in: 'openAtEnd' } : { in: 'openAtEnd' }) },
     peek: {
       sub: when,
       facts: dayFacts,
-      spark: { values: trend, label: 'Open D&C tickets, last 12 weeks', tone: partsTone(parts), domain: countDomain(trend) },
+      spark: { values: trend, label: `Open ${w.label}, last 12 weeks`, tone: partsTone(parts), domain: countDomain(trend) },
+      partsLabel: `Open ${w.many} by age`,
       actions: [
-        { label: 'Open tickets', icon: 'ticket', to: tix(month ? { m: month, in: 'openAtEnd' } : { in: 'openAtEnd' }) },
+        { label: `Open ${w.many}`, icon: 'ticket', to: tix(month ? { m: month, in: 'openAtEnd' } : { in: 'openAtEnd' }) },
         { label: 'Over 30 days', icon: 'alert', to: tix(month ? { m: month, in: 'lateAtEnd' } : { in: 'lateAtEnd' }) },
         { label: `Opened${month ? ` in ${short(month)}` : ''}`, icon: 'plus', to: tix(opened) },
         { label: `Closed${month ? ` in ${short(month)}` : ''}`, icon: 'check', to: tix(month ? { m: month, in: 'closed' } : { f: 'closed' }) },
@@ -154,8 +162,8 @@ function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
 
   // A month: recovered = money on tickets closed in it (as in Over time);
   // still owed = money on tickets open at its end. All: as of today.
-  const money = month ? monthMoney(d.tickets, month, end) : moneyStats(d.tickets)
-  const recovered = recoveredPerMonth(d.tickets, months).map((r) => r.values[0])
+  const money = month ? monthMoney(list, month, end) : moneyStats(list)
+  const recovered = recoveredPerMonth(list, months).map((r) => r.values[0])
   const moneyCard: FocusCard = {
     key: 'money',
     title: 'Money',
@@ -167,10 +175,10 @@ function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
       { label: 'Recovered', value: money.settled, tone: 'good' },
       { label: 'Still owed', value: money.outstanding, tone: 'bad' },
     ],
-    line: `SAR ${sarShort(money.settled)} recovered · ${n(money.withAmount, 'ticket')} with money`,
-    link: { label: 'Owed tickets', to: tix(month ? { m: month, in: 'openAtEnd', owed: 'open' } : { owed: 'open' }) },
+    line: `SAR ${sarShort(money.settled)} recovered · ${n(money.withAmount, w.one, w.many)} with money`,
+    link: { label: `Owed ${w.many}`, to: tix(month ? { m: month, in: 'openAtEnd', owed: 'open' } : { owed: 'open' }) },
     peek: {
-      sub: `${when} · from tickets only`,
+      sub: `${when} · from ${w.many} only`,
       facts: [
         { label: 'Still owed', value: sarShort(money.outstanding), tone: money.outstanding ? 'bad' : undefined },
         { label: 'Recovered', value: sarShort(money.settled), tone: money.settled ? 'good' : undefined },
@@ -178,13 +186,70 @@ function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
       ],
       spark: { values: recovered, label: `SAR recovered per month, last ${SPARK_MONTHS} months`, tone: money.settled ? 'good' : 'none', domain: countDomain(recovered) },
       actions: [
-        { label: 'Owed tickets', icon: 'money', to: tix(month ? { m: month, in: 'openAtEnd', owed: 'open' } : { owed: 'open' }) },
-        { label: 'Recovered tickets', icon: 'check', to: tix(month ? { m: month, in: 'closed', owed: 'paid' } : { owed: 'paid' }) },
+        { label: `Owed ${w.many}`, icon: 'money', to: tix(month ? { m: month, in: 'openAtEnd', owed: 'open' } : { owed: 'open' }) },
+        { label: `Recovered ${w.many}`, icon: 'check', to: tix(month ? { m: month, in: 'closed', owed: 'paid' } : { owed: 'paid' }) },
         { label: 'All with money', icon: 'ticket', to: tix({ ...opened, owed: 'any' }) },
       ],
     },
   }
-  return [openCard, closureCard, moneyCard]
+  if (src === 'tickets') return [openCard, closureCard, moneyCard]
+
+  // Cases and All: no Closure KPI (cases aren't scored) — how fast they close instead.
+  const fast = closedWithin(list, kpiMonth)
+  const fastSpark = months.map((m) => closedWithin(list, m).pct)
+  const closed30: FocusCard = {
+    key: 'closed30',
+    title: 'Closed in 30 days',
+    kind: 'meter',
+    value: pct(fast.pct),
+    tone: fast.pct === null ? 'none' : 'info',
+    icon: 'clock',
+    meter: { pct: fast.pct },
+    line: fast.closed ? `${fast.fast} of ${fast.closed} closed in ${short(kpiMonth)} took 30 days or less` : `None closed in ${short(kpiMonth)} yet`,
+    link: { label: `Closed in ${short(kpiMonth)}`, to: tix({ m: kpiMonth, in: 'closed' }) },
+    peek: {
+      sub: `${monthLabel(kpiMonth)} · ${w.many} closed within 30 days of opening`,
+      facts: dayFacts,
+      spark: { values: fastSpark, label: `Closed within 30 days, last ${SPARK_MONTHS} months`, tone: 'info' },
+      actions: [
+        { label: `Closed in ${short(kpiMonth)}`, icon: 'check', to: tix({ m: kpiMonth, in: 'closed' }) },
+        { label: `Opened in ${short(kpiMonth)}`, icon: 'plus', to: tix({ m: kpiMonth, in: 'opened' }) },
+      ],
+    },
+  }
+
+  // How many of the team's cases turned into D&C tickets (a list of cases, so it opens on Cases).
+  const turned = turnedIntoTickets(d.cases, month)
+  const caseList = (q: TicketQuery) => ticketLink({ ...q, tab: 'internal' }, from)
+  const turnedSpark = months.map((m) => d.cases.filter((c) => openedIn(c, m) && !!c.linkedTicketUuid).length)
+  const linked: FocusCard = {
+    key: 'linked',
+    title: 'Turned into tickets',
+    kind: 'split',
+    value: String(turned.linked),
+    tone: turned.linked ? 'info' : 'none',
+    icon: 'ticket',
+    parts: [
+      { label: 'Turned into tickets', value: turned.linked, tone: 'info' },
+      { label: 'Still cases', value: turned.notLinked, tone: 'none' },
+    ],
+    line: `${turned.linked} of ${n(turned.total, 'case')}${month ? ` opened in ${short(month)}` : ''} turned into D&C tickets`,
+    link: { label: 'See them', to: caseList({ ...opened, link: 'yes' }) },
+    peek: {
+      sub: `${when} · cases linked to the D&C ticket they became`,
+      facts: [
+        { label: 'Turned into tickets', value: turned.linked, tone: turned.linked ? 'info' : undefined },
+        { label: 'Still cases', value: turned.notLinked },
+        { label: 'Share', value: turned.total ? `${Math.round((turned.linked / turned.total) * 100)}%` : '—' },
+      ],
+      spark: { values: turnedSpark, label: `Cases that turned into tickets, by month opened, last ${SPARK_MONTHS} months`, tone: 'info', domain: countDomain(turnedSpark) },
+      actions: [
+        { label: 'Turned into tickets', icon: 'ticket', to: caseList({ ...opened, link: 'yes' }) },
+        { label: 'Still cases', icon: 'megaphone', to: caseList({ ...opened, link: 'no' }) },
+      ],
+    },
+  }
+  return [openCard, linked, closed30, moneyCard]
 }
 
 function kpiCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
@@ -398,7 +463,7 @@ function campCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
 
 /** The Focus cards of a view, in strip order. */
 export function focusCards(d: AllData, view: DashView, options: FocusOptions): FocusCard[] {
-  const o: Required<FocusOptions> = { today: localDate(), from: '/dashboard', ...options }
+  const o: Required<FocusOptions> = { today: localDate(), from: '/dashboard', src: 'tickets', ...options }
   if (view === 'tickets') return ticketCards(d, o)
   if (view === 'kpis') return kpiCards(d, o)
   return campCards(d, o)

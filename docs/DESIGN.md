@@ -209,10 +209,11 @@ per screen.
     by month ›" on a KPI page. The same Explore card has "Quarterly audits", one bar per quarter.
 - **Tickets:** grouped by age ("Over 30 days", "11–30 days", "0–10 days"), closed tickets by
   month.
-  - Two tabs on top, **D&C Tickets | Cases** (`?tab=internal`, `sourceTab` in
-    `src/lib/ticketFilter.ts`): D&C hotline tickets and the team's own **cases** apart. The large
-    title ("Tickets" / "Cases"), the search, the Open / 30+d / Closed / All counts and the footer
-    follow the tab. A link that names a source (a Dashboard bar) hides the tabs.
+  - Three tabs on top, **D&C Tickets | Cases | All** (`?tab=internal|all`, `parseListTab` /
+    `inListTab` in `src/lib/ticketFilter.ts`): D&C hotline tickets and the team's own **cases**
+    apart, or both. The large title ("Tickets" / "Cases" / "Tickets & cases"), the search, the
+    Open / 30+d / Closed / All counts and the footer follow the tab. A link that names a source
+    (a Dashboard bar) hides the tabs. Home's Tickets area keeps two tabs.
   - **Cases** (`src/lib/cases.ts`): the team's own items raised with a contractor. Stored as
     `source: 'Internal'` (never changed: older builds turn any other value into D&C), numbered by the
     app `CASE-0001`, `CASE-0002`… (read-only in the sheet; WWCMPL… is typed for D&C tickets), made from
@@ -239,7 +240,12 @@ per screen.
   - Edit shows the closing date and the actions too. Old imported tickets with gaps (no contractor
     or issue) still save; a field that had a value can't be emptied (`src/lib/ticketCheck.ts`).
 - **Dashboard:** three views as a One UI sub-tab track: **Tickets** (default), **Accommodation**
-  and **KPIs**, then the month stepper, then the same three sections on every view
+  and **KPIs**; on Tickets a second track **D&C Tickets | Cases | All** (`?src=internal|all`,
+  `src/lib/dashSource.ts`: the tab's list, its words, its weekly open line) — every card, chip and
+  line counts that list and opens the list on the same tab. Only D&C tickets have the **Closure**
+  KPI card; Cases and All show **Closed in 30 days** and **Turned into tickets** (cases linked to the
+  D&C ticket they became) instead, and "D&C vs cases" is an All chip. Then the month stepper, then
+  the same three sections on every view
   (spec: `docs/superpowers/specs/2026-11-02-dashboard-focus-explore-design.md`):
   - **Focus** (`src/lib/focus.ts`, `src/components/dash/FocusStrip.tsx`): two to four big cards
     swiped across, "1 of 3" in the heading. Each is one figure: a **ring** (a whole split into

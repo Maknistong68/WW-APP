@@ -37,6 +37,8 @@ export interface Peek {
   spark?: PeekSpark
   /** A thin split bar with a legend. */
   parts?: PeekPart[]
+  /** What the split bar shows ("Open cases by age"); open tickets by age when not given. */
+  partsLabel?: string
 }
 
 /** The y range for a count series: 0 to a round number above the biggest value. */
@@ -68,7 +70,7 @@ export const partsTone = (parts: PeekPart[]): Tone =>
  * A set of tickets in a few numbers: how many, the workers on them and the SAR
  * still owed; how many were opened in each of `months`; the open ones by age.
  */
-export function ticketPeek(tickets: Ticket[], months: string[], today = localDate()): Peek {
+export function ticketPeek(tickets: Ticket[], months: string[], today = localDate(), noun = 'Tickets'): Peek {
   const workers = tickets.reduce((s, t) => s + (t.workers || 0), 0)
   const owed = tickets.filter(isOpen).reduce((s, t) => s + owedOf(t), 0)
   const perMonth = months.map((m) => tickets.filter((t) => t.openedAt?.startsWith(m)).length)
@@ -76,16 +78,17 @@ export function ticketPeek(tickets: Ticket[], months: string[], today = localDat
   const open = parts.reduce((s, p) => s + p.value, 0)
   return {
     facts: [
-      { label: 'Tickets', value: tickets.length },
+      { label: noun, value: tickets.length },
       { label: 'Workers', value: workers.toLocaleString('en-US') },
       { label: 'SAR owed', value: owed ? sarShort(owed) : '–', tone: owed ? 'bad' : undefined },
     ],
     spark: {
       values: perMonth,
-      label: `Tickets opened, last ${months.length} months`,
+      label: `${noun} opened, last ${months.length} months`,
       tone: partsTone(parts),
       domain: countDomain(perMonth),
     },
     parts: open ? parts : undefined,
+    partsLabel: `Open ${noun.toLowerCase()} by age`,
   }
 }

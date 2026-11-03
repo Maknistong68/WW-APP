@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EXPLORE_CHIPS, countsText, exploreChip, exploreData } from './explore'
+import { EXPLORE_CHIPS, countsText, exploreChip, exploreChips, exploreData } from './explore'
 import { fixture, MONTH, TODAY } from './dashFixture'
 
 const opts = { month: MONTH, kpiMonth: MONTH, today: TODAY, from: '/dashboard' }
@@ -10,6 +10,13 @@ describe('exploreChip', () => {
     expect(exploreChip('tickets', 'largest')).toBe('largest')
     expect(exploreChip('kpis', 'largest')).toBe('each')
     expect(EXPLORE_CHIPS.accommodation[0].key).toBe('inspect')
+  })
+  it('"D&C vs cases" only on the All tab', () => {
+    expect(exploreChips('tickets', 'tickets').map((c) => c.key)).not.toContain('source')
+    expect(exploreChips('tickets', 'internal').map((c) => c.key)).not.toContain('source')
+    expect(exploreChips('tickets', 'all').map((c) => c.key)).toContain('source')
+    expect(exploreChip('tickets', 'source', 'tickets')).toBe('contractor')
+    expect(exploreChip('tickets', 'source', 'all')).toBe('source')
   })
   it('writes the status counts without zeros', () => {
     expect(countsText({ avg: 80, good: 3, warn: 0, bad: 1, none: 9 })).toBe('3 on track · 1 critical · 9 no data')
@@ -43,12 +50,26 @@ describe('exploreData · tickets', () => {
     ])
     expect(issue.items[0].to).toContain('issue=Salary+delay')
     expect(exploreData(fixture(), 'tickets', 'category', opts).items[0].to).toContain('cat=Pay')
-    const source = exploreData(fixture(), 'tickets', 'source', opts)
+    const source = exploreData(fixture(), 'tickets', 'source', { ...opts, src: 'all' })
     expect(source.items.map((i) => [i.label, i.value])).toEqual([
       ['D&C tickets', 3],
-      ['Cases', 1],
+      ['Cases', 2],
     ])
     expect(source.items[1].to).toContain('src=Internal')
+  })
+  it('the Cases tab counts cases, says "cases" and opens the Cases list', () => {
+    const x = exploreData(fixture(), 'tickets', 'contractor', { ...opts, src: 'internal' })
+    expect(x.items.map((i) => [i.label, i.value])).toEqual([
+      ['Al Fahad', 1],
+      ['RPCO', 1],
+    ])
+    expect(x.sub).toBe('Opened in Oct 2026 · 2 cases · 3 workers')
+    expect(x.items[0].to).toContain('tab=internal')
+    const hold = x.items[0].hold
+    if (hold?.kind === 'peek') {
+      expect(hold.peek.facts[0].label).toBe('Cases')
+      expect(hold.actions[0].label).toBe('Open cases')
+    }
   })
   it('by age is about open tickets today, in status colours', () => {
     const x = exploreData(fixture(), 'tickets', 'age', opts)

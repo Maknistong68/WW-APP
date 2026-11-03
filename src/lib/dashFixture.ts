@@ -81,7 +81,11 @@ export function fixture(): AllData {
     ticket({ uuid: 't5', openedAt: '2026-08-01', status: 'Closed', closedAt: '2026-10-02', workers: 4, amountOwed: 1000 }),
   ]
   // The team's own case (kept apart from the D&C tickets above).
-  const cases: Ticket[] = [ticket({ uuid: 'x1', ticketNo: 'CASE-0001', source: 'Internal', contractorUuid: 'cb', workOrderUuid: '', openedAt: '2026-10-15', workers: 1, issue: 'Overtime' })]
+  const cases: Ticket[] = [
+    ticket({ uuid: 'x1', ticketNo: 'CASE-0001', source: 'Internal', contractorUuid: 'cb', workOrderUuid: '', openedAt: '2026-10-15', workers: 1, issue: 'Overtime' }),
+    // a case that turned into D&C ticket t1, then closed
+    ticket({ uuid: 'x2', ticketNo: 'CASE-0002', source: 'Internal', openedAt: '2026-10-03', status: 'Closed', closedAt: '2026-10-25', workers: 2, amountOwed: 500, linkedTicketUuid: 't1' }),
+  ]
   const kpis: KpiMonth[] = [
     kpi({ uuid: 'k1', contractorUuid: 'ca', workOrderUuid: 'w1', month: '2026-10', salaryDecl: false, accommodationPct: 90, onboardingPct: 80, meetingPct: 100, quarterlyAuditPct: 85, auditDate: '2026-10-10', auditFindings: 4, auditClosed: 2 }),
     // every monthly document in (k1 still waits for the salary declaration and the rest)

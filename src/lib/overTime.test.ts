@@ -37,6 +37,17 @@ describe('overTimeSeries · tickets', () => {
     expect(at(s, '2026-10')).toBe(3000)
     expect(s.open).toBe('paid')
   })
+  it('the Cases and All tabs draw their own lists', () => {
+    const cases = overTimeSeries(fixture(), 'tickets', 'open', MONTH, TODAY, 'internal')
+    expect(cases.data).toHaveLength(13)
+    expect(cases.data[cases.data.length - 1].value).toBe(1)
+    expect(cases.sub).toBe('Cases open · per week · 13 weeks')
+    expect(at(overTimeSeries(fixture(), 'tickets', 'opened', MONTH, TODAY, 'internal'), '2026-10')).toBe(2)
+    expect(at(overTimeSeries(fixture(), 'tickets', 'recovered', MONTH, TODAY, 'internal'), '2026-10')).toBe(500)
+    const all = overTimeSeries(fixture(), 'tickets', 'open', MONTH, TODAY, 'all')
+    expect(all.data[all.data.length - 1].value).toBe(4)
+    expect(at(overTimeSeries(fixture(), 'tickets', 'opened', MONTH, TODAY, 'all'), '2026-10')).toBe(5)
+  })
 })
 
 describe('overTimeSeries · kpis and accommodation', () => {

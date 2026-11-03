@@ -400,7 +400,7 @@ export function peekMenu(o: { title: string; sub?: string; icon: IconName; tone:
     cover: <IconTile icon={o.icon} tone={o.tone} size={52} />,
     facts: o.peek.facts,
     spark: o.peek.spark,
-    figure: o.peek.parts ? <SplitBar parts={o.peek.parts} label="Open tickets by age" /> : undefined,
+    figure: o.peek.parts ? <SplitBar parts={o.peek.parts} label={o.peek.partsLabel ?? 'Open tickets by age'} /> : undefined,
     actions: o.actions.map((a) => ({ label: a.label, icon: a.icon, onSelect: () => go(a.to) })),
   })
 }

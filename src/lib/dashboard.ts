@@ -39,12 +39,15 @@ export function weeklyTrend(weekly: WeeklyCount[], tickets: Ticket[], today = lo
     .sort((a, b) => a.weekEnding.localeCompare(b.weekEnding))
     .map((w) => ({ date: w.weekEnding, open: w.openTickets, imported: true }))
   const system = tickets.filter((t) => t.source === 'System')
-  let d = points.length ? addDays(points[points.length - 1].date, 7) : addDays(today, -7 * 12)
-  while (d <= today) {
-    points.push({ date: d, open: system.filter((t) => openOn(t, d)).length, imported: false })
-    d = addDays(d, 7)
-  }
-  return points
+  const from = points.length ? addDays(points[points.length - 1].date, 7) : addDays(today, -7 * 12)
+  return [...points, ...computedWeeks(system, from, today)]
+}
+
+/** One point a week from `from` up to `to`: how many of `tickets` were open that day. */
+export function computedWeeks(tickets: Ticket[], from: string, to: string): TrendPoint[] {
+  const out: TrendPoint[] = []
+  for (let d = from; d <= to; d = addDays(d, 7)) out.push({ date: d, open: tickets.filter((t) => openOn(t, d)).length, imported: false })
+  return out
 }
 
 export interface Count {

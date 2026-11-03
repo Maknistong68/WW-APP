@@ -1,4 +1,6 @@
-import { auditAverage, inspectionsPerMonth, lastMonths, recoveredPerMonth, ticketsPerMonth, weeklyTrend, workersPerMonth, type DashView } from './dashboard'
+import { auditAverage, inspectionsPerMonth, lastMonths, recoveredPerMonth, ticketsPerMonth, workersPerMonth, type DashView } from './dashboard'
+import { WORDS, openTrend, ticketsOf } from './dashSource'
+import type { ListTab } from './ticketFilter'
 import { localDate, monthLabel } from './dates'
 import { itemStats, subjectKpis, type AllData } from './kpiData'
 import { docsSettled, kpiSubjects } from './subjects'
@@ -71,7 +73,7 @@ const to = (months: string[]) => `${months.length} months to ${monthLabel(months
 const round = (v: number | null) => (v === null ? null : Math.round(v))
 
 /** One series for the chosen chip. */
-export function overTimeSeries(d: AllData, view: DashView, chip: string, kpiMonth: string, today = localDate()): OverTimeSeries {
+export function overTimeSeries(d: AllData, view: DashView, chip: string, kpiMonth: string, today = localDate(), src: ListTab = 'tickets'): OverTimeSeries {
   const months12 = lastMonths(kpiMonth, TICKET_MONTHS)
   const months6 = lastMonths(kpiMonth, KPI_MONTHS)
   const subjects = kpiSubjects(d.contractors, d.workOrders)
@@ -79,22 +81,26 @@ export function overTimeSeries(d: AllData, view: DashView, chip: string, kpiMont
   const scorePerMonth = (months: string[]) => perMonth(months, (m) => round(auditAverage(d.inspections, m).avg))
 
   if (view === 'tickets') {
+    // the tab's list: D&C tickets, cases, or both
+    const list = ticketsOf(d, src)
+    const w = WORDS[src]
+    const Label = w.label.charAt(0).toUpperCase() + w.label.slice(1)
     if (chip === 'open') {
-      const trend = weeklyTrend(d.weekly, d.tickets, today)
-      return { mode: 'week', data: trend.map((p) => ({ date: p.date, value: p.open })), unit: 'open', sub: `D&C tickets open · per week · ${trend.length} weeks` }
+      const trend = openTrend(d, src, today)
+      return { mode: 'week', data: trend.map((p) => ({ date: p.date, value: p.open })), unit: 'open', sub: `${Label} open · per week · ${trend.length} weeks` }
     }
     if (chip === 'recovered') {
-      const rows = recoveredPerMonth(d.tickets, months12)
-      return { mode: 'month', data: monthly(months12, rows.map((r) => r.values[0])), unit: 'SAR', sar: true, open: 'paid', sub: `SAR on tickets closed · ${to(months12)}` }
+      const rows = recoveredPerMonth(list, months12)
+      return { mode: 'month', data: monthly(months12, rows.map((r) => r.values[0])), unit: 'SAR', sar: true, open: 'paid', sub: `SAR on ${w.many} closed · ${to(months12)}` }
     }
-    const rows = ticketsPerMonth(d.tickets, months12)
+    const rows = ticketsPerMonth(list, months12)
     const i = chip === 'closed' ? 1 : 0
     return {
       mode: 'month',
       data: monthly(months12, rows.map((r) => r.values[i])),
       unit: chip === 'closed' ? 'closed' : 'opened',
       open: chip === 'closed' ? 'closed' : 'opened',
-      sub: `Tickets ${chip === 'closed' ? 'closed' : 'opened'} · ${to(months12)}`,
+      sub: `${w.Title} ${chip === 'closed' ? 'closed' : 'opened'} · ${to(months12)}`,
     }
   }
 
