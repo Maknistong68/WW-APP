@@ -1,5 +1,5 @@
 /* ---- Screen frame: One UI app bar --------------------------------------------
-   A slim sticky top row (.nav-bar: Back or avatar, the screen's buttons) with
+   A slim sticky top row (.nav-bar: Back or the menu, the screen's buttons) with
    the big title (.appbar-hero) under it. Page.tsx writes --p (0 = title
    showing … 1 = tucked into the top row) on both: the big title fades as it
    slides under the row, the small one fades in. Everything lines up with the
@@ -64,10 +64,6 @@
   width: 44px; height: 44px; border-radius: 50%; border: none; flex: none;
   background: transparent; color: var(--text); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
-}
-.avatar-btn {
-  width: 44px; height: 44px; margin: 0 0 0 2px; border-radius: 50%; border: none; cursor: pointer; flex: none;
-  background: var(--brand-tint); color: var(--brand); font: 700 17px var(--font);
 }
 .page {
   max-width: 720px; margin: 0 auto;
@@ -142,6 +138,7 @@ body.has-actionbar .tabbar { display: none; }
 }
 .side-who { flex: 1; min-width: 0; }
 .side-email { font-weight: 600; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-sub { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .role-chip { display: inline-block; margin-top: 4px; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--brand-tint); color: var(--brand); }
 .side-rule { height: 6px; }
 .side-item {

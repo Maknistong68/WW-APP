@@ -89,7 +89,8 @@ per screen.
 
 ## Chrome
 - **App bar** (`Page`):
-  - a slim sticky top row holds Back (detail screens) or the avatar (main screens, always last)
+  - a slim sticky top row holds Back (detail screens) or the ☰ menu (main screens, first, on the
+    left where its drawer opens; the drawer shows your name, initials, email and role)
     and the screen's buttons;
   - the big title, with an optional `subtitle` (Today shows the date), sits right under it;
   - scrolling tucks the title into the top row (the small title fades in), and the row turns
@@ -97,7 +98,7 @@ per screen.
   - stopping halfway snaps the title open or shut;
   - `album` screens (their own summary card) have the top row only, and the small title fades
     in on scroll.
-- **Two edges only.** The big title, group titles, notes, the avatar and the Back chevron sit
+- **Two edges only.** The big title, group titles, notes, the ☰ menu and the Back chevron sit
   on the cards' edge (`--gutter`; centred 720px column on wide screens). Card contents use the
   card's inner padding. Icon buttons are pulled out by their 10px inner padding so the glyph,
   not the tap area, meets the edge.

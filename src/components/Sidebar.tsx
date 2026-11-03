@@ -14,7 +14,14 @@ import { usePresence } from '../lib/usePresence'
 import { useBackClose, useFocusTrap } from '../lib/useBackClose'
 
 const OPEN_EVENT = 'ww:sidebar'
-/** Open the drawer from anywhere (the avatar button). */
+/** "MN" from Mark Nieva; else the username's or email's first letter. */
+function initials(me: { fullName: string; username: string; email: string }): string {
+  const words = me.fullName.trim().split(/\s+/).filter(Boolean)
+  if (words.length) return (words[0][0] + (words.length > 1 ? words[words.length - 1][0] : '')).toUpperCase()
+  return (me.username || me.email || 'W').slice(0, 1).toUpperCase()
+}
+
+/** Open the drawer from anywhere (the ☰ menu button). */
 export const openSidebar = () => window.dispatchEvent(new Event(OPEN_EVENT))
 
 interface Item {
@@ -26,7 +33,7 @@ interface Item {
   adminOnly?: boolean
 }
 
-/** Profile drawer (tap your avatar): who you are, the rest of the app, sync, sign out. */
+/** Menu drawer (tap ☰): who you are, the rest of the app, sync, sign out. */
 export default function Sidebar() {
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(0)
@@ -63,7 +70,7 @@ export default function Sidebar() {
     if (me.role === 'admin') void pendingCount().then(setPending)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, me.role, isTop])
-  // Focus goes to the first menu item on open and back to the avatar on close.
+  // Focus goes to the first menu item on open and back to the menu button on close.
   useEffect(() => {
     if (!open) return
     panel.current?.querySelector<HTMLElement>('.side-item')?.focus({ preventScroll: true })
@@ -102,10 +109,11 @@ export default function Sidebar() {
       <nav ref={panel} className="sidebar" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
         <div className="side-profile">
           <span className="side-avatar" aria-hidden="true">
-            {(me.email || 'W').slice(0, 1).toUpperCase()}
+            {initials(me)}
           </span>
           <div className="side-who">
-            <div className="side-email">{me.email || 'This phone only'}</div>
+            <div className="side-email">{me.fullName || (me.username ? `@${me.username}` : me.email || 'This phone only')}</div>
+            {me.fullName && me.email && <div className="side-sub">{me.email}</div>}
             <span className="role-chip">{ROLE_LABEL[me.role]}</span>
           </div>
           <button className="round-btn" aria-label="Close menu" onClick={() => setOpen(false)}>

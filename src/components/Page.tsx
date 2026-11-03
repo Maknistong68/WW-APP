@@ -1,16 +1,15 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import Icon from './Icon'
 import { openSidebar } from './Sidebar'
-import { useAuthInfo } from '../lib/auth'
 import { reducedMotion } from '../lib/motion'
 import { useGoBack } from '../lib/nav'
 import { onScrollSettled, snapSuppressed, subscribeScrollY } from '../lib/scroll'
 
 /**
- * Screen frame in One UI style: a slim top row (Back or your avatar, the
+ * Screen frame in One UI style: a slim top row (Back or the ☰ menu, the
  * screen's buttons) with the big title under it. Scrolling tucks the title
  * into the top row, which turns blurred; stopping halfway snaps it open or
- * shut. Title, avatar and Back line up with the cards' edges.
+ * shut. Title, menu and Back line up with the cards' edges.
  */
 export default function Page({
   title,
@@ -42,7 +41,6 @@ export default function Page({
   children: ReactNode
 }) {
   const goBack = useGoBack()
-  const me = useAuthInfo()
   const heroRef = useRef<HTMLDivElement>(null)
   const barRef = useRef<HTMLElement>(null)
   const expandable = large && !album
@@ -90,25 +88,24 @@ export default function Page({
     }
   }, [expandable, album])
 
-  const avatar = (
-    <button className="avatar-btn" aria-label="Open profile and menu" onClick={openSidebar}>
-      {(me.email || 'W').slice(0, 1).toUpperCase()}
-    </button>
-  )
 
   return (
     <div className={`screen${expandable ? ' has-hero' : ''}${back ? ' detail' : ''}`}>
       <header className="nav-bar" ref={barRef}>
-        {back && (
+        {back ? (
           <button className="round-btn lead" onClick={() => (onBack ? onBack() : goBack(back))} aria-label={`Back to ${backLabel}`}>
             <Icon name="chevron-left" size={24} strokeWidth={2.4} />
+          </button>
+        ) : (
+          // the menu opens from the left, so its button sits on the left
+          <button className="round-btn lead" onClick={openSidebar} aria-label="Open menu">
+            <Icon name="menu" size={24} strokeWidth={2.2} />
           </button>
         )}
         <div className="nav-title" aria-hidden={expandable || undefined}>
           {title}
         </div>
         <div className="nav-side right">{actions}</div>
-        {!back && avatar}
       </header>
       {expandable && (
         <div className="appbar-hero" ref={heroRef}>
