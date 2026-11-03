@@ -58,8 +58,8 @@ npm run build   # strict tsc + vite build
   item 2's Issue log or IAP; N/A carries on until changed: `carryBefore`, `subjectPrior`, `docsSettled`). Stored in
   `KpiMonth.docs`; WPS / Manpower register / Salary also set the old fields the KPI score reads, so the score is
   unchanged (track only). Panel `src/components/SubmissionSheet.tsx` (sheet kind `submission`): saves only what was
-  changed there onto a fresh copy (`applyDocChanges`); the KPI panel shows a Documents row and keeps the documents
-  on save (`withDocsOf`). Lists: Home › Submission (`tasks.ts`), `/missing/submission` with document chips and
+  changed there onto a fresh copy (`applyDocChanges`); the KPI panel shows a Documents row. Every panel saves only
+  the fields it changed over a fresh copy (`src/lib/merge.ts`: `applyKpiChanges`, `mergeEdited`; inputs `Inputs.tsx`). Lists: Home › Submission (`tasks.ts`), `/missing/submission` with document chips and
   reminders (`docRows`, `docMissing` in `todo.ts`, `chaseText`), contractor page, Excel sheet "Submissions".
 - Dashboard numbers: `src/lib/dashboard.ts`; the Tickets view's tabs **D&C Tickets | Cases | All** (`?src=`, list and
   wording `src/lib/dashSource.ts`; Cases/All have no Closure KPI but "Closed in 30 days" and "Turned into tickets");

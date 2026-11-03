@@ -12,7 +12,6 @@ import {
   applyDocChanges,
   carryBefore,
   editDoc,
-  withDocsOf,
 } from './submissions'
 import { submissionPct } from './kpi'
 import { emptyKpi } from './subjects'
@@ -120,25 +119,6 @@ describe('Chasing and the log', () => {
     const after = setDoc(setDoc(oct(), 'waterTest', { state: 'in', on: '2026-11-02' }), 'issueLog', { state: 'in', on: '2026-11-02', variant: 'iap' })
     expect(docChangeText(before.docs, after.docs)).toEqual(['Issue log / IAP: waiting → in 2 Nov (IAP)', 'Water test certificates: waiting → in 2 Nov'])
     expect(docChangeText(after.docs, setDoc(after, 'waterTest', { state: 'na' }).docs)).toEqual(['Water test certificates: in 2 Nov → not applicable'])
-  })
-})
-
-describe('Two panels, one month', () => {
-  it('the KPI panel keeps the documents saved meanwhile in the documents panel', () => {
-    const fresh = setDoc(setDoc(oct({ accommodationPct: 70 }), 'wps', { state: 'in', on: '2026-11-02' }), 'salaryDecl', { state: 'notProvided' })
-    const kpiEdit = oct({ accommodationPct: 90 })
-    const saved = withDocsOf(kpiEdit, fresh)
-    expect(saved.accommodationPct).toBe(90)
-    expect(saved.wps).toBe(true)
-    expect(saved.notProvided).toEqual(['salaryDecl'])
-    expect(saved.docs?.wps?.on).toBe('2026-11-02')
-  })
-  it('and drops documents that were cleared there', () => {
-    const kpiEdit = setDoc(oct(), 'wps', { state: 'in' })
-    const saved = withDocsOf(kpiEdit, oct())
-    expect(saved.wps).toBe(false)
-    expect(saved.docs).toBeUndefined()
-    expect(saved.notProvided).toBeUndefined()
   })
 })
 

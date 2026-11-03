@@ -188,20 +188,6 @@ export function applyDocChanges(fresh: KpiMonth, opened: KpiMonth, edited: KpiMo
   return out
 }
 
-/**
- * The documents part of a month (WPS / Manpower / Salary fields, notProvided,
- * docs) taken from `source`, everything else from `target`. The KPI panel saves
- * with this over a fresh read, so documents saved meanwhile are kept.
- */
-export function withDocsOf(target: KpiMonth, source: KpiMonth): KpiMonth {
-  const out: KpiMonth = { ...target, wps: source.wps, manpowerDecl: source.manpowerDecl, salaryDecl: source.salaryDecl }
-  if (source.notProvided?.length) out.notProvided = [...source.notProvided]
-  else delete out.notProvided
-  if (source.docs && Object.keys(source.docs).length) out.docs = { ...source.docs }
-  else delete out.docs
-  return out
-}
-
 /** "Minutes, Water test +3": the first few short names, then how many more. */
 export function shortList(items: SubmissionItem[], max = 2): string {
   const names = items.slice(0, max).map((i) => i.short).join(', ')

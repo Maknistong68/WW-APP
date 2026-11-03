@@ -16,6 +16,12 @@ export const defaultDue = (auditDate: string) => (auditDate ? addDays(auditDate,
 export const hasAudit = (k: KpiMonth) =>
   k.quarterlyAuditPct != null || !!k.auditDate || k.auditFindings != null || k.auditClosed != null || !!k.auditDueDate
 
+/** Set the audit date; the due date follows it (audit + 30 days) until it is changed by hand. */
+export function setAuditDate(k: KpiMonth, date: string): KpiMonth {
+  const autoDue = !k.auditDueDate || k.auditDueDate === defaultDue(k.auditDate ?? '')
+  return { ...k, auditDate: date, ...(autoDue ? { auditDueDate: defaultDue(date) } : {}) }
+}
+
 /** The month with its quarterly audit cleared (the switch turned off). */
 export function withoutAudit(k: KpiMonth): KpiMonth {
   const out: KpiMonth = { ...k, quarterlyAuditPct: null }

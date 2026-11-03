@@ -10,67 +10,16 @@ import SaveButton from './SaveButton'
 import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { haptic } from '../lib/haptics'
+import { PctRow, YesNoRow, count, str } from './Inputs'
+import { MANPOWER_FIELDS, applyKpiChanges, mergeEdited } from '../lib/merge'
 import { saveRecord } from '../lib/records'
 import { localDate, monthLabel, shortDate } from '../lib/dates'
 import { declarationsDue } from '../lib/due'
-import { allSettled, awaitedItems, shortList, submissionCounts, withDocsOf } from '../lib/submissions'
+import { allSettled, awaitedItems, shortList, submissionCounts } from '../lib/submissions'
 import { emptyKpi } from '../lib/subjects'
-import { CLOSEOUT_DAYS, closeoutState, closeoutText, defaultDue, hasAudit, withoutAudit } from '../lib/closeout'
+import { CLOSEOUT_DAYS, closeoutState, closeoutText, hasAudit, setAuditDate } from '../lib/closeout'
 import { attendedPct, meetingAttended, offboardingScore, setOffboarding } from '../lib/kpi'
 import type { Contractor, KpiMonth, Manpower } from '../types'
-
-const num = (v: string): number | null => {
-  const t = v.replace(/[^\d.]/g, '')
-  if (t === '') return null
-  const n = Number(t)
-  // "." or "1.2.3" is not a number yet: keep the field blank rather than NaN.
-  return Number.isFinite(n) ? n : null
-}
-/** Whole counts (findings, workers): no decimals. */
-const count = (v: string): number | null => {
-  const n = num(v)
-  return n === null ? null : Math.floor(n)
-}
-const str = (v: number | null) => (v === null || v === undefined ? '' : String(v))
-
-function PctRow({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
-  return (
-    <label className="row">
-      <span className="row-label">{label}</span>
-      <input
-        inputMode="decimal"
-        placeholder="—"
-        value={str(value)}
-        onChange={(e) => {
-          const n = num(e.target.value)
-          onChange(n === null ? null : Math.min(100, n))
-        }}
-      />
-      <span className="row-trail">%</span>
-    </label>
-  )
-}
-
-/** Yes / No answer; tap the picked one again to clear it (not answered). */
-function YesNoRow({ label, value, onChange, noLabel = 'No' }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void; noLabel?: string }) {
-  const pick = (v: boolean) => {
-    haptic('tick')
-    onChange(value === v ? null : v)
-  }
-  return (
-    <div className="row" role="group" aria-label={label}>
-      <span className="row-main">{label}</span>
-      <span className="yesno">
-        <button type="button" className={`tog yes${value === true ? ' on' : ''}`} aria-pressed={value === true} onClick={() => pick(true)}>
-          Yes
-        </button>
-        <button type="button" className={`tog no${value === false ? ' on' : ''}`} aria-pressed={value === false} onClick={() => pick(false)}>
-          {noLabel}
-        </button>
-      </span>
-    </div>
-  )
-}
 
 function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -100,6 +49,8 @@ export default function KpiSheet({
   audit?: boolean
   onClose: () => void
 }) {
+  // The copy as opened: only what is changed against it is saved (src/lib/merge.ts).
+  const [opened] = useState(kpi)
   const [k, setK] = useState(kpi)
   // The quarterly audit is optional each month: on only when this month has one.
   const [audit, setAudit] = useState(() => openAudit || hasAudit(kpi))
@@ -123,10 +74,10 @@ export default function KpiSheet({
       if (audit && (k.auditClosed ?? 0) > (k.auditFindings ?? 0)) {
         return 'Closed out can’t be more than the findings'
       }
-      // The documents as saved in their panel (or by a teammate), never this panel's older copy.
+      // Only what was changed here, over a fresh copy: the documents (their own panel) and a
+      // teammate's answers saved meanwhile are kept.
       const fresh = await db.kpiMonths.where('[contractorUuid+workOrderUuid+month]').equals([k.contractorUuid, k.workOrderUuid, k.month]).first()
-      const out = withDocsOf(k, fresh ?? emptyKpi(k.contractorUuid, k.workOrderUuid, k.month))
-      await saveRecord('kpiMonths', audit ? out : withoutAudit(out), `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
+      await saveRecord('kpiMonths', applyKpiChanges(fresh ?? opened, opened, k, audit), `${subjectLabel} · ${monthLabel(k.month)} KPIs`)
       haptic('success')
       markSeen('kpi')
       showToast({ text: 'KPIs saved' })
@@ -193,9 +144,8 @@ export default function KpiSheet({
                   value={k.auditDate ?? ''}
                   onChange={(e) => {
                     const date = e.target.value
-                    // Keep the due date following the audit date until it is changed by hand.
-                    const autoDue = !k.auditDueDate || k.auditDueDate === defaultDue(k.auditDate ?? '')
-                    setK((p) => ({ ...p, auditDate: date, ...(autoDue ? { auditDueDate: defaultDue(date) } : {}) }))
+                    // the due date follows the audit date until it is changed by hand
+                    setK((p) => setAuditDate(p, date))
                   }}
                 />
               </label>
@@ -249,6 +199,7 @@ export function ManpowerSheet({
   record: Manpower
   onClose: () => void
 }) {
+  const [opened] = useState(record)
   const [m, setM] = useState(record)
   const field = (label: string, f: 'totalWorkers' | 'illegalOrFreelance' | 'visaExpiring30d' | 'paidRecruitmentFees') => (
     <label className="row">
@@ -260,9 +211,12 @@ export function ManpowerSheet({
   const { saving, alert, run } = useSave(`${subjectLabel} manpower`)
   const save = () =>
     run(async () => {
-      const over = (['illegalOrFreelance', 'visaExpiring30d', 'paidRecruitmentFees'] as const).some((f) => m[f] > m.totalWorkers)
+      // Only the counts changed here, over a fresh copy (a teammate's other counts are kept).
+      const fresh = await db.manpower.where('[contractorUuid+workOrderUuid+month]').equals([m.contractorUuid, m.workOrderUuid, m.month]).first()
+      const out = mergeEdited(fresh ?? opened, opened, m, MANPOWER_FIELDS)
+      const over = (['illegalOrFreelance', 'visaExpiring30d', 'paidRecruitmentFees'] as const).some((f) => out[f] > out.totalWorkers)
       if (over) return 'Counts can’t be more than total workers'
-      await saveRecord('manpower', m, `${subjectLabel} · ${monthLabel(m.month)} manpower`)
+      await saveRecord('manpower', out, `${subjectLabel} · ${monthLabel(m.month)} manpower`)
       haptic('success')
       showToast({ text: 'Manpower saved' })
       if (sheet.current) sheet.current.close()
