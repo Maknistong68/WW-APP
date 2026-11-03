@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { detectPlatform, offerInstallFirst, type Platform } from './platform'
+import { editingCount } from './editing'
 
 // Captures the browser's install prompt so the app can offer an explicit
 // "Install app" button. Must be imported at startup (main.tsx): the
@@ -22,7 +23,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 window.addEventListener('appinstalled', () => {
   deferred = null
-  justInstalled = true
+  // The "Installed, open it from the home screen" screen replaces the app:
+  // not while a form is open here (installed from the browser menu mid-entry).
+  if (editingCount() === 0) justInstalled = true
   notify()
 })
 
@@ -94,11 +97,18 @@ export const useInstallState = (): InstallState => useSyncExternalStore(subscrib
 export async function promptInstall(): Promise<boolean> {
   if (!deferred) return false
   const evt = deferred
-  await evt.prompt()
-  const { outcome } = await evt.userChoice
-  if (outcome === 'accepted') deferred = null
-  notify()
-  return outcome === 'accepted'
+  // The browser's install event works once: after it, the screens show the
+  // menu steps instead (Chrome refuses a second prompt on the same event).
+  deferred = null
+  try {
+    await evt.prompt()
+    const { outcome } = await evt.userChoice
+    return outcome === 'accepted'
+  } catch {
+    return false
+  } finally {
+    notify()
+  }
 }
 
 /** Re-render hook for UI: fires when installability changes. */

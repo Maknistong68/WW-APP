@@ -21,5 +21,6 @@ export default function PhotoThumb({
   }, [blob])
 
   if (!url) return null
-  return <img src={url} className={className} onClick={onClick} alt={alt ?? 'photo'} />
+  // lazy + async: a long checklist doesn't decode every photo at once while scrolling
+  return <img src={url} className={className} onClick={onClick} alt={alt ?? 'photo'} loading="lazy" decoding="async" />
 }

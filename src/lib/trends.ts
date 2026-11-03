@@ -3,7 +3,7 @@ import { addMonths, daysBetween, localDate, monthRange } from './dates'
 import { lastEndedMonth } from './due'
 import { KPI_PARTS, declNotProvided, declWaiting } from './kpi'
 import { kpiForSubject, rollup, type AllData, type KpiItemKey } from './kpiData'
-import type { KpiSubject } from './subjects'
+import { holdsContractorTickets, type KpiSubject } from './subjects'
 import { owedOf } from './money'
 import { closedIn, monthEnd, openOn, openedIn } from './ticketFilter'
 import type { Contractor } from '../types'
@@ -22,7 +22,11 @@ export function contractorSubjects(d: AllData, c: Contractor): KpiSubject[] {
 }
 
 const pick = (d: AllData, c: Contractor, wo?: string) => contractorSubjects(d, c).filter((s) => !wo || s.workOrder?.uuid === wo)
-const mine = (d: AllData, c: Contractor, wo?: string) => d.tickets.filter((t) => t.contractorUuid === c.uuid && (!wo || t.workOrderUuid === wo))
+const mine = (d: AllData, c: Contractor, wo?: string) => {
+  const w = wo ? d.woByUuid.get(wo) : undefined
+  const loose = !!w && holdsContractorTickets(w, d.workOrders)
+  return d.tickets.filter((t) => t.contractorUuid === c.uuid && (!wo || t.workOrderUuid === wo || (loose && !t.workOrderUuid)))
+}
 const round = (v: number | null) => (v === null ? null : Math.round(v))
 
 /** The months a range shows, oldest first, ending with the last month that ended. */

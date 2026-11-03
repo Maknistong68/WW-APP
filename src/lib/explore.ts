@@ -1,5 +1,5 @@
 import { quarterlyAudits } from './audits'
-import { CAMP_STATUS_LABEL, campState } from './camps'
+import { CAMP_STATUS_LABEL, campInspections, campState } from './camps'
 import { compareRows, sortRows, type CompareRow } from './compare'
 import { lastMonths, openAging, periodStats, ticketsBy, workforce, type DashView } from './dashboard'
 import { localDate, monthLabel, shortDate } from './dates'
@@ -404,9 +404,8 @@ function campData(d: AllData, chip: string, o: Required<ExploreOptions>): Explor
   if (chip === 'scores') {
     const scored = active
       .map(({ camp, state }) => {
-        const last = d.inspections
-          .filter((i) => i.campUuid === camp.uuid && i.info?.reviewDate)
-          .sort((a, b) => b.info.reviewDate.localeCompare(a.info.reviewDate))
+        const last = campInspections(camp, d.inspections)
+          .filter((i) => i.info?.reviewDate)
           .map((i) => ({ date: i.info.reviewDate, pct: inspectionPct(i) }))
           .find((x) => x.pct !== null)
         return { camp, state, last }

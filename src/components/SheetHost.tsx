@@ -114,7 +114,7 @@ async function load(r: SheetRequest): Promise<Shown | null> {
         return { kind: 'manpower', label: s.label, record }
       }
       const kpi = (await db.kpiMonths.where('[contractorUuid+workOrderUuid+month]').equals(key).first()) ?? emptyKpi(r.contractorUuid, r.workOrderUuid, r.month)
-      const auditPct = auditPctFor(s.contractor, await db.inspections.toArray(), r.month)
+      const auditPct = auditPctFor(s.contractor, await db.inspections.toArray(), r.month, await db.camps.toArray())
       return { kind: 'kpi', contractor: s.contractor, label: s.label, kpi, auditPct }
     }
   }

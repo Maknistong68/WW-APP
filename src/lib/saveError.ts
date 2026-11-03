@@ -37,6 +37,7 @@ export function describeSaveError(err: unknown): SaveErrorInfo {
   if (NO_ANSWER.has(name)) return { text: 'Phone storage didn’t answer. Reload the app.', detail, reload: true }
   if (name === 'ConstraintError') return { text: 'This already exists.', detail }
   if (name === 'DataCloneError') return { text: 'Could not save this record.', detail }
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(message)) return { text: 'No internet. Try again when you’re online.', detail }
   return { text: `Could not save: ${message || name}`, detail }
 }
 

@@ -34,6 +34,11 @@
   --none-tint: #eceef1;
   --info: #1d5fd1;
   --info-tint: #e7effd;
+  /* text / ticks on a solid status fill: white here (≥ 5:1), near-black in dark (≥ 7.7:1) */
+  --bad-ink: #ffffff;
+  --warn-ink: #ffffff;
+  --good-ink: #ffffff;
+  --info-ink: #ffffff;
 
   /* ---- floating chrome (blurred, almost solid so it reads in the sun) ---- */
   --chrome-bar: rgb(243 244 246 / 0.84);
@@ -151,6 +156,10 @@
   --none-tint: #2a2a2e;
   --info: #7aa7ff;
   --info-tint: #1a2640;
+  --bad-ink: #0b0d10;
+  --warn-ink: #0b0d10;
+  --good-ink: #0b0d10;
+  --info-ink: #0b0d10;
 
   --chrome-bar: rgb(0 0 0 / 0.8);
   --chrome-pill: rgb(44 44 46 / 0.84);

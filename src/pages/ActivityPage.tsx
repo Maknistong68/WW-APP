@@ -1,3 +1,4 @@
+import { showToast } from '../components/Toast'
 import { useMemo, useRef, useState } from 'react'
 import { useChipScroll } from '../lib/chipScroll'
 import { useCachedLiveQuery } from '../lib/useCachedQuery'
@@ -18,7 +19,7 @@ const FILTERS: { key: 'all' | ActivityEntity; label: string }[] = [
   { key: 'ticket', label: 'Tickets' },
   { key: 'contractor', label: 'Contractors' },
   { key: 'kpi', label: 'KPIs' },
-  { key: 'audit', label: 'Audits' },
+  { key: 'audit', label: 'Inspections' },
 ]
 
 const VERB: Record<ActivityEntry['action'], string> = {
@@ -60,6 +61,7 @@ export default function ActivityPage() {
   const open = async (e: ActivityEntry) => {
     if (e.action === 'delete') {
       if (e.entity === 'ticket' && role === 'admin') navigate('/tickets/removed')
+      else showToast({ text: e.entity === 'ticket' ? 'Removed by the admin' : 'This was deleted' })
       return
     }
     const id = e.entityUuid
@@ -99,7 +101,7 @@ export default function ActivityPage() {
     <Page title="Activity log" back="/library" backLabel="Library">
       <label className="ios-search">
         <Icon name="search" size={18} />
-        <input type="search" placeholder="Ticket no., contractor, value" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" aria-label="Search activity" placeholder="Ticket no., contractor, value" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
       <div className="segmented scroll" role="group" aria-label="Show" ref={filterRow}>
         {FILTERS.map((f) => (
@@ -174,7 +176,7 @@ export default function ActivityPage() {
                       ))
                   : null}
               </span>
-              <span className="row-trail" style={{ fontSize: 12.5 }}>
+              <span className="row-trail" style={{ fontSize: 13 }}>
                 {fmtWhen(e.time)}
               </span>
             </button>

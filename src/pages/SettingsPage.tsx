@@ -3,7 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { saveAs } from 'file-saver'
-import { createBackup, db, restoreBackup } from '../db'
+import { clearLocalData, createBackup, db, restoreBackup } from '../db'
+import { openSheet } from '../components/SheetHost'
 import {
   getClient,
   getSyncConfig,
@@ -256,6 +257,30 @@ export default function SettingsPage() {
     }
   }
 
+  // Signs out and wipes this phone (shared or handed-over phones). Unsent changes are named first.
+  const askClear = async () => {
+    const unsent = (await db.activity.toArray().catch(() => [])).filter((a) => !a.synced).length
+    openSheet({
+      kind: 'confirm',
+      title: 'Remove data from this phone?',
+      message: unsent
+        ? `${unsent} change${unsent === 1 ? ' is' : 's are'} not sent to the cloud yet and will be lost. Sync first if you can.`
+        : 'Tickets, KPIs, inspections and photos are removed from this phone, and you are signed out. The team’s data stays in the cloud.',
+      confirmLabel: 'Remove data',
+      destructive: true,
+      onConfirm: () =>
+        void (async () => {
+          setBusy(true)
+          try {
+            await me.signOut(true).catch(() => {})
+            await clearLocalData()
+          } finally {
+            window.location.replace(window.location.pathname)
+          }
+        })(),
+    })
+  }
+
   return (
     <Page title="Settings" back="/library" backLabel="Library">
         {me.userId && <ProfileCard />}
@@ -316,6 +341,15 @@ export default function SettingsPage() {
         </div>
         <input ref={restoreRef} type="file" accept="application/json,.json" hidden onChange={doRestore} />
         <div className="list-foot">Backup = everything: audits, photos, tickets, contractors, KPIs, log.</div>
+        <div className="list">
+          <button className="row" disabled={busy} onClick={() => void askClear()}>
+            <span className="row-icon h-slate">
+              <Icon name="trash" size={20} fill />
+            </span>
+            <span className="row-main" style={{ color: 'var(--bad)' }}>Remove data from this phone</span>
+          </button>
+        </div>
+        <div className="list-foot">For a shared or handed-over phone: signs out and clears everything kept here. The team’s data stays in the cloud.</div>
 
         <div className="section-label">App</div>
         <div className="card">

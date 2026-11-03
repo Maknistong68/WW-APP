@@ -117,3 +117,33 @@ export default function Page({
     </div>
   )
 }
+
+/** Placeholder cards while a screen's data loads (instead of a blank screen). */
+export function PageSkeleton({ rows = 4, hero = true }: { rows?: number; hero?: boolean }) {
+  return (
+    <div className="page-skeleton" role="status" aria-label="Loading">
+      {hero && <div className="skeleton" style={{ height: 132 }} />}
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="skeleton" style={{ height: 76 }} />
+      ))}
+    </div>
+  )
+}
+
+/** A record that isn't there (removed, or a stale link), with a way back. */
+export function NotFound({ what, back, backLabel }: { what: string; back: string; backLabel: string }) {
+  const goBack = useGoBack()
+  return (
+    <div className="empty-state">
+      <Icon name="search" size={44} />
+      <b>{what} not found</b>
+      It may have been removed.
+      <div style={{ marginTop: 16 }}>
+        <button className="btn" onClick={() => goBack(back)}>
+          <Icon name="chevron-left" size={20} />
+          Back to {backLabel}
+        </button>
+      </div>
+    </div>
+  )
+}

@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import Page from '../components/Page'
+import Page, { PageSkeleton } from '../components/Page'
 import Icon from '../components/Icon'
 import Sparkline from '../components/Sparkline'
 import TrendLine from '../components/charts/TrendLine'
@@ -131,6 +131,20 @@ export default function KpiDetailPage() {
           </button>
         )}
       </div>
+      {!d.loaded ? (
+        <PageSkeleton hero={false} rows={3} />
+      ) : ranked.length === 0 ? (
+        <div className="empty-state">
+          <b>{only ? 'No work orders in this state' : 'No work orders yet'}</b>
+          {only && (
+            <div style={{ marginTop: 14 }}>
+              <button className="btn" onClick={() => toggle(only)}>
+                Show all
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="list">
         {ranked.map(({ subject, result }) => {
           const v = result[itemKey]
@@ -164,6 +178,7 @@ export default function KpiDetailPage() {
           )
         })}
       </div>
+      )}
       {part?.auto && <div className="list-foot">Calculated automatically from tickets / manpower.</div>}
       <div className="list-foot">Hold a work order to fill it in or see its workers.</div>
     </Page>

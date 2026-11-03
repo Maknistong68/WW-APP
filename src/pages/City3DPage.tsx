@@ -64,13 +64,18 @@ import { useAllData } from '../lib/kpiData'
 import { kpiTone } from '../lib/tone'
 import '../styles/city.css'
 
-/** three.js (r163+) needs WebGL 2. */
+/** three.js (r163+) needs WebGL 2. Probed once; the test context is released straight away. */
+let webglProbe: boolean | undefined
 function hasWebGL() {
+  if (webglProbe !== undefined) return webglProbe
   try {
-    return !!document.createElement('canvas').getContext('webgl2')
+    const gl = document.createElement('canvas').getContext('webgl2')
+    webglProbe = !!gl
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
   } catch {
-    return false
+    webglProbe = false
   }
+  return webglProbe
 }
 
 /** Phones and tablets: lighter rendering. */
@@ -640,7 +645,7 @@ export default function City3DPage() {
                 <Icon name="undo" size={18} /> Undo
               </button>
               <button className="btn primary" disabled={!allFit || saving} onClick={save}>
-                {saving ? 'Saving…' : changed ? `Done · ${changed}` : 'Done'}
+                {saving ? 'Saving…' : changed ? `Save map · ${changed}` : 'Done'}
               </button>
             </div>
           </div>
@@ -672,7 +677,7 @@ export default function City3DPage() {
               </div>
             )}
             <div className={`city-health ${kpiTone(health.status)}`} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={health.overall ?? undefined} aria-label="KPI">
-              <span style={{ width: `${Math.round(health.fill * 100)}%` }} />
+              <span style={{ transform: `scaleX(${health.fill})` }} />
             </div>
             <div className="city-floors">
               {FLOORS.map((f, i) => (

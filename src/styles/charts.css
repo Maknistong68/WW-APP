@@ -8,9 +8,12 @@
 .chart-svg .area { fill: var(--chart); fill-opacity: 0.1; }
 .chart-svg .dot { fill: var(--chart); stroke: var(--card); stroke-width: 2; }
 .chart-svg .cross { stroke: var(--muted); stroke-width: 1; }
-.chart-svg .end-label { fill: var(--text); font-size: 12px; font-weight: 700; }
+.chart-svg .end-label { fill: var(--text); font-size: 13px; font-weight: 700; }
 .chart-svg .col.s0 { fill: var(--chart); }
-.chart-svg .col.s1 { fill: var(--chart-2); }
+.chart-svg .col.s1 { fill: var(--chart-2); stroke: var(--chart-2); stroke-width: 1.25; }
+/* the second series: diagonal hatch on a pale fill, outlined (MonthBars) */
+.chart-svg .hatch-bg { fill: var(--chart-2); opacity: 0.22; }
+.chart-svg .hatch-line { fill: var(--chart-2); }
 .chart-svg .hover-band { fill: var(--press); opacity: 0.8; }
 .chart-svg .hover-band.sel { fill: var(--brand-tint); opacity: 1; }
 /* Target lines (90% on track, 70% critical) and status-coloured points. */
@@ -18,7 +21,7 @@
 .chart-svg .guide.good { stroke: var(--good); }
 .chart-svg .guide.warn { stroke: var(--warn); }
 .chart-svg .guide.bad { stroke: var(--bad); }
-.chart-svg .guide-label { font-size: 11px; font-weight: 700; }
+.chart-svg .guide-label { font-size: 12px; font-weight: 700; }
 .chart-svg .guide-label.good { fill: var(--good); }
 .chart-svg .guide-label.warn { fill: var(--warn); }
 .chart-svg .guide-label.bad { fill: var(--bad); }
@@ -36,7 +39,10 @@
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .chart-legend .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .chart-legend .swatch.s0 { background: var(--chart); }
-.chart-legend .swatch.s1 { background: var(--chart-2); }
+.chart-legend .swatch.s1 {
+  background: repeating-linear-gradient(45deg, var(--chart-2) 0 1.5px, color-mix(in srgb, var(--chart-2) 22%, transparent) 1.5px 3.5px);
+  box-shadow: inset 0 0 0 1.25px var(--chart-2);
+}
 .chart-tip {
   position: absolute; top: 44px; transform: translateX(-50%); pointer-events: none; white-space: nowrap;
   background: var(--toast-bg); color: var(--toast-ink); font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 12px; font-variant-numeric: tabular-nums;
@@ -46,11 +52,13 @@
 /* A tapped month: the callout pops out of it and can open what's behind it. */
 .chart-tip.actionable { pointer-events: auto; padding: 4px 4px 4px 12px; }
 .chart-open {
-  min-height: 32px; padding: 0 12px; border: 0; border-radius: 999px; cursor: pointer;
+  position: relative; min-height: 32px; padding: 0 12px; border: 0; border-radius: 999px; cursor: pointer;
   background: var(--brand); color: var(--brand-ink); font: 700 13px var(--font);
   transition: transform var(--dur-press) var(--ease-80);
 }
 .chart-open:active { transform: scale(0.95); }
+/* 44px to tap, while the pill stays small inside the callout */
+.chart-open::after { content: ''; position: absolute; inset: -6px -4px; }
 @keyframes tipIn { from { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.85); } to { opacity: 1; transform: translateX(-50%); } }
 /* Sparkline: muted line, dashed target, end dot in its status colour. */
 .spark { display: block; overflow: visible; }

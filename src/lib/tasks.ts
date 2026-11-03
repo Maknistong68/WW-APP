@@ -13,7 +13,7 @@ import type { IconName } from '../components/Icon'
 import { nextDue, repeatText, routineGroup } from './routines'
 import { shortName } from './names'
 import { sourceTab, type SourceTab } from './ticketFilter'
-import type { Routine } from '../types'
+import type { Routine, Ticket } from '../types'
 import type { MenuItem } from './hues'
 
 // Home as a task list: everything to do, by name and due date. Urgent things
@@ -303,9 +303,15 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
       ticketSource: tab,
       help: HELP.ticket,
     })
+    // A combined group shows once, under its main ticket, with how many it holds (the Dashboard counts each).
+    const combined = (t: Ticket) => [...d.tickets, ...d.cases].filter((x) => x.parentUuid === t.uuid && isOpen(x)).length
+    const plus = (t: Ticket) => {
+      const n = combined(t)
+      return n ? ` · +${n} combined` : ''
+    }
     for (const t of late.slice(0, cap)) {
       const days = ageDays(t, today)
-      tasks.push(ticketRow(t, 'overdue', `Open ${days} days · ${t.workers || 0} worker${s(t.workers || 0)}`))
+      tasks.push(ticketRow(t, 'overdue', `Open ${days} days · ${t.workers || 0} worker${s(t.workers || 0)}${plus(t)}`))
     }
     if (late.length > cap) {
       const more = late.length - cap

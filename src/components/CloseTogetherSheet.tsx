@@ -7,6 +7,7 @@ import { haptic } from '../lib/haptics'
 import { combineTickets, groupOf, suggestMain } from '../lib/groups'
 import { localDate } from '../lib/dates'
 import { saveRecord } from '../lib/records'
+import { db } from '../db'
 import { closingAmount, owedOf, parseSar, sar } from '../lib/money'
 import { ticketLabel, useContractors } from '../lib/useData'
 import { noun } from '../lib/cases'
@@ -50,6 +51,8 @@ export default function CloseTogetherSheet({
     run(async () => {
       const main = selected.find((t) => t.uuid === mainUuid)!
       if (close && selected.some((t) => date < t.openedAt)) return `Closing date is before a ${kind} was opened`
+      if (close && !date) return 'Add the closing date'
+      if (close && date > localDate()) return 'Closing date is in the future'
       // Closing asks for the money (an amount or Nothing owed); combining only keeps it optional.
       let value: number | null
       if (close) {
@@ -69,11 +72,14 @@ export default function CloseTogetherSheet({
         wwAction: wwAction.trim(),
         close,
       })
-      for (const u of updates) {
-        const before = all.find((t) => t.uuid === u.uuid)
-        const closing = close && before?.status !== 'Closed'
-        await saveRecord('tickets', u, ticketLabel(u, byUuid), closing ? 'close' : undefined)
-      }
+      // All or nothing: a failure part-way leaves every ticket as it was.
+      await db.transaction('rw', db.tickets, db.activity, async () => {
+        for (const u of updates) {
+          const before = all.find((t) => t.uuid === u.uuid)
+          const closing = close && before?.status !== 'Closed'
+          await saveRecord('tickets', u, ticketLabel(u, byUuid), closing ? 'close' : undefined)
+        }
+      })
       haptic('success')
       showToast({
         text: close

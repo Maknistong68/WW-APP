@@ -53,7 +53,7 @@ export function SubjectList({
       {search && rows.length > 8 && (
         <label className="ios-search">
           <Icon name="search" size={18} />
-          <input type="search" placeholder="Contractor or WO" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input type="search" aria-label="Search work orders" placeholder="Contractor or WO" value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
       )}
       {shown.length === 0 ? (
@@ -125,7 +125,7 @@ export function SubjectEditor({
       contractor={subject.contractor}
       subjectLabel={subject.label}
       kpi={subjectKpi(subject, d.kpis, month) ?? emptyKpi(subject.contractor.uuid, wo, month)}
-      auditPct={auditPctFor(subject.contractor, d.inspections, month)}
+      auditPct={auditPctFor(subject.contractor, d.inspections, month, d.camps)}
       audit={audit}
       onClose={onClose}
     />

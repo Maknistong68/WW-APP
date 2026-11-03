@@ -16,13 +16,13 @@ import {
 } from './dashboard'
 import { dayMonth, localDate, monthLabel } from './dates'
 import { declarationsDue, dueTone } from './due'
-import { closurePct, kpiStatus, pct } from './kpi'
+import { kpiStatus, pct } from './kpi'
 import { SUBMISSION_ITEMS } from './submissions'
 import { itemStats, subjectKpis, type AllData } from './kpiData'
-import { moneyStats, sarShort } from './money'
+import { moneyStats, owedOf, sarShort } from './money'
 import { ageParts, countDomain, partsTone, type Peek, type PeekPart } from './peek'
 import { docsSettled, kpiSubjects } from './subjects'
-import { monthEnd, ticketLink, type TicketQuery } from './ticketFilter'
+import { closedIn, monthEnd, openOn, ticketLink, type TicketQuery } from './ticketFilter'
 import { kpiTone, type Tone } from './tone'
 import type { IconName } from '../components/Icon'
 
@@ -67,6 +67,15 @@ export interface FocusOptions {
 }
 
 const SPARK_MONTHS = 6
+
+/** Money for one month: recovered on tickets closed in it, still owed on those open at its end. */
+function monthMoney(tickets: AllData['tickets'], month: string, end: string) {
+  const settledT = tickets.filter((t) => owedOf(t) > 0 && closedIn(t, month))
+  const owedT = tickets.filter((t) => owedOf(t) > 0 && openOn(t, end))
+  const settled = settledT.reduce((s, t) => s + owedOf(t), 0)
+  const outstanding = owedT.reduce((s, t) => s + owedOf(t), 0)
+  return { settled, outstanding, total: settled + outstanding, withAmount: settledT.length + owedT.length }
+}
 const short = (m: string) => monthLabel(m).slice(0, 3)
 const n = (v: number, one: string, many = `${one}s`) => `${v.toLocaleString('en-US')} ${v === 1 ? one : many}`
 const daysTone = (avg: number | null): Tone => (avg === null ? 'none' : avg <= 10 ? 'good' : avg <= 30 ? 'warn' : 'bad')
@@ -115,9 +124,10 @@ function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
     },
   }
 
-  const closure = closurePct(d.tickets, kpiMonth)
+  // The same number as the Closure KPI page: the average over work orders.
+  const closure = itemStats(subjectKpis(d, kpiMonth), 'closure').avg
   const closureSpark = months.map((m) => {
-    const v = closurePct(d.tickets, m)
+    const v = itemStats(subjectKpis(d, m), 'closure').avg
     return v === null ? null : Math.round(v)
   })
   const closureCard: FocusCard = {
@@ -131,7 +141,7 @@ function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
     line: `${monthStats.closed.length} closed · ${monthStats.opened.length} opened in ${short(kpiMonth)} · target 90%`,
     link: { label: `Closed in ${short(kpiMonth)}`, to: tix({ m: kpiMonth, in: 'closed' }) },
     peek: {
-      sub: `${monthLabel(kpiMonth)} · tickets closed of those open in the month`,
+      sub: `${monthLabel(kpiMonth)} · average over work orders: closed of those open in the month`,
       facts: dayFacts,
       spark: { values: closureSpark, label: `Closure, last ${SPARK_MONTHS} months`, tone: kpiTone(kpiStatus(closure)), guide: 90 },
       actions: [
@@ -142,8 +152,9 @@ function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
     },
   }
 
-  const scope = month ? stats.opened : d.tickets
-  const money = moneyStats(scope)
+  // A month: recovered = money on tickets closed in it (as in Over time);
+  // still owed = money on tickets open at its end. All: as of today.
+  const money = month ? monthMoney(d.tickets, month, end) : moneyStats(d.tickets)
   const recovered = recoveredPerMonth(d.tickets, months).map((r) => r.values[0])
   const moneyCard: FocusCard = {
     key: 'money',
@@ -157,7 +168,7 @@ function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
       { label: 'Still owed', value: money.outstanding, tone: 'bad' },
     ],
     line: `SAR ${sarShort(money.settled)} recovered · ${n(money.withAmount, 'ticket')} with money`,
-    link: { label: 'Owed tickets', to: tix({ ...opened, owed: 'open' }) },
+    link: { label: 'Owed tickets', to: tix(month ? { m: month, in: 'openAtEnd', owed: 'open' } : { owed: 'open' }) },
     peek: {
       sub: `${when} · from tickets only`,
       facts: [
@@ -167,8 +178,8 @@ function ticketCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
       ],
       spark: { values: recovered, label: `SAR recovered per month, last ${SPARK_MONTHS} months`, tone: money.settled ? 'good' : 'none', domain: countDomain(recovered) },
       actions: [
-        { label: 'Owed tickets', icon: 'money', to: tix({ ...opened, owed: 'open' }) },
-        { label: 'Recovered tickets', icon: 'check', to: tix({ ...opened, owed: 'paid' }) },
+        { label: 'Owed tickets', icon: 'money', to: tix(month ? { m: month, in: 'openAtEnd', owed: 'open' } : { owed: 'open' }) },
+        { label: 'Recovered tickets', icon: 'check', to: tix(month ? { m: month, in: 'closed', owed: 'paid' } : { owed: 'paid' }) },
         { label: 'All with money', icon: 'ticket', to: tix({ ...opened, owed: 'any' }) },
       ],
     },

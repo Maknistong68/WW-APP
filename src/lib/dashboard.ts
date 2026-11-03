@@ -266,13 +266,13 @@ export function campsSummary(camps: Camp[], inspections: Inspection[], today = l
 
 /** Inspections (by review date) per month. */
 export function inspectionsPerMonth(inspections: Inspection[], months: string[]): MonthPoint[] {
-  return months.map((m) => ({ month: m, values: [inspections.filter((i) => i.info?.reviewDate?.startsWith(m)).length] }))
+  return months.map((m) => ({ month: m, values: [inspections.filter((i) => i.status === 'completed' && i.info?.reviewDate?.startsWith(m)).length] }))
 }
 
 /** Average audit score of inspections reviewed in the month, or null. */
 export function auditAverage(inspections: Inspection[], month: string): { avg: number | null; count: number } {
   const scores = inspections
-    .filter((i) => i.info?.reviewDate?.startsWith(month))
+    .filter((i) => i.status === 'completed' && i.info?.reviewDate?.startsWith(month))
     .map((i) => inspectionPct(i))
     .filter((p): p is number => p !== null)
   return { avg: scores.length ? scores.reduce((s, p) => s + p, 0) / scores.length : null, count: scores.length }

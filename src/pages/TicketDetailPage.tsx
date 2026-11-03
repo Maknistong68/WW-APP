@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useCachedLiveQuery } from '../lib/useCachedQuery'
 import { useNavigate, useParams } from 'react-router-dom'
 import { db } from '../db'
-import Page from '../components/Page'
+import Page, { NotFound, PageSkeleton } from '../components/Page'
 import History from '../components/History'
 import TicketSheet, { CloseTicketSheet } from '../components/TicketSheet'
 import { showToast } from '../components/Toast'
@@ -69,13 +69,10 @@ export default function TicketDetailPage() {
     return e ? whoName(e, team, userId) : null
   }, [uuid, team, userId])
 
-  if (t === undefined) return null
-  if (t === null) {
+  if (!t) {
     return (
-      <Page title="Ticket" back="/tickets" backLabel="Tickets" large={false}>
-        <div className="empty-state">
-          <b>Ticket not found</b>
-        </div>
+      <Page title={t === null ? 'Ticket' : ''} back="/tickets" backLabel="Tickets" large={false}>
+        {t === null ? <NotFound what="Ticket" back="/tickets" backLabel="Tickets" /> : <PageSkeleton />}
       </Page>
     )
   }

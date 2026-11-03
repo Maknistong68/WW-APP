@@ -29,7 +29,12 @@ export default function LoggedInspection({ ins, logged }: { ins: Inspection; log
   const name = camp?.name || info.facilityLocation || 'Inspection'
 
   return (
-    <Page title={name} back=".." album>
+    <Page
+      title={name}
+      back={ins.campUuid ? `/camps/${ins.campUuid}` : '/audits'}
+      backLabel={ins.campUuid ? camp?.name || 'Camp' : 'Inspections'}
+      album
+    >
       <Summary
         tile={<IconTile icon="tent" tone={tone} size={64} />}
         title={name}

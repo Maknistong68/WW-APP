@@ -2,6 +2,9 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { db, logEvent, newUuid } from '../db'
 import { NORMALIZE } from './normalize'
 import { mineToSend } from './activityPush'
+import { monthTwinKeepsPulled, newer } from './syncRules'
+
+export { newer }
 import type { ActivityEntry, Inspection, Photo, RecordTable } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -62,10 +65,12 @@ export async function getClient(): Promise<SupabaseClient | null> {
   const cfg = getSyncConfig()
   if (!cfg) return null
   const { createClient } = await import('@supabase/supabase-js')
-  // PKCE for links this app asks for. Email links of every shape are read once
-  // at start (main.tsx, lib/authReturn.ts) and finished in lib/auth.ts, so the
-  // client doesn't look at the address itself.
-  client = createClient(cfg.url, cfg.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: false } })
+  // Implicit links (the session comes back in the link itself) work whichever
+  // browser opens the email: a PKCE link only works in the browser that asked
+  // for it, which on iPhone is never the home-screen app. Email links of every
+  // shape are read once at start (main.tsx, lib/authReturn.ts), the address is
+  // cleaned at once, and they are finished in lib/auth.ts.
+  client = createClient(cfg.url, cfg.anonKey, { auth: { flowType: 'implicit', detectSessionInUrl: false } })
   return client
 }
 
@@ -118,19 +123,6 @@ interface RemotePhotoRow extends RemoteInspectionRow {
   created_at: string
 }
 
-/**
- * True when `a` is a strictly later instant than `b`. Timestamps must be
- * compared as parsed dates: local values are `...Z` ISO strings while
- * PostgREST serializes timestamptz as `...+00:00`, so lexicographic
- * comparison mis-orders identical instants.
- */
-export function newer(a: string | null | undefined, b: string | null | undefined): boolean {
-  const ta = a ? Date.parse(a) : NaN
-  const tb = b ? Date.parse(b) : NaN
-  if (Number.isNaN(ta)) return false
-  if (Number.isNaN(tb)) return true
-  return ta > tb
-}
 
 /** Fetch all rows of a table, paging past PostgREST's 1000-row response cap. */
 async function selectAll<T>(c: SupabaseClient, table: string, columns: string): Promise<T[]> {
@@ -146,7 +138,21 @@ async function selectAll<T>(c: SupabaseClient, table: string, columns: string): 
 
 let syncing = false
 
-export async function syncNow(): Promise<SyncResult> {
+let running: Promise<SyncResult> | null = null
+
+/** Sync now; throws "Sync already running" when one is under way. */
+export function syncNow(): Promise<SyncResult> {
+  if (running) return Promise.reject(new Error('Sync already running'))
+  running = runSync().finally(() => {
+    running = null
+  })
+  return running
+}
+
+/** Sync, or wait for the one already running (e.g. right after a change started one). */
+export const syncOrWait = (): Promise<SyncResult> => running ?? syncNow()
+
+async function runSync(): Promise<SyncResult> {
   if (syncing) throw new Error('Sync already running')
   // Claim the lock before the first await: app-open background sync and a
   // manual "Sync now" could otherwise both pass the check and interleave.
@@ -196,6 +202,8 @@ export async function syncNow(): Promise<SyncResult> {
             .update({ deleted: true, updated_at: deletedAt })
             .eq('inspection_uuid', t.uuid)
         }
+        // A deleted photo's file leaves the cloud too (Undo uploads it again).
+        if (t.table === 'photos') await c.storage.from('photos').remove([`team/${t.uuid}.jpg`])
         await db.tombstones.delete(t.id!)
       } catch (err) {
         fail('Delete sync', err)
@@ -253,25 +261,32 @@ export async function syncNow(): Promise<SyncResult> {
       const local = localInsMap.get(r.uuid)
       return !local || newer(r.updated_at, local.updatedAt)
     })
-    for (const r of toPull) {
+    // 50 at a time (one request each), then stored one by one so a bad one is skipped.
+    for (let i = 0; i < toPull.length; i += 50) {
+      const ids = toPull.slice(i, i + 50).map((r) => r.uuid)
+      let rows: { uuid: string; data: Inspection }[] = []
       try {
-        const { data: full, error } = await c
-          .from('inspections')
-          .select('data')
-          .eq('uuid', r.uuid)
-          .single()
+        const { data, error } = await c.from('inspections').select('uuid, data').in('uuid', ids)
         if (error) throw new Error(error.message)
-        const ins = full.data as Inspection
-        const local = localInsMap.get(r.uuid)
-        if (local) {
-          await db.inspections.put({ ...ins, id: local.id, uuid: r.uuid })
-        } else {
-          const newId = await db.inspections.add({ ...ins, id: undefined, uuid: r.uuid })
-          localInsMap.set(r.uuid, { ...ins, id: newId, uuid: r.uuid })
-        }
-        result.pulled++
+        rows = (data ?? []) as { uuid: string; data: Inspection }[]
       } catch (err) {
-        fail(`Pull inspection ${r.uuid}`, err)
+        fail('Pull inspections', err)
+        continue
+      }
+      for (const row of rows) {
+        try {
+          const ins = row.data
+          const local = localInsMap.get(row.uuid)
+          if (local) {
+            await db.inspections.put({ ...ins, id: local.id, uuid: row.uuid })
+          } else {
+            const newId = await db.inspections.add({ ...ins, id: undefined, uuid: row.uuid })
+            localInsMap.set(row.uuid, { ...ins, id: newId, uuid: row.uuid })
+          }
+          result.pulled++
+        } catch (err) {
+          fail(`Pull inspection ${row.uuid}`, err)
+        }
       }
     }
 
@@ -338,7 +353,14 @@ export async function syncNow(): Promise<SyncResult> {
           result.photosUp++
         } else if (newer(localUpdated, remote.updated_at)) {
           // deleted: false resurrects a remotely-deleted photo when the local
-          // copy is newer; its storage object is still in the bucket
+          // copy is newer; its file was removed with the deletion, so it goes up again
+          if (remote.deleted) {
+            const { error: upErr } = await storage.upload(photoPath(p.uuid), p.blob, {
+              upsert: true,
+              contentType: p.blob.type || 'image/jpeg',
+            })
+            if (upErr) throw new Error(upErr.message)
+          }
           const { error } = await c
             .from('photos')
             .update({
@@ -428,6 +450,30 @@ export async function syncNow(): Promise<SyncResult> {
 }
 
 type SyncedRecord = { uuid: string; updatedAt: string }
+type MonthRow = SyncedRecord & { contractorUuid: string; workOrderUuid: string; month: string }
+
+/** Tables with one row per work order and month (a unique index on this phone). */
+const MONTH_KEYED = new Set<RecordTable>(['kpiMonths', 'manpower'])
+
+/**
+ * Two people scored the same work order and month offline: two rows, two
+ * uuids. Keep one, the same one on every phone (src/lib/syncRules.ts), and
+ * queue the other's removal. Returns true when the pulled row is the keeper.
+ */
+async function settleMonthTwin(table: RecordTable, rec: MonthRow, readOnly: boolean): Promise<boolean> {
+  const t = db.table(table)
+  const twin = (await t
+    .where('[contractorUuid+workOrderUuid+month]')
+    .equals([rec.contractorUuid, rec.workOrderUuid, rec.month])
+    .first()) as MonthRow | undefined
+  if (!twin || twin.uuid === rec.uuid) return true
+  const keepPulled = monthTwinKeepsPulled(rec, twin)
+  const loser = keepPulled ? twin.uuid : rec.uuid
+  if (!readOnly) await db.tombstones.add({ table, uuid: loser })
+  if (keepPulled) await t.delete(twin.uuid)
+  logEvent(null, 'Sync merged a duplicate month', `${table} ${rec.month}: kept ${keepPulled ? rec.uuid : twin.uuid}`)
+  return keepPulled
+}
 
 /**
  * Last-write-wins sync of one uuid-keyed record table (same row shape as
@@ -490,10 +536,17 @@ async function syncRecordTable(
       const { data, error } = await c.from(remoteName).select('uuid, data, updated_at').in('uuid', ids)
       if (error) throw new Error(error.message)
       for (const row of (data ?? []) as { uuid: string; data: SyncedRecord; updated_at: string }[]) {
-        const rec = { ...row.data, uuid: row.uuid, updatedAt: row.updated_at }
-        const fix = NORMALIZE[table]
-        await local.put(fix ? (fix(rec as unknown as Record<string, unknown>) as SyncedRecord) : rec)
-        result.records++
+        // One row at a time: a bad row is reported and skipped, never the whole batch.
+        try {
+          const fix = NORMALIZE[table]
+          const raw = { ...row.data, uuid: row.uuid, updatedAt: row.updated_at }
+          const rec = fix ? (fix(raw as unknown as Record<string, unknown>) as SyncedRecord) : raw
+          if (MONTH_KEYED.has(table) && !(await settleMonthTwin(table, rec as MonthRow, readOnly))) continue
+          await local.put(rec)
+          result.records++
+        } catch (err) {
+          fail(`Pull ${table} ${row.uuid}`, err)
+        }
       }
     } catch (err) {
       fail(`Pull ${table}`, err)

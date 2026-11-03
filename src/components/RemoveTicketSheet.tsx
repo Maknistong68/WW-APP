@@ -4,6 +4,7 @@ import { showToast } from './Toast'
 import { removeTicket } from '../lib/records'
 import { removalProblem } from '../lib/removal'
 import { backgroundSync } from '../lib/sync'
+import { useAuthInfo } from '../lib/auth'
 import { noun } from '../lib/cases'
 import { useSave } from '../lib/useSave'
 import type { Ticket } from '../types'
@@ -32,11 +33,13 @@ export default function RemoveTicketSheet({ ticket, label, onClose, after }: { t
       else done()
     })
 
+  // Restoring needs the cloud: a phone-only copy can't bring it back.
+  const { userId } = useAuthInfo()
   return (
     <Modal ref={sheet} title={`Remove ${name}?`} onClose={onClose} alert={alert}>
       <div className="sheet-body">
         <p className="list-foot" style={{ marginTop: 0 }}>
-          It leaves every list, count and the Dashboard for the whole team. You can restore it from Tickets › Removed.
+          It leaves every list, count and the Dashboard for the whole team.{userId ? ' You can restore it from Tickets › Removed.' : ''}
         </p>
         <div className="section-label">
           <label htmlFor={reasonId}>Why remove it?</label>

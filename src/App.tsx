@@ -41,6 +41,8 @@ import { setActor, setRole } from './lib/actor'
 import { setOnboardingUser } from './lib/onboarding'
 import ToastHost, { showToast } from './components/Toast'
 import { backgroundSync, type SyncResult } from './lib/sync'
+import { db } from './db'
+import { duplicateNumbers } from './lib/ticketCheck'
 
 export default function App() {
   const auth = useAuth()
@@ -133,6 +135,16 @@ function AppShell() {
       }
       const moved = r.pushed + r.pulled + r.photosUp + r.photosDown + r.records
       if (moved > 0) showToast({ text: `Cloud sync: ${moved} item${moved === 1 ? '' : 's'} updated`, duration: 3500 })
+      // Two phones offline can both take the same number: say so once per sync.
+      void db.tickets.toArray().then((all) => {
+        const twice = duplicateNumbers(all)
+        if (twice.length)
+          showToast({
+            text: `${twice.slice(0, 2).join(', ')}${twice.length > 2 ? ` and ${twice.length - 2} more` : ''} used twice. Search the number in Tickets and edit one.`,
+            tone: 'bad',
+            duration: 9000,
+          })
+      })
     }
     backgroundSync(announce)
     const onOnline = () => backgroundSync(announce)

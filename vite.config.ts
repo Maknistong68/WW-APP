@@ -25,6 +25,17 @@ export default defineConfig({
         // export time, so leaving it out of the precache breaks offline export.
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,woff,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // The 3D view (~1.1 MB) is not downloaded with every update: it is
+        // fetched and kept the first time someone opens it. Exports stay
+        // precached because they must work offline in the camps.
+        globIgnores: ['**/City3DPage-*'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/City3DPage-[^/]+\.(?:js|css)$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'ww-3d', expiration: { maxEntries: 4 } },
+          },
+        ],
       },
       manifest: {
         // The same id the app had (start_url resolved), so installed copies update instead of duplicating.

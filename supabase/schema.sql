@@ -565,3 +565,72 @@ begin
   return new;
 end $$;
 revoke all on function private.stamp_activity() from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Launch hardening (2 Nov 2026). Safe to re-run.
+-- ---------------------------------------------------------------------------
+
+-- The app never reads or writes tables without signing in: the public key alone
+-- gets nothing, and signed-in users get only what the API needs (RLS still
+-- decides which rows). TRUNCATE, TRIGGER and REFERENCES are never needed.
+do $$
+declare t text;
+begin
+  foreach t in array array['inspections', 'photos', 'contractors', 'work_orders', 'camps', 'tickets', 'kpi_months',
+                           'manpower', 'weekly_counts', 'activity_log', 'site_places', 'map_items', 'routines', 'profiles'] loop
+    execute format('revoke all on public.%I from anon', t);
+    execute format('revoke truncate, trigger, references on public.%I from authenticated', t);
+  end loop;
+end $$;
+alter default privileges in schema public revoke all on tables from anon;
+
+-- Sign-in attempts: not reachable from the API either way; RLS on with no
+-- policies makes that explicit. Only the last day is kept.
+alter table private.sign_in_attempts enable row level security;
+create or replace function public.note_sign_in(p_key text, p_ok boolean) returns void
+language sql security definer set search_path = '' as $$
+  delete from private.sign_in_attempts where at < now() - interval '1 day';
+  insert into private.sign_in_attempts (key, ok) values (lower(p_key), p_ok);
+$$;
+revoke all on function public.note_sign_in(text, boolean) from public, anon, authenticated;
+grant execute on function public.note_sign_in(text, boolean) to service_role;
+
+-- Profiles: you can't change your own role or access; nobody can change an
+-- account's email or id from the app; and the team always keeps one approved
+-- admin (two admins can't remove each other down to none).
+create or replace function private.guard_own_profile() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.id = (select auth.uid()) and (new.role is distinct from old.role or new.status is distinct from old.status) then
+    raise exception 'You cannot change your own role or access';
+  end if;
+  if (select auth.uid()) is not null and (new.id is distinct from old.id or new.email is distinct from old.email) then
+    raise exception 'The email of an account cannot be changed here';
+  end if;
+  if old.role = 'admin' and old.status = 'approved' and (new.role <> 'admin' or new.status <> 'approved')
+     and not exists (select 1 from public.profiles p where p.id <> old.id and p.role = 'admin' and p.status = 'approved') then
+    raise exception 'The team needs at least one admin';
+  end if;
+  return new;
+end $$;
+revoke all on function private.guard_own_profile() from public, anon, authenticated;
+
+-- Deleted records: the row stays (every phone must learn about the deletion),
+-- but after 180 days its contents are emptied, and storage files of deleted
+-- photos are removed by the app when it sends the deletion.
+create or replace function private.purge_deleted() returns void
+language plpgsql security definer set search_path = '' as $$
+declare t text;
+begin
+  foreach t in array array['inspections', 'contractors', 'work_orders', 'camps', 'tickets', 'kpi_months',
+                           'manpower', 'weekly_counts', 'site_places', 'map_items', 'routines'] loop
+    execute format(
+      'update public.%I set data = jsonb_build_object(''purged'', true) where deleted and updated_at < now() - interval ''180 days'' and not (data ? ''purged'')',
+      t);
+  end loop;
+end $$;
+revoke all on function private.purge_deleted() from public, anon, authenticated;
+
+create extension if not exists pg_cron;
+select cron.unschedule(jobid) from cron.job where jobname = 'ww-purge-deleted';
+select cron.schedule('ww-purge-deleted', '17 2 * * *', 'select private.purge_deleted()');

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import Page from '../components/Page'
+import Page, { NotFound, PageSkeleton } from '../components/Page'
 import Icon from '../components/Icon'
 import StatusChip from '../components/StatusChip'
 import TrendLine from '../components/charts/TrendLine'
@@ -48,13 +48,10 @@ export default function ContractorKpiPage() {
   const months = useMemo(() => (c ? trendMonths(d, c, range, today) : []), [d, c, range, today])
   const values = useMemo(() => (c ? contractorKpiSeries(d, c, months, wo)[itemKey] : []), [d, c, months, wo, itemKey])
 
-  if (!d.loaded) return null
-  if (!c) {
+  if (!d.loaded || !c) {
     return (
       <Page title={title} back="/contractors" backLabel="Contractors" large={false}>
-        <div className="empty-state">
-          <b>Contractor not found</b>
-        </div>
+        {d.loaded ? <NotFound what="Contractor" back="/contractors" backLabel="Contractors" /> : <PageSkeleton rows={2} />}
       </Page>
     )
   }

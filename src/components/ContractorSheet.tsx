@@ -5,6 +5,7 @@ import Modal, { type ModalHandle } from './Modal'
 import { showToast } from './Toast'
 import { saveRecord } from '../lib/records'
 import { db } from '../db'
+import { takenContractorName } from '../lib/names'
 import type { Contractor, WorkOrder } from '../types'
 
 export default function ContractorSheet({
@@ -26,6 +27,8 @@ export default function ContractorSheet({
     run(async () => {
       const name = c.name.trim()
       if (!name) return 'Name is required'
+      const taken = takenContractorName(name, await db.contractors.toArray(), c.uuid)
+      if (taken) return `${taken} is already in the list`
       const rec: Contractor = {
         ...c,
         name,

@@ -14,7 +14,7 @@ export interface ToastMessage {
 type Listener = (t: ToastMessage) => void
 let listener: Listener | null = null
 
-/** Show a toast from anywhere. One at a time; new toasts replace the current. */
+/** Show a toast from anywhere. One at a time; new toasts replace the current (a plain one waits behind an Undo). */
 export function showToast(t: ToastMessage) {
   listener?.(t)
 }
@@ -25,8 +25,18 @@ export default function ToastHost() {
   const [closing, setClosing] = useState(false)
   const seq = useRef(0)
 
+  // A plain notice waits while an Undo is on screen, so the Undo window isn't cut short.
+  const current = useRef<ToastMessage | null>(null)
+  const waiting = useRef<ToastMessage | null>(null)
+  current.current = closing ? null : toast
+
   useEffect(() => {
     listener = (t) => {
+      const shown = current.current
+      if (shown?.actionLabel && !t.actionLabel && t.tone !== 'bad') {
+        waiting.current = t
+        return
+      }
       seq.current += 1
       setClosing(false)
       setToast({ ...t, seq: seq.current })
@@ -37,8 +47,14 @@ export default function ToastHost() {
   }, [])
 
   const dismiss = useCallback(() => {
-    if (reducedMotion()) setToast(null)
-    else setClosing(true)
+    if (reducedMotion()) {
+      const next = waiting.current
+      waiting.current = null
+      if (next) {
+        seq.current += 1
+        setToast({ ...next, seq: seq.current })
+      } else setToast(null)
+    } else setClosing(true)
   }, [])
 
   useEffect(() => {
@@ -50,8 +66,13 @@ export default function ToastHost() {
   useEffect(() => {
     if (!closing) return
     const timer = window.setTimeout(() => {
-      setToast(null)
+      const next = waiting.current
+      waiting.current = null
       setClosing(false)
+      if (next) {
+        seq.current += 1
+        setToast({ ...next, seq: seq.current })
+      } else setToast(null)
     }, EXIT_MS)
     return () => window.clearTimeout(timer)
   }, [closing])

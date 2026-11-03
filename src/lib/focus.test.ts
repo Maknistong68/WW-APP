@@ -20,20 +20,23 @@ describe('focusCards · tickets', () => {
   it('closure: a meter against 90 in KPI colours', () => {
     const [, closure] = focusCards(fixture(), 'tickets', opts)
     expect(closure.kind).toBe('meter')
-    expect(closure.value).toBe('40%')
+    // the same as the Closure KPI page: mean(WO 882 33%, RPCO 50%), not 2 of 5 pooled
+    expect(closure.value).toBe('42%')
     expect(closure.tone).toBe('bad')
-    expect(closure.meter).toEqual({ pct: 40, target: 90 })
+    expect(closure.meter?.pct).toBeCloseTo(41.67, 1)
+    expect(closure.meter?.target).toBe(90)
     expect(closure.peek.spark?.guide).toBe(90)
     expect(closure.peek.actions[2].to).toBe('/kpis/closure?m=2026-10')
   })
-  it("money: SAR still owed on the month's tickets, split recovered / owed", () => {
+  it("money: SAR recovered in the month and still owed at its end", () => {
     const [, , money] = focusCards(fixture(), 'tickets', opts)
     expect(money.kind).toBe('split')
     expect(money.value).toBe('SAR 5,000')
     expect(money.tone).toBe('bad')
-    expect(money.parts?.map((p) => p.value)).toEqual([2000, 5000])
+    // recovered = closed in Oct (t3 2,000 + t5 1,000), the same as Over time; owed = open at the end of Oct
+    expect(money.parts?.map((p) => p.value)).toEqual([3000, 5000])
     expect(money.link.to).toContain('owed=open')
-    expect(money.peek.facts.map((f) => f.value)).toEqual(['5,000', '2,000', '7,000'])
+    expect(money.peek.facts.map((f) => f.value)).toEqual(['5,000', '3,000', '8,000'])
   })
   it('all time counts every ticket and has no month in its links', () => {
     const [open, , money] = focusCards(fixture(), 'tickets', { ...opts, month: null })

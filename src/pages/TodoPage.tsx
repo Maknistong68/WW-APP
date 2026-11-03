@@ -122,7 +122,7 @@ export default function TodoPage() {
               </span>
             </div>
             <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={list.progress.total} aria-valuenow={list.progress.done}>
-              <div style={{ width: `${(list.progress.done / list.progress.total) * 100}%` }} />
+              <div style={{ transform: `scaleX(${list.progress.done / list.progress.total})` }} />
             </div>
           </div>
         ) : null

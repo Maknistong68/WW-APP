@@ -19,12 +19,14 @@ export const CAMP_STATUS_LABEL: Record<CampStatus, string> = {
 /** Lower-case key for a facility name ("Duba Camp 3 " → "duba camp 3"). */
 export const facilityKey = (s: string | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g, ' ').trim()
 
-/** Inspections done at this camp: linked by campUuid, or unlinked ones at the same facility name. */
-export function campInspections(camp: Camp, inspections: Inspection[]): Inspection[] {
+/** Inspections done at this camp: linked by campUuid, or unlinked ones at the same facility name. Drafts only when asked. */
+export function campInspections(camp: Camp, inspections: Inspection[], withDrafts = false): Inspection[] {
   const key = facilityKey(camp.name)
   const loc = facilityKey(camp.location)
   return inspections
     .filter((i) => {
+      // Drafts never count: a started checklist doesn't renew the camp's cycle.
+      if (!withDrafts && i.status !== 'completed') return false
       if (i.campUuid) return i.campUuid === camp.uuid
       const f = facilityKey(i.info?.facilityLocation ?? '')
       return !!f && (f === key || (!!loc && f === loc))

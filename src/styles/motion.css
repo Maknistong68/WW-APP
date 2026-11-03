@@ -12,6 +12,7 @@
 @keyframes flash { from { box-shadow: 0 0 0 3px var(--warn); } to { box-shadow: 0 0 0 3px transparent; } }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes growX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes growFrom0 { from { transform: scaleX(0); } }
 @keyframes growY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 /* Long-press pop-up: grows out of the held item (gentle spring), actions ripple in. */
@@ -63,10 +64,13 @@
 .stagger > *:nth-child(6) { animation-delay: 175ms; }
 .stagger > *:nth-child(n + 7) { animation-delay: 210ms; }
 .route[data-enter='back'] :is(.stagger, .hero-row) > * { animation: none; }
+.page-skeleton { display: grid; gap: 12px; margin-top: 8px; }
 .skeleton { background: linear-gradient(90deg, var(--card) 0%, var(--press) 50%, var(--card) 100%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; border-radius: var(--r-card); }
 
 /* ---- Bars and charts fill in ------------------------------------------------- */
-.bar-fill, .progress-bar > div { transform-origin: 0 50%; animation: growX var(--dur-chart) var(--ease-90) both; }
+.bar-fill { transform-origin: 0 50%; animation: growX var(--dur-chart) var(--ease-90) both; }
+/* Progress bars are sized by an inline scaleX: grow from 0 to that value (no "to" frame, no fill after). */
+.progress-bar > div { animation: growFrom0 var(--dur-chart) var(--ease-90) backwards; }
 .chart-svg .line { stroke-dasharray: 1; animation: draw 900ms var(--ease-80) both; }
 .chart-svg .area { animation: fadeIn var(--dur-chart) var(--ease-80) 300ms both; }
 .chart-svg .col { transform-box: fill-box; transform-origin: 50% 100%; animation: growY var(--dur-chart) var(--ease-90) both; animation-delay: calc(var(--i, 0) * 18ms); }
@@ -103,7 +107,7 @@ html[data-lite] .as-pop .as-item { animation: none; }
 .done-check { position: relative; display: inline-grid; place-items: center; flex: none; }
 .done-check svg { overflow: visible; }
 .done-ring { fill: var(--good); transform-box: fill-box; transform-origin: center; animation: doneRing var(--dur-in) var(--ease-spring) both; }
-.done-tick { fill: none; stroke: #fff; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; animation: draw 420ms var(--ease-80) 160ms both; }
+.done-tick { fill: none; stroke: var(--good-ink); stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; animation: draw 420ms var(--ease-80) 160ms both; }
 .done-dot {
   position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%;
   background: var(--good); opacity: 0; animation: doneBurst 700ms var(--ease-90) 240ms both;

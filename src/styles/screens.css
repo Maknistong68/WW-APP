@@ -2,7 +2,7 @@
 .today-date { color: var(--muted); font-size: 15px; margin: -4px 0 16px; }
 .today-group { margin-top: 24px; }
 .today-group > h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--muted); margin: 0 0 10px; }
-.today-group > h2 .schip { font-size: 12.5px; padding: 5px 8px; }
+.today-group > h2 .schip { font-size: 13px; padding: 5px 8px; }
 .today-list { display: flex; flex-direction: column; gap: 10px; }
 .show-more {
   width: 100%; min-height: 56px; border: none; border-radius: var(--r-card);
@@ -66,7 +66,7 @@
 .login-link.inline { display: inline; margin: 0; padding: 10px 4px; }
 .install-steps { list-style: none; margin: 4px 0 16px; padding: 0; display: grid; gap: 10px; }
 .install-steps li { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 14px; border-radius: 16px; background: var(--bg); font-size: 16px; line-height: 1.35; }
-.install-num { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; font-weight: 700; font-size: 15px; }
+.install-num { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); font-weight: 700; font-size: 15px; }
 .install-done { display: grid; place-items: center; padding: 8px 0 4px; color: var(--good); }
 .login-switch { margin-top: 6px; text-align: center; color: var(--muted); font-size: 16px; }
 .login .btn.primary { margin-top: 4px; min-height: 56px; font-size: 17px; }
@@ -169,6 +169,10 @@
 .tasks .irow-title, .tasks .irow-sub {
   white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
+/* Ticket rows: the issue and the money can take two lines instead of being cut. */
+.ticket-rows .irow-sub {
+  white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35;
+}
 /* How a KPI is scored: a short note above its chart. */
 .rule-card { margin-bottom: 14px; padding: 14px 16px; border-radius: 22px; background: var(--info-tint); color: var(--info); }
 .rule-card b { display: block; font-size: 15px; }
@@ -179,11 +183,11 @@
 .cmp-scroll { overflow-x: auto; margin-right: -4px; padding: 0 4px 4px 0; scrollbar-width: none; }
 .cmp-scroll::-webkit-scrollbar { display: none; }
 .cmp-grid { display: flex; flex-direction: column; gap: 4px; min-width: max-content; width: 100%; }
-.cmp-row { display: grid; grid-template-columns: minmax(112px, 1.6fr) repeat(var(--cols), minmax(36px, 1fr)); gap: 4px; align-items: center; }
-.cmp-head .cmp-mon { text-align: center; font-size: 12px; font-weight: 600; color: var(--muted); }
+.cmp-row { display: grid; grid-template-columns: minmax(112px, 1.6fr) repeat(var(--cols), minmax(44px, 1fr)); gap: 4px; align-items: center; }
+.cmp-head .cmp-mon { text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); }
 /* The name stays pinned while the months scroll sideways. */
 .cmp-name {
-  position: sticky; left: 0; z-index: 1; display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 36px;
+  position: sticky; left: 0; z-index: 1; display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 44px;
   padding: 0 6px 0 2px; border: 0; background: var(--card); color: var(--text); font: 600 14px var(--font); text-align: left; cursor: pointer;
   -webkit-touch-callout: none; user-select: none;
   /* Covers the gap too, so scrolled cells slide cleanly under the name. */
@@ -192,11 +196,11 @@
 .cmp-head .cmp-name, .cmp-avg .cmp-name { cursor: default; }
 .cmp-name:active { background-color: var(--press); }
 .cmp-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cmp-change { flex: none; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cmp-change { flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cmp-change.up { color: var(--good); }
 .cmp-change.down { color: var(--bad); }
 .cmp-cell {
-  display: grid; place-items: center; min-height: 36px; padding: 0; border: 0; border-radius: 10px; cursor: pointer;
+  display: grid; place-items: center; min-height: 44px; min-width: 44px; padding: 0; border: 0; border-radius: 10px; cursor: pointer;
   font: 700 13px var(--font); font-variant-numeric: tabular-nums;
   background: var(--none-tint); color: var(--muted);
   transition: transform var(--dur-med) var(--ease-80), box-shadow var(--dur-fast) var(--ease-80);
@@ -234,10 +238,10 @@
 .gs-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .gs-head b { font-size: 19px; }
 .gs-count { color: var(--muted); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.gs-hide { margin-left: auto; min-height: 40px; padding: 0 10px; border: none; background: none; color: var(--muted); font: 600 15px var(--font); border-radius: var(--r-btn); cursor: pointer; }
+.gs-hide { margin-left: auto; min-height: 44px; padding: 0 10px; border: none; background: none; color: var(--muted); font: 600 15px var(--font); border-radius: var(--r-btn); cursor: pointer; }
 .gs-steps { list-style: none; margin: 14px 0 16px; padding: 0; display: grid; gap: 4px; }
 .gs-steps li { display: flex; align-items: flex-start; gap: 12px; padding: 8px 2px; }
-.gs-mark { flex: none; display: grid; place-items: center; width: 24px; height: 24px; margin-top: 1px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line); color: #fff; }
+.gs-mark { flex: none; display: grid; place-items: center; width: 24px; height: 24px; margin-top: 1px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line); color: var(--good-ink); }
 .gs-steps li.done .gs-mark { background: var(--good); box-shadow: none; }
 .gs-steps li.next .gs-mark { box-shadow: inset 0 0 0 2px var(--brand); }
 .gs-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

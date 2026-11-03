@@ -110,3 +110,19 @@ export function shortName(name: string): string {
   while (end > 1 && (TAIL_SET.has(key(words[end - 1])) || DANGLING.has(key(words[end - 1])))) end--
   return words.slice(0, end).join(' ')
 }
+
+/**
+ * Another contractor already called this (by name or one of its other names,
+ * ignoring case and spaces)? Returns that contractor's name, or null.
+ */
+export function takenContractorName(
+  name: string,
+  contractors: { uuid: string; name: string; aliases: string[] }[],
+  exceptUuid = '',
+): string | null {
+  const key = name.trim().toLowerCase().replace(/\s+/g, ' ')
+  if (!key) return null
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
+  const hit = contractors.find((c) => c.uuid !== exceptUuid && [c.name, ...c.aliases].some((n) => norm(n) === key))
+  return hit ? hit.name : null
+}

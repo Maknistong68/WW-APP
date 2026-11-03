@@ -140,7 +140,7 @@ export default function QuestionItem({
             )}
             <VoiceTextarea
               value={resp.observation}
-              placeholder="What did you observe? Type or tap the mic to dictate."
+              placeholder="What did you observe? No worker names or ID numbers."
               onChange={(observation) => onPatch({ observation })}
             />
           </div>

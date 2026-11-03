@@ -1,4 +1,4 @@
-import { daysBetween, monthRange } from './dates'
+import { daysBetween, localDate, monthRange } from './dates'
 import type { DeclField, KpiMonth, Manpower, Ticket } from '../types'
 
 // Every KPI rule in one place (spec §5). All values are 0–100, null = blank
@@ -126,7 +126,7 @@ export function grievancePct(tickets: Ticket[], month: string): number | null {
  * (opened by month end, and not closed before the month started). Closed
  * tickets with no closing date can't be placed in time and are ignored.
  */
-export function closurePct(tickets: Ticket[], month: string): number | null {
+export function closurePct(tickets: Ticket[], month: string, today: string = localDate()): number | null {
   const { start, end } = monthRange(month)
   const during = tickets.filter((t) => {
     if (!t.openedAt || t.openedAt > end) return false
@@ -134,7 +134,11 @@ export function closurePct(tickets: Ticket[], month: string): number | null {
     return !!t.closedAt && t.closedAt >= start
   })
   if (during.length === 0) return null
-  return (during.filter((t) => closedIn(t, start, end)).length / during.length) * 100
+  const closed = during.filter((t) => closedIn(t, start, end)).length
+  // The month is still running and nothing has closed yet: not scored yet,
+  // rather than 0% (which would mark every contractor Critical on the 1st).
+  if (closed === 0 && today <= end) return null
+  return (closed / during.length) * 100
 }
 
 export function kpiStatus(overall: number | null): KpiStatus {

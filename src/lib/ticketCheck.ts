@@ -1,5 +1,6 @@
 import { CASE_PREFIX, isCase, validCaseNo } from './cases'
 import { TICKET_PREFIX, validTicketNo } from './lists'
+import { localDate } from './dates'
 import type { Ticket } from '../types'
 
 type Fields = Pick<Ticket, 'ticketNo' | 'contractorUuid' | 'issue' | 'status' | 'openedAt' | 'closedAt'> & Partial<Pick<Ticket, 'source'>>
@@ -13,7 +14,7 @@ type Fields = Pick<Ticket, 'ticketNo' | 'contractorUuid' | 'issue' | 'status' | 
  * the same way: a closed ticket imported with a missing or backwards closing
  * date still saves, until someone touches its status or dates.
  */
-export function ticketProblem(before: Fields | null, after: Fields): string | null {
+export function ticketProblem(before: Fields | null, after: Fields, today: string = localDate()): string | null {
   const isNew = !before
   const had = (k: 'ticketNo' | 'contractorUuid' | 'issue') => isNew || !!before[k]?.trim()
   if (had('ticketNo')) {
@@ -27,15 +28,19 @@ export function ticketProblem(before: Fields | null, after: Fields): string | nu
     before.status !== after.status ||
     before.openedAt !== after.openedAt ||
     before.closedAt !== after.closedAt ||
-    !dateProblem(before)
-  if (datesTouched) return dateProblem(after)
+    !dateProblem(before, today)
+  if (datesTouched) return dateProblem(after, today)
   return null
 }
 
-function dateProblem(t: Fields): string | null {
+function dateProblem(t: Fields, today: string = localDate()): string | null {
+  // Without an opening date a ticket never ages, never goes late and counts 0 days in Grievance.
+  if (!t.openedAt) return 'Add the opening date'
+  if (t.openedAt > today) return 'Opening date is in the future'
   if (t.status !== 'Closed') return null
   if (!t.closedAt) return 'Add the closing date'
-  if (t.openedAt && t.closedAt < t.openedAt) return 'Closing date is before the opening date'
+  if (t.closedAt < t.openedAt) return 'Closing date is before the opening date'
+  if (t.closedAt > today) return 'Closing date is in the future'
   return null
 }
 
@@ -43,5 +48,22 @@ function dateProblem(t: Fields): string | null {
 export function ticketDateHint(t: Fields): string | null {
   const p = dateProblem(t)
   if (!p) return null
-  return p === 'Add the closing date' ? 'No closing date' : 'Check the dates: closed before it was opened'
+  if (p === 'Add the closing date') return 'No closing date'
+  if (p === 'Add the opening date') return 'No opening date'
+  if (p === 'Closing date is before the opening date') return 'Check the dates: closed before it was opened'
+  return 'Check the dates'
+}
+
+/**
+ * Numbers used by more than one ticket or case (two people offline can both
+ * take CASE-0012). Bare prefixes and blanks are ignored. Sorted for display.
+ */
+export function duplicateNumbers(tickets: Pick<Ticket, 'ticketNo'>[]): string[] {
+  const seen = new Map<string, number>()
+  for (const t of tickets) {
+    const no = t.ticketNo.trim().toUpperCase()
+    if (!no || no === TICKET_PREFIX || no === CASE_PREFIX) continue
+    seen.set(no, (seen.get(no) ?? 0) + 1)
+  }
+  return [...seen].filter(([, n]) => n > 1).map(([no]) => no).sort()
 }

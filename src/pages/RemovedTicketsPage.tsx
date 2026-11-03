@@ -14,7 +14,7 @@ import { useTeam } from '../lib/team'
 import { removalInfo } from '../lib/removal'
 import { logActivity } from '../lib/records'
 import { attempt } from '../lib/safeWrite'
-import { backgroundSync, getClient, syncNow } from '../lib/sync'
+import { backgroundSync, getClient, syncOrWait } from '../lib/sync'
 import { shortDate } from '../lib/dates'
 import { contractorName, ticketLabel, useContractors } from '../lib/useData'
 import type { Ticket } from '../types'
@@ -36,12 +36,13 @@ export default function RemovedTicketsPage() {
     if (!navigator.onLine) return setProblem('Connect to the internet to see removed tickets.')
     const c = await getClient()
     if (!c) return setProblem('Cloud sync is not set up.')
-    // a removal made on this phone reaches the server first
-    await syncNow().catch(() => {})
+    // a removal made on this phone reaches the server first (waiting for a sync already running)
+    await syncOrWait().catch(() => {})
     const r = await attempt('Removed tickets', async () => {
       const { data, error } = await c.from('tickets').select('uuid, data, updated_at').eq('deleted', true)
       if (error) throw new Error(error.message)
-      return (data ?? []) as { uuid: string; data: Ticket; updated_at: string }[]
+      // After 180 days a removed ticket's contents are emptied on the server (purge_deleted): nothing to restore.
+      return ((data ?? []) as { uuid: string; data: Ticket & { purged?: boolean }; updated_at: string }[]).filter((x) => !x.data?.purged)
     })
     if (!r) return setProblem('Could not load the list. Try again.')
     setProblem('')
@@ -60,6 +61,7 @@ export default function RemovedTicketsPage() {
       confirmLabel: 'Restore',
       onConfirm: () =>
         void attempt(`Restore ${t.ticketNo}`, async () => {
+          if (!navigator.onLine) throw new Error('Connect to the internet to restore a ticket')
           const c = await getClient()
           if (!c) throw new Error('Cloud sync is not set up')
           const { error } = await c.from('tickets').update({ deleted: false, updated_at: new Date().toISOString() }).eq('uuid', t.uuid)
