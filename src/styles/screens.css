@@ -39,13 +39,12 @@
 .inspection-row .info b { display: block; font-size: 17px; font-weight: 600; }
 .inspection-row .info span { color: var(--muted); font-size: 14px; }
 
-/* ---- Login: One UI welcome — big title low on the screen, card below --------- */
+/* ---- Login: logo and card in the middle of the screen ----------------------- */
 .login {
-  min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: calc(env(safe-area-inset-top) + 24px) var(--gutter) calc(var(--bottom-gap) + 12px);
   background: var(--bg);
 }
-@media (min-height: 760px) { .login { justify-content: center; } }
 .login-card {
   width: 100%; max-width: 420px; padding: 28px 20px 22px;
   background: var(--card); border: 1px solid var(--border); border-radius: var(--r-panel);
