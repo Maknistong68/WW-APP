@@ -9,6 +9,8 @@ import SubmissionSheet from './SubmissionSheet'
 import { addMonths, monthLabel, monthOf } from '../lib/dates'
 import { auditPctFor, type AllData } from '../lib/kpiData'
 import { emptyKpi, emptyManpower, subjectKpi, subjectManpower, subjectPrior, woOf, type KpiSubject } from '../lib/subjects'
+import { kpiTone } from '../lib/tone'
+import type { WoScore } from '../lib/woScore'
 
 /** ‹ Oct 2026 › — no months in the future. */
 export function MonthStepper({ month, onChange }: { month: string; onChange: (m: string) => void }) {
@@ -30,6 +32,26 @@ export interface SubjectRow {
   done: boolean
   /** What is entered so far. */
   value?: string
+  /** The month's KPI score and its change against last month (shown on the right). */
+  score?: WoScore
+  /** How much of the month is entered, 0–1 (a thin bar under the line). */
+  pct?: number
+}
+
+/** "86%" in its status colour, with ▲ 4 / ▼ 6 against last month under it. */
+export function ScoreTrail({ score }: { score: WoScore }) {
+  const { pct, change } = score
+  const dir = change === null ? null : change > 0 ? 'up' : change < 0 ? 'down' : 'same'
+  return (
+    <span className="score-trail" aria-label={pct === null ? 'No score' : `Score ${pct}%${change === null ? '' : `, ${change >= 0 ? 'up' : 'down'} ${Math.abs(change)} from last month`}`}>
+      <span className={`score-pct ${kpiTone(score.status)}`}>{pct === null ? '—' : `${pct}%`}</span>
+      {dir && (
+        <span className={`score-change ${dir}`} aria-hidden="true">
+          {dir === 'up' ? '▲' : dir === 'down' ? '▼' : '='} {Math.abs(change!)}
+        </span>
+      )}
+    </span>
+  )
 }
 
 /** Searchable list of work orders / contractors: red dot = still missing, ✓ = entered. */
@@ -63,14 +85,27 @@ export function SubjectList({
         <div className="list-foot">{rows.length ? 'Nothing matches.' : 'No active work orders.'}</div>
       ) : (
         <CardList>
-          {shown.map(({ s, done, value }) => (
+          {shown.map(({ s, done, value, score, pct }) => (
             <ItemRow
               key={s.key}
               tile={<IconTile text={s.contractor.name} tone={done ? 'good' : 'bad'} size={52} />}
               title={s.label}
-              sub={value || (done ? 'Entered' : 'Not entered')}
+              sub={
+                pct === undefined ? (
+                  value || (done ? 'Entered' : 'Not entered')
+                ) : (
+                  <>
+                    <span className="entry-sub-text">{value || (done ? 'Entered' : 'Not entered')}</span>
+                    <span className={`entry-bar${done ? ' done' : ''}`} role="presentation">
+                      <span style={{ width: `${Math.round(pct * 100)}%` }} />
+                    </span>
+                  </>
+                )
+              }
               wrap={!chip}
-              trail={chip ? done ? <StatusChip tone="good">Done</StatusChip> : <StatusChip tone="bad">Missing</StatusChip> : undefined}
+              trail={
+                score ? <ScoreTrail score={score} /> : chip ? done ? <StatusChip tone="good">Done</StatusChip> : <StatusChip tone="bad">Missing</StatusChip> : undefined
+              }
               onOpen={onPick ? () => onPick(s) : undefined}
               onMore={
                 onMore

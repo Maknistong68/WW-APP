@@ -18,13 +18,16 @@ import { YesNo, count, pctOf, str } from '../components/Inputs'
 import { useAuthInfo } from '../lib/auth'
 import { copyText } from '../lib/clipboard'
 import { setAuditDate } from '../lib/closeout'
-import { localDate, monthLabel, shortDate } from '../lib/dates'
+import { addMonths, localDate, monthLabel, shortDate } from '../lib/dates'
 import { declarationsDue } from '../lib/due'
 import { entryDone, entryItem, entryItemsFor, entryProblem, entryValue, itemLeft, mergeRow, otherQuarterAudit, parseEntry, rowChanged, woProgress, type EntryBy, type EntryItem } from '../lib/entryItems'
 import { editKey, readDraft, writeDraft, type EntryEdit } from '../lib/entryDraft'
 import { beginEdit } from '../lib/editing'
 import { haptic } from '../lib/haptics'
-import { attendedPct, meetingAttended, offboardingScore, setOffboarding } from '../lib/kpi'
+import { attendedPct, kpiStatus, meetingAttended, offboardingScore, setOffboarding } from '../lib/kpi'
+import { kpiTone } from '../lib/tone'
+import { woHistory, woScore } from '../lib/woScore'
+import TrendLine from '../components/charts/TrendLine'
 import { useAllData, type AllData } from '../lib/kpiData'
 import { markSeen } from '../lib/onboarding'
 import { saveRecord } from '../lib/records'
@@ -152,7 +155,7 @@ export default function EntryPage() {
         ? subjects
             .map((s) => {
               const p = woProgress(d, s, month)
-              return { s, done: p.done, value: p.text }
+              return { s, done: p.done, value: p.text, pct: p.pct, score: woScore(d, s, month) }
             })
             .sort((a, b) => Number(a.done) - Number(b.done))
         : [],
@@ -167,11 +170,35 @@ export default function EntryPage() {
   const copy = (text: string, many: boolean) =>
     void copyText(text).then((ok) => showToast({ text: ok ? `${many ? 'Reminders' : 'Reminder'} copied. Paste in WhatsApp or email.` : 'Could not copy.' }))
   const subjectArgs = (s: KpiSubject) => ({ contractorUuid: s.contractor.uuid, workOrderUuid: woOf(s), month })
-  const woMenu = (s: KpiSubject) =>
+  const woMenu = (s: KpiSubject) => {
+    // held: the work order's KPI score over the last 12 months
+    const h = woHistory(d, s, month)
+    const now = h.values[h.values.length - 1]
+    const last = h.values[h.values.length - 2]
+    const fact = (label: string, v: number | null) => ({ label, value: v === null ? '—' : `${v}%`, tone: v === null ? undefined : kpiTone(kpiStatus(v)) })
     showActions({
       title: s.label,
       sub: `${monthLabel(month)} · ${woProgress(d, s, month).text}`,
       cover: <IconTile text={s.contractor.name} tone="info" size={52} />,
+      facts: [fact(monthLabel(month).slice(0, 3), now), fact(monthLabel(addMonths(month, -1)).slice(0, 3), last), fact('12-month avg', h.avg)],
+      figure:
+        h.avg === null ? undefined : (
+          <div className="wo-history">
+            <div className="chart-sub">KPI score, last 12 months</div>
+            <TrendLine
+              data={h.months.map((m, i) => ({ date: `${m}-01`, value: h.values[i] }))}
+              unit="%"
+              mode="month"
+              max={100}
+              guides={[
+                { value: 90, tone: 'good' },
+                { value: 70, tone: 'bad' },
+              ]}
+              toneOf={(v) => kpiTone(kpiStatus(v))}
+            />
+          </div>
+        ),
+      note: h.avg === null ? 'No KPI scores yet for this work order.' : undefined,
       actions: [
         { label: 'Documents', icon: 'file-text', edit: true, onSelect: () => openSheet({ kind: 'submission', ...subjectArgs(s) }) },
         { label: 'KPIs', icon: 'gauge', edit: true, onSelect: () => openSheet({ kind: 'kpi', ...subjectArgs(s) }) },
@@ -180,6 +207,7 @@ export default function EntryPage() {
         { label: 'Open contractor', icon: 'buildings', onSelect: () => navigate(`/contractors/${s.contractor.uuid}?m=${month}`) },
       ],
     })
+  }
 
   // ---- By item ----
   const chips = useMemo(
@@ -275,7 +303,7 @@ export default function EntryPage() {
       <div className="list-foot">
         {by === 'wo'
           ? canEdit
-            ? 'Tap a work order to fill it in · hold for documents, workers and more.'
+            ? 'Tap a work order to fill it in · hold for past scores, documents, workers and more.'
             : 'Tap a work order to open it.'
           : canEdit
             ? 'Type straight into the list, then Save. Each work order saves only this item.'

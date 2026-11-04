@@ -63,7 +63,8 @@ describe('The items you can enter for every work order', () => {
   })
   it('a work order at a glance', () => {
     const d = data([setDoc(oct('w1', { accommodationPct: 90, onboardingPct: 80 }), 'wps', { state: 'in', on: '2026-11-02' })])
-    expect(woProgress(d, subject(d, 'w1'), '2026-10')).toEqual({ text: 'Docs 1/10 · KPIs 2/5', done: false })
+    // how much is entered: (1 document + 2 KPIs) of (10 + 5)
+    expect(woProgress(d, subject(d, 'w1'), '2026-10')).toEqual({ text: 'Docs 1/10 · KPIs 2/5', done: false, pct: 0.2 })
   })
 })
 

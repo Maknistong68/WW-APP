@@ -374,6 +374,19 @@ button.row { cursor: pointer; }
 /* A work order's subcontractors: the add box reads left to right; long names wrap */
 .add-row input { text-align: left; }
 .row-title.wrap { white-space: normal; overflow: visible; }
+/* Monthly entry rows: the month's score (status colour) with its change, and how much is entered */
+.score-trail { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 48px; }
+.score-pct { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; color: var(--muted); }
+.score-pct.good { color: var(--good); }
+.score-pct.warn { color: var(--warn); }
+.score-pct.bad { color: var(--bad); }
+.score-change { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
+.score-change.up { color: var(--good); }
+.score-change.down { color: var(--bad); }
+.entry-sub-text { display: block; white-space: normal; }
+.entry-bar { display: block; height: 4px; margin-top: 6px; max-width: 160px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.entry-bar > span { display: block; height: 100%; border-radius: 2px; background: var(--brand); transition: width var(--dur-med) var(--ease-80); }
+.entry-bar.done > span { background: var(--good); }
 /* WPS: are all the subcontractors on it? */
 .doc-ask { margin: 4px 4px 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .doc-ask.muted { font-weight: 400; }

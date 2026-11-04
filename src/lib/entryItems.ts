@@ -80,10 +80,16 @@ export const itemLeft = (d: AllData, month: string, item: EntryItem) =>
   kpiSubjects(d.contractors, d.workOrders).filter((s) => !entryDone(d, s, month, item)).length
 
 /** One work order's month at a glance: "Docs 4/10 · KPIs 3/5". */
-export function woProgress(d: AllData, s: KpiSubject, month: string): { text: string; done: boolean } {
+export function woProgress(d: AllData, s: KpiSubject, month: string): { text: string; done: boolean; pct: number } {
   const c = submissionCounts(subjectKpi(s, d.kpis, month), subjectPrior(s, d.kpis, month), month)
   const kpis = MONTHLY_KPIS.filter((i) => entryDone(d, s, month, i)).length
-  return { text: `Docs ${c.in}/${c.required} · KPIs ${kpis}/${MONTHLY_KPIS.length}`, done: c.awaited === 0 && kpis === MONTHLY_KPIS.length }
+  const total = c.required + MONTHLY_KPIS.length
+  return {
+    text: `Docs ${c.in}/${c.required} · KPIs ${kpis}/${MONTHLY_KPIS.length}`,
+    done: c.awaited === 0 && kpis === MONTHLY_KPIS.length,
+    // how much of the month is entered, for the thin bar under the row
+    pct: total ? (c.in + kpis) / total : 1,
+  }
 }
 
 /** One row's save: only this item, written over the fresh copy (documents through their own rules). */

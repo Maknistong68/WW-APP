@@ -20,7 +20,10 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
   (`src/components/AddButton.tsx`). The month's documents and KPIs are entered in **Monthly entry** (`/entry`,
   `src/pages/EntryPage.tsx`, rules `src/lib/entryItems.ts`): **By work order** (each work order's progress, tap opens
   its panels) or **By item** (one item typed for every work order in place, one Save; each row writes only that item
-  over a fresh copy, `src/lib/merge.ts`; unsaved rows kept in `src/lib/entryDraft.ts`). Old `/missing/:item` links
+  over a fresh copy, `src/lib/merge.ts`; unsaved rows kept in `src/lib/entryDraft.ts`). By work order rows show the
+  month's KPI score in its status colour with ▲/▼ against last month and a thin entered-so-far bar; holding a row (or
+  ⋯) shows its last 12 months' scores as a chart above the actions (`src/lib/woScore.ts`: `woScore`, `woHistory`;
+  `ScoreTrail` in `SubjectPicker.tsx`). Old `/missing/:item` links
   redirect there. Home ("Good morning") is sections each person
   orders with Edit Home (kept on the phone): Start here (every late or this-week job as a swipeable
   card with its button), All areas (six app icons: Tickets, Submission, KPIs, Accommodation, Audits,
