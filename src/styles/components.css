@@ -377,7 +377,8 @@ button.row { cursor: pointer; }
 /* WPS: are all the subcontractors on it? */
 .doc-ask { margin: 4px 4px 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .doc-ask.muted { font-weight: 400; }
-.wps-subcons .obs-chips { margin-top: 0; }
+.subcon-check .obs-chips { margin-top: 0; }
+.subcon-check .subcon-all { font-weight: 600; }
 .warn-text { color: var(--warn); font-weight: 600; }
 .docs-card { padding: 16px 18px; }
 .docs-card .checks { gap: 8px 14px; }

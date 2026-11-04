@@ -31,3 +31,24 @@ describe('Running a save', () => {
     expect(logs).toEqual(['Save slow | KPIs: still waiting after 5 ms'])
   })
 })
+
+describe('A save that does not finish', () => {
+  it('slow first, then stuck; the log says what the phone was doing', async () => {
+    logs.length = 0
+    const seen: string[] = []
+    const r = await runSave('Workers', () => new Promise<void>((res) => setTimeout(res, 40)), {
+      log,
+      slowMs: 5,
+      stuckMs: 15,
+      onSlow: () => seen.push('slow'),
+      onStuck: () => seen.push('stuck'),
+      state: () => 'database open, page visible',
+    })
+    expect(r).toEqual({ ok: true })
+    expect(seen).toEqual(['slow', 'stuck'])
+    expect(logs).toEqual([
+      'Save slow | Workers: still waiting after 5 ms (database open, page visible)',
+      'Save stuck | Workers: still waiting after 15 ms (database open, page visible)',
+    ])
+  })
+})

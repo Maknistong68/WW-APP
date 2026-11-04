@@ -22,7 +22,7 @@ import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
 import { kpisForMonth, subjectKpis, type AllData } from '../lib/kpiData'
 import { priorityLabel } from '../lib/lists'
 import { kpiSubjects, subjectKpi, subjectPrior } from '../lib/subjects'
-import { docState, itemsFor, submissionCounts, wpsFlag, type SubmissionItem } from '../lib/submissions'
+import { SUBCON_DOCS, docState, itemsFor, subconFlag, submissionCounts, type SubmissionItem } from '../lib/submissions'
 import oxagonLogoUrl from '../assets/oxagon-logo.png'
 
 const fileBase = (month: string) => `WW_Monthly_${monthLabel(month).replace(' ', '_')}`
@@ -113,9 +113,9 @@ export async function buildMonthlyExcel(d: AllData, month: string): Promise<{ bl
           const st = docState(k, key, prior)
           if (st === 'in') {
             const on = k?.docs?.[key]?.on ?? 'In'
-            // WPS without every subcontractor: name the missing ones
-            const w = key === 'wps' ? k?.docs?.wps : undefined
-            return wpsFlag(w) ? `${on} · ${w?.missing?.length ? `missing ${w.missing.join(', ')}` : 'not all subcons'}` : on
+            // WPS / Salary without every subcontractor: name the missing ones
+            const w = SUBCON_DOCS.includes(key) ? k?.docs?.[key] : undefined
+            return subconFlag(w) ? `${on} · ${w?.missing?.length ? `missing ${w.missing.join(', ')}` : 'not all subcons'}` : on
           }
           return st === 'notProvided' ? 'Not provided' : st === 'na' ? 'N/A' : 'Missing'
         }

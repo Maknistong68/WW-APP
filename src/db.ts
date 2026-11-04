@@ -21,6 +21,7 @@ import { NORMALIZE } from './lib/normalize'
 import { writeLocalLog } from './lib/localLog'
 import { newUuid } from './lib/uuid'
 import { activityEntry } from './lib/activityEntry'
+import { editingCount } from './lib/editing'
 
 export { newUuid }
 
@@ -107,14 +108,39 @@ function storageNotice(text: string, reload: boolean) {
 db.on('versionchange', () => {
   db.close({ disableAutoOpen: true })
   writeLocalLog({ time: new Date().toISOString(), event: 'Database closed', detail: 'A newer version of the app opened it' })
-  storageNotice('The app was updated. Reload to keep saving.', true)
+  // Outdated now: with no form open, switch to the new version at once (a save
+  // caught mid-way is kept and finished after the reload: src/lib/pendingSaves.ts).
+  if (typeof window !== 'undefined' && editingCount() === 0) window.location.reload()
+  else storageNotice('The app was updated. Reload to keep saving.', true)
   return false
 })
 // This copy is the newer one, but an older copy elsewhere keeps the database open.
+let blocked = false
+/** Saving waits on another copy of the app (a browser tab or window) that keeps the database. */
+export const isDbBlocked = () => blocked
 db.on('blocked', () => {
+  blocked = true
   writeLocalLog({ time: new Date().toISOString(), event: 'Database update blocked', detail: 'Another copy of the app is open' })
-  storageNotice('Close other WW Co-pilot tabs or windows to finish the update.', false)
+  storageNotice('WW Co-pilot is also open in another tab or window. Close it to keep saving.', false)
 })
+db.on('ready', () => void (blocked = false), true)
+
+// A copy put in the background (Android freezes it, or the tab is left) lets
+// go of the database, so the copy in use — or a newer version opening it —
+// never waits on it. Dexie opens it again by itself on the next read or write.
+if (typeof window !== 'undefined') {
+  const letGo = (why: string) => {
+    if (!db.isOpen()) return
+    db.close({ disableAutoOpen: false })
+    writeLocalLog({ time: new Date().toISOString(), event: 'Database let go', detail: why })
+  }
+  document.addEventListener('freeze', () => letGo('the app was put to sleep'))
+  window.addEventListener('pagehide', () => letGo('the page was left'))
+}
+
+/** For a slow save's log line: is the database open, waiting on another copy, the page visible? */
+export const dbStateText = () =>
+  `database ${db.isOpen() ? 'open' : 'closed'}${blocked ? ', waiting on another copy' : ''}, page ${typeof document === 'undefined' ? '?' : document.visibilityState}`
 
 /** Audit milestones that also go into the co-pilot activity log. */
 const AUDIT_ACTIVITY: Record<string, ActivityEntry['action']> = {

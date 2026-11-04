@@ -7,7 +7,7 @@ import Icon from './Icon'
 import Modal, { type ModalHandle } from './Modal'
 import SaveButton from './SaveButton'
 import StatusChip from './StatusChip'
-import WpsSubcons from './WpsSubcons'
+import SubconCheck from './SubconCheck'
 import { showToast } from './Toast'
 import { useSave } from '../lib/useSave'
 import { saveRecord } from '../lib/records'
@@ -28,7 +28,8 @@ import {
   itemsFor,
   markAllIn,
   submissionCounts,
-  wpsFlag,
+  SUBCON_DOCS,
+  subconFlag,
   type DocState,
   type SubmissionItem,
 } from '../lib/submissions'
@@ -85,7 +86,7 @@ export default function SubmissionSheet({
   const [k, setK] = useState(kpi)
   const [open, setOpen] = useState<SubmissionKey | null>(null)
   const today = localDate()
-  // the work order's subcontractors, for WPS's "all included?"
+  // the work order's subcontractors, for WPS and Salary's "all included?"
   const wo = useLiveQuery(() => (kpi.workOrderUuid ? db.workOrders.get(kpi.workOrderUuid) : undefined), [kpi.workOrderUuid])
   const due = declarationsDue(k.month)
   const counts = submissionCounts(k, prev)
@@ -145,7 +146,7 @@ export default function SubmissionSheet({
             <div style={{ width: `${counts.required ? (counts.in / counts.required) * 100 : 100}%` }} />
           </div>
           <div className={`docs-due${tone && awaited.length ? ` ${tone}` : ''}`}>{dueLine}</div>
-          {(awaited.length > 0 || !!wpsFlag(k.docs?.wps)) && (
+          {(awaited.length > 0 || SUBCON_DOCS.some((key) => !!subconFlag(k.docs?.[key]))) && (
             <div className="btn-row">
               {awaited.length > 0 && (
                 <button
@@ -226,7 +227,7 @@ function DocRow({
   const carried = state === 'na' && docState(k, item.key) !== 'na'
   const variant = e?.variant === 'iap' ? 'IAP' : e?.variant === 'issueLog' ? 'Issue log' : ''
   const sub = [variant, e?.note ? `“${e.note}”` : '', carried ? 'N/A since last month' : ''].filter(Boolean).join(' · ') || item.detail
-  const flag = item.key === 'wps' ? wpsFlag(e) : null
+  const flag = SUBCON_DOCS.includes(item.key) ? subconFlag(e) : null
   const id = `doc-${item.key}`
   return (
     <div className={`doc${open ? ' open' : ''}`}>
@@ -270,7 +271,7 @@ function DocRow({
               <input type="date" max={today} value={e?.on ?? ''} onChange={(ev) => onEdit({ on: ev.target.value })} />
             </label>
           )}
-          {item.key === 'wps' && state === 'in' && <WpsSubcons entry={e} subcons={subcons} onEdit={onEdit} />}
+          {SUBCON_DOCS.includes(item.key) && state === 'in' && <SubconCheck entry={e} subcons={subcons} onEdit={onEdit} />}
           {item.key === 'issueLog' && state === 'in' && (
             <div className="segmented fit doc-variant" role="radiogroup" aria-label="Which was sent">
               {(['issueLog', 'iap'] as const).map((v) => (

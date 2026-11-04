@@ -13,7 +13,10 @@ import {
   carryBefore,
   editDoc,
   docText,
-  wpsFlag,
+  subconFlag,
+  subconTick,
+  subconTicked,
+  SUBCON_DOCS,
 } from './submissions'
 import { submissionPct } from './kpi'
 import { emptyKpi } from './subjects'
@@ -225,39 +228,55 @@ describe('Typing a note', () => {
   })
 })
 
-describe('WPS: are all the subcontractors included?', () => {
-  const inWps = (p: Partial<DocEntry> = {}) => setDoc(oct(), 'wps', { state: 'in', on: '2026-11-03', ...p })
-  it('Yes, or No with the missing ones ticked; WPS still counts as in', () => {
-    let k = editDoc(inWps(), 'wps', { allSubcons: false, missing: ['AGS', 'SNC'] })
+describe('WPS and Salary: are all the subcontractors on it?', () => {
+  const inDoc = (key: 'wps' | 'salaryDecl', p: Partial<DocEntry> = {}, k = oct()) => setDoc(k, key, { state: 'in', on: '2026-11-03', ...p })
+  it('both keep the check while in; the document still counts as in', () => {
+    let k = editDoc(inDoc('wps'), 'wps', { allSubcons: false, missing: ['AGS', 'SNC'] })
     expect(k.docs?.wps).toEqual({ state: 'in', on: '2026-11-03', allSubcons: false, missing: ['AGS', 'SNC'] })
-    expect(docState(k, 'wps')).toBe('in')
-    expect(k.wps).toBe(true)
-    expect(wpsFlag(k.docs?.wps)).toBe('2 subcons missing')
+    expect([docState(k, 'wps'), k.wps]).toEqual(['in', true])
+    expect(subconFlag(k.docs?.wps)).toBe('2 subcons missing')
+    k = editDoc(inDoc('salaryDecl', {}, k), 'salaryDecl', { allSubcons: false, missing: ['AGS'] })
+    expect(subconFlag(k.docs?.salaryDecl)).toBe('1 subcon missing')
+    expect(k.salaryDecl).toBe(true)
     k = editDoc(k, 'wps', { allSubcons: true })
     expect(k.docs?.wps).toEqual({ state: 'in', on: '2026-11-03', allSubcons: true })
-    expect(wpsFlag(k.docs?.wps)).toBeNull()
+    expect(subconFlag(k.docs?.wps)).toBeNull()
+    expect(SUBCON_DOCS).toEqual(['wps', 'salaryDecl'])
   })
-  it('No without names ticked: "Not all subcons"; cleared back to unanswered', () => {
-    const k = editDoc(inWps(), 'wps', { allSubcons: false })
-    expect(wpsFlag(k.docs?.wps)).toBe('Not all subcons')
-    expect(editDoc(k, 'wps', { allSubcons: null }).docs?.wps).toEqual({ state: 'in', on: '2026-11-03' })
-  })
-  it('only WPS keeps the answer, and only while it is in', () => {
+  it('other documents never keep it, and it goes when the document is no longer in', () => {
     expect(setDoc(oct(), 'waterTest', { state: 'in', allSubcons: false, missing: ['AGS'] }).docs?.waterTest).toEqual({ state: 'in' })
-    const k = editDoc(editDoc(inWps(), 'wps', { allSubcons: false, missing: ['AGS'] }), 'wps', { state: 'notProvided' })
-    expect(k.docs?.wps).toEqual({ state: 'notProvided' })
+    const k = editDoc(editDoc(inDoc('salaryDecl'), 'salaryDecl', { allSubcons: false, missing: ['AGS'] }), 'salaryDecl', { state: 'notProvided' })
+    expect(k.docs?.salaryDecl).toEqual({ state: 'notProvided' })
+    expect(editDoc(editDoc(inDoc('wps'), 'wps', { allSubcons: false }), 'wps', { allSubcons: null }).docs?.wps).toEqual({ state: 'in', on: '2026-11-03' })
+  })
+  it('the checklist: each tick is one subcontractor on the document; all ticked = all included', () => {
+    const list = ['AGS', 'SNC']
+    expect(subconTicked(undefined, 'AGS')).toBe(false)
+    let e: DocEntry = { state: 'in', ...subconTick(undefined, list, 'AGS') }
+    expect(e).toEqual({ state: 'in', allSubcons: false, missing: ['SNC'] })
+    expect([subconTicked(e, 'AGS'), subconTicked(e, 'SNC')]).toEqual([true, false])
+    e = { state: 'in', ...subconTick(e, list, 'SNC') }
+    expect(e).toEqual({ state: 'in', allSubcons: true, missing: [] })
+    expect(subconTicked(e, 'SNC')).toBe(true)
+    e = { state: 'in', ...subconTick(e, list, 'AGS') }
+    expect(e).toEqual({ state: 'in', allSubcons: false, missing: ['AGS'] })
+    // a name missing before but no longer on the list can still be ticked; then everyone is on it
+    expect(subconTick({ state: 'in', allSubcons: false, missing: ['Old Co'] }, list, 'Old Co')).toEqual({ allSubcons: true, missing: [] })
+    expect(subconTick({ state: 'in', allSubcons: false, missing: ['Old Co'] }, list, 'AGS')).toEqual({ allSubcons: false, missing: ['AGS', 'Old Co'] })
   })
   it('the line, the history, the reminder', () => {
-    const k = editDoc(inWps(), 'wps', { allSubcons: false, missing: ['AGS', 'SNC'] })
+    const k = editDoc(inDoc('wps'), 'wps', { allSubcons: false, missing: ['AGS', 'SNC'] })
     expect(docText(k, 'wps')).toBe('In 3 Nov · 2 subcons missing')
-    expect(docChangeText(inWps().docs, k.docs)).toEqual(['WPS certificate: in 3 Nov → in 3 Nov (missing AGS, SNC)'])
-    expect(docChangeText(inWps().docs, editDoc(inWps(), 'wps', { allSubcons: true }).docs)).toEqual(['WPS certificate: in 3 Nov → in 3 Nov (all subcons)'])
+    expect(docChangeText(inDoc('wps').docs, k.docs)).toEqual(['WPS certificate: in 3 Nov → in 3 Nov (missing AGS, SNC)'])
+    expect(docChangeText(inDoc('wps').docs, editDoc(inDoc('wps'), 'wps', { allSubcons: true }).docs)).toEqual(['WPS certificate: in 3 Nov → in 3 Nov (all subcons)'])
     expect(chaseText('Al Fahad · WO 882', '2026-10', [], '2026-11-15', k)).toBe(
       'Al Fahad · WO 882 — October documents: all in. WPS is missing: AGS, SNC. Thank you.',
     )
-    const missing = awaitedItems(setDoc(k, 'waterTest', null))
-    expect(chaseText('X', '2026-10', missing.filter((i) => i.key === 'waterTest'), '2026-11-15', k)).toBe(
-      'X — October documents still missing: Water test certificates. WPS is missing: AGS, SNC. Due 15 Nov.',
+    const both = editDoc(inDoc('salaryDecl', {}, k), 'salaryDecl', { allSubcons: false, missing: ['SNC'] })
+    expect(docText(both, 'salaryDecl')).toBe('In 3 Nov · 1 subcon missing')
+    const missing = awaitedItems(setDoc(both, 'waterTest', null))
+    expect(chaseText('X', '2026-10', missing.filter((i) => i.key === 'waterTest'), '2026-11-15', both)).toBe(
+      'X — October documents still missing: Water test certificates. WPS is missing: AGS, SNC. Salary declaration is missing: SNC. Due 15 Nov.',
     )
   })
 })

@@ -80,10 +80,12 @@ npm run build   # strict tsc + vite build
   (`submissionPct` in `kpi.ts`).
 - Subcontractors: each work order keeps its subcontractors (company names only, `WorkOrder.subcons`; rules
   `src/lib/subcons.ts`), edited in its sheet (Library › contractor › work order: add, remove, "From this work order's
-  tickets" suggestions; the ticket sheet offers them). When WPS is in it asks **All subcontractors included?**
-  (`src/components/WpsSubcons.tsx`, in the Documents panel and Monthly entry): Yes / No and the missing ones ticked
-  (`DocEntry.allSubcons` / `missing`). WPS still counts as in, with an amber flag (`wpsFlag`) on the row, the
-  contractor page, the reminder text and the Excel cell.
+  tickets" suggestions; the ticket sheet offers them). When **WPS or the Salary declaration** is in (`SUBCON_DOCS`),
+  the work order's list shows at once as a checklist, "All subcontractors included? Tick each one on it."
+  (`src/components/SubconCheck.tsx`, in the Documents panel and Monthly entry; rules `subconTick` / `subconTicked`):
+  all ticked or **All included** = all in, else the unticked ones are `missing` (`DocEntry.allSubcons` / `missing`).
+  The document still counts as in, with an amber flag (`subconFlag`) on the row, the contractor page, the reminder
+  text and the Excel cell.
 - Dashboard numbers: `src/lib/dashboard.ts`; the Tickets view's tabs **D&C Tickets | Cases | All** (`?src=`, list and
   wording `src/lib/dashSource.ts`; Cases/All have no Closure KPI but "Closed in 30 days" and "Turned into tickets");
   its three sections: Focus cards `src/lib/focus.ts`,
@@ -104,8 +106,14 @@ npm run build   # strict tsc + vite build
   under the sheet title (`Modal` `alert`), a thrown error is explained by `saveError.ts` (red toast, Reload when
   the app was updated) and logged. Writes outside sheets use `attempt` / `tryWrite` (`src/lib/safeWrite.ts`).
   Nothing fails silently: `main.tsx` catches unhandled errors; problems also go to a localStorage copy
-  (`localLog.ts`) shown in Settings › Sync log (Copy log). `db.ts` closes on `versionchange`. App updates wait
-  while a panel is open (`appUpdate.ts`, `editing.ts`, `registerType: 'prompt'`).
+  (`localLog.ts`) shown in Settings › Sync log (Copy log). App updates wait while a panel is open (`appUpdate.ts`,
+  `editing.ts`, `registerType: 'prompt'`). **Saves can't get stuck for good** (the app open twice — installed app +
+  a browser tab — shares one database, and a copy frozen in the background can hold it): `db.ts` lets go of the
+  database on `freeze` / `pagehide` (Dexie reopens on next use), reloads an outdated copy on `versionchange` when
+  no panel is open, and flags `blocked` (`isDbBlocked`); `saveRecord` keeps each save in localStorage until done
+  (`src/lib/pendingSaves.ts`) and `replayPendingSaves` (App start) finishes leftovers unless something newer was
+  stored; a save shows "Still saving…" at 8 s and "This save is stuck. Tap Reload" + a Reload toast at 20 s
+  (`saveRun.ts` `STUCK_MS`, log line with `dbStateText`); a second open copy gets a note (`src/lib/otherCopy.ts`).
 - Who did it: every activity entry carries `by` / `byName` (`src/lib/activityEntry.ts`, the one builder;
   the signed-in person is set in `App.tsx` via `setActor`, `src/lib/actor.ts`). The server stamps them again
   from the sender (trigger `private.stamp_activity`). Names come from `team_members()` (names only, cached by

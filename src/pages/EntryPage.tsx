@@ -13,7 +13,7 @@ import { showActions } from '../components/ActionSheet'
 import { openSheet } from '../components/SheetHost'
 import { showToast } from '../components/Toast'
 import { MonthStepper, SubjectList } from '../components/SubjectPicker'
-import WpsSubcons from '../components/WpsSubcons'
+import SubconCheck from '../components/SubconCheck'
 import { YesNo, count, pctOf, str } from '../components/Inputs'
 import { useAuthInfo } from '../lib/auth'
 import { copyText } from '../lib/clipboard'
@@ -29,7 +29,7 @@ import { useAllData, type AllData } from '../lib/kpiData'
 import { markSeen } from '../lib/onboarding'
 import { saveRecord } from '../lib/records'
 import { emptyKpi, emptyManpower, kpiSubjects, subjectKpi, subjectManpower, subjectPrior, woOf, type KpiSubject } from '../lib/subjects'
-import { awaitedItems, chaseText, docState, editDoc, type DocState } from '../lib/submissions'
+import { SUBCON_DOCS, awaitedItems, chaseText, docState, editDoc, type DocState } from '../lib/submissions'
 import { useBackClose } from '../lib/useBackClose'
 import { useGoBack } from '../lib/nav'
 import { useSave } from '../lib/useSave'
@@ -457,11 +457,11 @@ function EntryRow({
               More ›
             </button>
           </div>
-          {item.key === 'wps' && state === 'in' && (
-            <WpsSubcons
-              entry={(k as KpiMonth | undefined)?.docs?.wps}
+          {SUBCON_DOCS.includes(item.key as SubmissionKey) && state === 'in' && (
+            <SubconCheck
+              entry={(k as KpiMonth | undefined)?.docs?.[item.key as SubmissionKey]}
               subcons={s.workOrder?.subcons ?? []}
-              onEdit={(change) => onChange((r) => editDoc(r, 'wps', change, prior, today))}
+              onEdit={(change) => onChange((r) => editDoc(r, item.key as SubmissionKey, change, prior, today))}
             />
           )}
         </div>

@@ -114,19 +114,43 @@ function clean(key: SubmissionKey, e: DocEntry): DocEntry {
   // trimmed when saved (applyDocChanges), so a space can be typed
   if (e.note?.trim()) out.note = e.note
   if (e.variant) out.variant = e.variant
-  // WPS in: whether every subcontractor is on it, and if not, which are missing
-  if (key === 'wps' && e.state === 'in' && e.allSubcons !== undefined) {
+  // WPS / Salary in: whether every subcontractor is on it, and if not, which are missing
+  if (SUBCON_DOCS.includes(key) && e.state === 'in' && e.allSubcons !== undefined) {
     out.allSubcons = e.allSubcons
     if (!e.allSubcons && e.missing?.length) out.missing = e.missing
   }
   return out
 }
 
-/** WPS in without every subcontractor: "2 subcons missing" (or "Not all subcons" when none were ticked); else null. */
-export function wpsFlag(e: DocEntry | undefined): string | null {
+/** The documents checked against the work order's subcontractors (each one must be on them). */
+export const SUBCON_DOCS: SubmissionKey[] = ['wps', 'salaryDecl']
+
+/** In without every subcontractor: "2 subcons missing" (or "Not all subcons" when none were named); else null. */
+export function subconFlag(e: DocEntry | undefined): string | null {
   if (e?.state !== 'in' || e.allSubcons !== false) return null
   const n = e.missing?.length ?? 0
   return n ? `${n} subcon${n === 1 ? '' : 's'} missing` : 'Not all subcons'
+}
+
+/** Is this subcontractor ticked (on the document)? Nothing ticked until the check is started. */
+export function subconTicked(e: DocEntry | undefined, name: string): boolean {
+  if (e?.allSubcons === true) return true
+  if (e?.allSubcons === false) return !(e.missing ?? []).includes(name)
+  return false
+}
+
+/**
+ * Tick or untick one subcontractor on the checklist (`list`: the work order's).
+ * The answer: all ticked = all included, else the unticked ones are missing.
+ */
+export function subconTick(e: DocEntry | undefined, list: string[], name: string): { allSubcons: boolean; missing: string[] } {
+  const names = [...list, ...(e?.missing ?? []).filter((m) => !list.includes(m))]
+  const ticked = new Set(names.filter((n) => subconTicked(e, n)))
+  if (ticked.has(name)) ticked.delete(name)
+  else ticked.add(name)
+  // a name no longer on the work order's list stays only while it is still unticked
+  const missing = names.filter((n) => !ticked.has(n))
+  return { allSubcons: missing.length === 0, missing }
 }
 
 /**
@@ -225,7 +249,7 @@ export function docText(k: KpiMonth | undefined, key: SubmissionKey, prev?: KpiM
   const st = docState(k, key, prev)
   const on = k?.docs?.[key]?.on
   if (st === 'in') {
-    const flag = key === 'wps' ? wpsFlag(k?.docs?.wps) : null
+    const flag = SUBCON_DOCS.includes(key) ? subconFlag(k?.docs?.[key]) : null
     return [on ? `In ${dayMonth(on)}` : 'In', flag].filter(Boolean).join(' · ')
   }
   return st === 'notProvided' ? 'Not provided' : st === 'na' ? 'N/A' : 'Waiting'
@@ -233,13 +257,22 @@ export function docText(k: KpiMonth | undefined, key: SubmissionKey, prev?: KpiM
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-/** A reminder to send the contractor (WhatsApp, email); `k` adds the subcontractors a WPS is missing. */
+/** "WPS is missing: A, B. Salary declaration is missing: C." for WPS / Salary in without every subcontractor. */
+function subconLines(k: KpiMonth | undefined): string {
+  return SUBCON_DOCS.map((key) => {
+    const e = k?.docs?.[key]
+    if (!subconFlag(e)) return ''
+    const label = key === 'wps' ? 'WPS' : 'Salary declaration'
+    return e?.missing?.length ? ` ${label} is missing: ${e.missing.join(', ')}.` : ` ${label} does not cover all subcontractors.`
+  }).join('')
+}
+
+/** A reminder to send the contractor (WhatsApp, email); `k` adds the subcontractors WPS / Salary are missing. */
 export function chaseText(subject: string, month: string, missing: SubmissionItem[], due: string, k?: KpiMonth): string {
   const name = MONTHS[Number(month.slice(5, 7)) - 1] ?? month
-  const w = k?.docs?.wps
-  const wps = wpsFlag(w) ? (w?.missing?.length ? ` WPS is missing: ${w.missing.join(', ')}.` : ' WPS does not cover all subcontractors.') : ''
-  if (!missing.length) return `${subject} — ${name} documents: all in.${wps} Thank you.`
-  return `${subject} — ${name} documents still missing: ${missing.map((i) => i.label).join(', ')}.${wps} Due ${dayMonth(due)}.`
+  const subs = subconLines(k)
+  if (!missing.length) return `${subject} — ${name} documents: all in.${subs} Thank you.`
+  return `${subject} — ${name} documents still missing: ${missing.map((i) => i.label).join(', ')}.${subs} Due ${dayMonth(due)}.`
 }
 
 const STATE_WORDS: Record<DocState, string> = { in: 'in', notProvided: 'not provided', na: 'not applicable', awaited: 'waiting' }

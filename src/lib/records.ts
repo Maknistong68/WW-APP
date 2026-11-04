@@ -4,6 +4,7 @@ import { activityEntry, entryIsPrivate } from './activityEntry'
 
 export { activityEntry }
 import { diffRecords } from './diff'
+import { addPending, dropPending, readPending, shouldReplay } from './pendingSaves'
 import type { ActivityAction, ActivityChange, ActivityEntity, RecordTable } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -61,20 +62,57 @@ export async function saveRecord<T extends AnyRecord>(
   label: string,
   action?: ActivityAction,
 ): Promise<T> {
+  // Kept until done: if the phone's database is stuck or the app closes mid-save, it is saved on the next start.
+  const pending = addPending({ table, record, label, action, at: nowIso() })
+  try {
+    return await writeRecord(table, record, label, action)
+  } finally {
+    dropPending(pending)
+  }
+}
+
+/** The stored copy of a record: by uuid, or for KPI / manpower the same work order and month. */
+async function storedOf<T extends AnyRecord>(t: Table<AnyRecord, string>, table: RecordTable, record: T): Promise<T | undefined> {
+  const own = (await t.get(record.uuid)) as T | undefined
+  if (own || (table !== 'kpiMonths' && table !== 'manpower')) return own
+  const r = record as unknown as { contractorUuid: string; workOrderUuid: string; month: string }
+  return (await t.where('[contractorUuid+workOrderUuid+month]').equals([r.contractorUuid, r.workOrderUuid, r.month]).first()) as T | undefined
+}
+
+/**
+ * Saves left over from before (the app was closed, reloaded or stuck mid-save):
+ * each is saved now, unless something newer was stored meanwhile. Returns how many.
+ */
+let replayed = false
+export async function replayPendingSaves(): Promise<number> {
+  // once per start: a second call (React may run an effect twice) finds nothing to do
+  if (replayed) return 0
+  replayed = true
+  let n = 0
+  for (const p of readPending()) {
+    try {
+      const stored = await storedOf(tableOf(p.table), p.table, p.record)
+      if (shouldReplay(p, stored)) {
+        await writeRecord(p.table, p.record, p.label, p.action)
+        n++
+        logEvent(null, 'Unsaved change saved', `${p.label} (from ${p.at})`)
+      }
+      dropPending(p.id)
+    } catch (err) {
+      logEvent(null, 'Unsaved change failed', `${p.label}: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`)
+    }
+  }
+  return n
+}
+
+async function writeRecord<T extends AnyRecord>(table: RecordTable, record: T, label: string, action?: ActivityAction): Promise<T> {
   const t = tableOf(table)
   return db.transaction('rw', t, db.activity, async () => {
-    let before = (await t.get(record.uuid)) as T | undefined
     // One KPI / manpower row per work order and month (a unique index): if a
     // teammate's row for the same month synced in while this sheet was open,
     // update that row instead of failing on the duplicate.
-    if (!before && (table === 'kpiMonths' || table === 'manpower')) {
-      const r = record as unknown as { contractorUuid: string; workOrderUuid: string; month: string }
-      const same = (await t.where('[contractorUuid+workOrderUuid+month]').equals([r.contractorUuid, r.workOrderUuid, r.month]).first()) as T | undefined
-      if (same) {
-        record = { ...record, uuid: same.uuid }
-        before = same
-      }
-    }
+    const before = await storedOf(t, table, record)
+    if (before && before.uuid !== record.uuid) record = { ...record, uuid: before.uuid }
     const changes = diffRecords(
       before as unknown as Record<string, unknown> | undefined,
       record as unknown as Record<string, unknown>,

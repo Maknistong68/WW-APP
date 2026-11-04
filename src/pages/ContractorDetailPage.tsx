@@ -11,7 +11,7 @@ import { TicketRow } from './TicketsPage'
 import { ageDays, isOpen } from '../lib/aging'
 import { addMonths, monthLabel, monthOf } from '../lib/dates'
 import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
-import { docState, itemsFor, submissionCounts, wpsFlag, type DocState } from '../lib/submissions'
+import { SUBCON_DOCS, docState, itemsFor, subconFlag, submissionCounts, type DocState } from '../lib/submissions'
 import { auditPctFor, kpiForSubject, rollup, useAllData } from '../lib/kpiData'
 import { mentions } from '../lib/names'
 import { saveRecord } from '../lib/records'
@@ -351,7 +351,7 @@ export default function ContractorDetailPage() {
               <div className="card docs-card">
                 <div className="checks">
                   {itemsFor(month).map((x) => (
-                    <Fragment key={x.key}>{mark(docState(kpi, x.key, prior), x.short, x.key === 'wps' ? wpsFlag(kpi?.docs?.wps) : null)}</Fragment>
+                    <Fragment key={x.key}>{mark(docState(kpi, x.key, prior), x.short, SUBCON_DOCS.includes(x.key) ? subconFlag(kpi?.docs?.[x.key]) : null)}</Fragment>
                   ))}
                 </div>
               </div>

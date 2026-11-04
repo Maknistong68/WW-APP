@@ -115,12 +115,18 @@ export default function KpiSheet({
             <span className="row-main">
               <div className="row-title">Documents</div>
               <div className="row-sub">
-                {!docCount ? '…' : docWaiting.length ? `${docCount.in} of ${docCount.required} in · ${shortList(docWaiting)} waiting` : `All ${docCount.required} in`}
+                {!docCount
+                  ? '…'
+                  : docWaiting.length
+                    ? `${docCount.in} of ${docCount.required} in · ${shortList(docWaiting)} waiting`
+                    : docCount.required
+                      ? `All ${docCount.required} in`
+                      : 'None needed this month'}
               </div>
             </span>
             {docCount && (
-              <StatusChip tone={docTone.tone} icon={docTone.icon}>
-                {docWaiting.length ? `${docCount.in}/${docCount.required}` : 'All in'}
+              <StatusChip tone={docCount.required || docWaiting.length ? docTone.tone : 'none'} icon={docCount.required || docWaiting.length ? docTone.icon : 'minus-circle'}>
+                {docWaiting.length ? `${docCount.in}/${docCount.required}` : docCount.required ? 'All in' : 'None needed'}
               </StatusChip>
             )}
             <Icon name="chevron-right" size={18} className="row-chev" />

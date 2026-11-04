@@ -35,10 +35,12 @@ import CloseoutPage from './pages/CloseoutPage'
 import LoginPage, { SetPasswordPage, WaitingPage } from './pages/LoginPage'
 import { gateScreen } from './lib/gate'
 import InstallPage from './pages/InstallPage'
-import { useInstallState } from './lib/installPrompt'
+import { isStandalone, useInstallState } from './lib/installPrompt'
 import UsersPage from './pages/UsersPage'
 import { AuthContext, actorName, canEditRole, useAuth, useAuthInfo } from './lib/auth'
 import { setActor, setRole } from './lib/actor'
+import { watchOtherCopies } from './lib/otherCopy'
+import { replayPendingSaves } from './lib/records'
 import { TEAM_SETTINGS_UUID, setDocRules } from './lib/docRules'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { setOnboardingUser } from './lib/onboarding'
@@ -155,6 +157,14 @@ function AppShell() {
     const onOnline = () => backgroundSync(announce)
     window.addEventListener('online', onOnline)
     return () => window.removeEventListener('online', onOnline)
+  }, [])
+  // The app open twice on this phone (installed app + browser tab): say so once.
+  useEffect(() => watchOtherCopies(isStandalone(), (text) => showToast({ text, tone: 'bad', duration: 12000 })), [])
+  // Saves cut off last time (closed, reloaded or stuck mid-save): finish them now.
+  useEffect(() => {
+    void replayPendingSaves().then((n) => {
+      if (n) showToast({ text: n === 1 ? '1 unsaved change was saved' : `${n} unsaved changes were saved` })
+    })
   }, [])
 
   return (
