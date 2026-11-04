@@ -89,3 +89,15 @@ button.bar-row:active { transform: scale(0.98); background-color: var(--press); 
 .bar-fill.warn { background: var(--warn); }
 .bar-fill.bad { background: var(--bad); }
 .bar-fill.none { background: var(--none); }
+
+/* A document month by month (Monthly entry › By item, held) */
+.month-marks { padding-top: 2px; }
+.mm-cells { display: grid; gap: 4px; }
+.mm-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 4px; border-radius: 8px; background: var(--press); color: var(--muted); }
+.mm-cell.in { background: var(--good-tint); color: var(--good); }
+.mm-cell.awaited { background: var(--bad-tint); color: var(--bad); }
+.mm-mark { font-size: 15px; font-weight: 700; line-height: 1; }
+.mm-month { font-size: 11px; font-weight: 600; color: var(--muted); }
+.mm-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 13px; color: var(--muted); }
+.mm-legend .in { color: var(--good); }
+.mm-legend .awaited { color: var(--bad); }

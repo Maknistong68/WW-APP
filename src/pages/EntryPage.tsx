@@ -9,7 +9,7 @@ import StatusChip from '../components/StatusChip'
 import ActionBar from '../components/ActionBar'
 import Chips from '../components/dash/Chips'
 import { ConfirmSheet } from '../components/Modal'
-import { showActions } from '../components/ActionSheet'
+import { showActions, type SheetAction } from '../components/ActionSheet'
 import { openSheet } from '../components/SheetHost'
 import { showToast } from '../components/Toast'
 import { MonthStepper, SubjectList } from '../components/SubjectPicker'
@@ -26,7 +26,8 @@ import { beginEdit } from '../lib/editing'
 import { haptic } from '../lib/haptics'
 import { attendedPct, kpiStatus, meetingAttended, offboardingScore, setOffboarding } from '../lib/kpi'
 import { kpiTone } from '../lib/tone'
-import { woHistory, woScore } from '../lib/woScore'
+import { itemHistory, woHistory, woScore } from '../lib/woScore'
+import MonthMarks from '../components/charts/MonthMarks'
 import TrendLine from '../components/charts/TrendLine'
 import { useAllData, type AllData } from '../lib/kpiData'
 import { markSeen } from '../lib/onboarding'
@@ -34,6 +35,7 @@ import { saveRecord } from '../lib/records'
 import { emptyKpi, emptyManpower, kpiSubjects, subjectKpi, subjectManpower, subjectPrior, woOf, type KpiSubject } from '../lib/subjects'
 import { SUBCON_DOCS, awaitedItems, chaseText, docState, editDoc, type DocState } from '../lib/submissions'
 import { useBackClose } from '../lib/useBackClose'
+import { useLongPress } from '../lib/useLongPress'
 import { useGoBack } from '../lib/nav'
 import { useSave } from '../lib/useSave'
 import type { KpiMonth, Manpower, SubmissionKey } from '../types'
@@ -170,12 +172,22 @@ export default function EntryPage() {
   const copy = (text: string, many: boolean) =>
     void copyText(text).then((ok) => showToast({ text: ok ? `${many ? 'Reminders' : 'Reminder'} copied. Paste in WhatsApp or email.` : 'Could not copy.' }))
   const subjectArgs = (s: KpiSubject) => ({ contractorUuid: s.contractor.uuid, workOrderUuid: woOf(s), month })
+  // the same actions wherever a work order is held; `only`: the reminder names just this item
+  const woActions = (s: KpiSubject, only?: EntryItem): SheetAction[] => [
+    { label: 'Documents', icon: 'file-text', edit: true, onSelect: () => openSheet({ kind: 'submission', ...subjectArgs(s) }) },
+    { label: 'KPIs', icon: 'gauge', edit: true, onSelect: () => openSheet({ kind: 'kpi', ...subjectArgs(s) }) },
+    { label: 'Workers', icon: 'users', edit: true, onSelect: () => openSheet({ kind: 'manpower', ...subjectArgs(s) }) },
+    { label: 'Copy reminder', icon: 'copy', onSelect: () => copy(reminderOf(s, only), false) },
+    { label: 'Open contractor', icon: 'buildings', onSelect: () => navigate(`/contractors/${s.contractor.uuid}?m=${month}`) },
+  ]
+  const pctFact = (label: string, v: number | null) => ({ label, value: v === null ? '—' : `${v}%`, tone: v === null ? undefined : kpiTone(kpiStatus(v)) })
+  const short = (m: string) => monthLabel(m).slice(0, 3)
   const woMenu = (s: KpiSubject) => {
     // held: the work order's KPI score over the last 12 months
     const h = woHistory(d, s, month)
     const now = h.values[h.values.length - 1]
     const last = h.values[h.values.length - 2]
-    const fact = (label: string, v: number | null) => ({ label, value: v === null ? '—' : `${v}%`, tone: v === null ? undefined : kpiTone(kpiStatus(v)) })
+    const fact = pctFact
     showActions({
       title: s.label,
       sub: `${monthLabel(month)} · ${woProgress(d, s, month).text}`,
@@ -199,13 +211,59 @@ export default function EntryPage() {
           </div>
         ),
       note: h.avg === null ? 'No KPI scores yet for this work order.' : undefined,
-      actions: [
-        { label: 'Documents', icon: 'file-text', edit: true, onSelect: () => openSheet({ kind: 'submission', ...subjectArgs(s) }) },
-        { label: 'KPIs', icon: 'gauge', edit: true, onSelect: () => openSheet({ kind: 'kpi', ...subjectArgs(s) }) },
-        { label: 'Workers', icon: 'users', edit: true, onSelect: () => openSheet({ kind: 'manpower', ...subjectArgs(s) }) },
-        { label: 'Copy reminder', icon: 'copy', onSelect: () => copy(reminderOf(s), false) },
-        { label: 'Open contractor', icon: 'buildings', onSelect: () => navigate(`/contractors/${s.contractor.uuid}?m=${month}`) },
-      ],
+      actions: woActions(s),
+    })
+  }
+  // By item, held: this item's last 12 months for the work order, its overall score in the header
+  const itemMenu = (s: KpiSubject) => {
+    const h = itemHistory(d, s, month, item)
+    const sc = woScore(d, s, month)
+    const overall =
+      sc.pct === null ? '' : ` · KPI ${sc.pct}%${sc.change === null ? '' : ` ${sc.change > 0 ? '▲' : sc.change < 0 ? '▼' : '='} ${Math.abs(sc.change)}`}`
+    const now = h.values[h.values.length - 1] ?? null
+    const last = h.values[h.values.length - 2] ?? null
+    const countFact = (label: string, v: number | null) => ({ label, value: v === null ? '—' : v })
+    const empty = h.kind === 'doc' ? !h.states?.some((st) => st !== 'none' && st !== 'off') : h.avg === null
+    const facts =
+      h.kind === 'doc'
+        ? [
+            { label: `in of ${h.months.length} months`, value: h.counts!.in, tone: 'good' as const },
+            { label: 'not provided', value: h.counts!.notProvided },
+            { label: 'missing', value: h.counts!.awaited, tone: h.counts!.awaited ? ('bad' as const) : undefined },
+          ]
+        : h.kind === 'count'
+          ? [countFact(short(month), now), countFact(short(addMonths(month, -1)), last), countFact('12-month avg', h.avg)]
+          : [pctFact(short(month), now), pctFact(short(addMonths(month, -1)), last), pctFact('12-month avg', h.avg)]
+    showActions({
+      title: s.label,
+      // the item is named in the chart title; the header keeps the work order's overall score
+      sub: `${monthLabel(month)}${overall}`,
+      cover: <IconTile text={s.contractor.name} tone="info" size={52} />,
+      facts: empty ? undefined : facts,
+      figure: empty ? undefined : (
+        <div className="wo-history">
+          <div className="chart-sub">{item.label}, last 12 months</div>
+          {h.kind === 'doc' ? (
+            <MonthMarks months={h.months} states={h.states!} />
+          ) : h.kind === 'count' ? (
+            <TrendLine data={h.months.map((m, i) => ({ date: `${m}-01`, value: h.values[i] }))} unit="workers" mode="month" />
+          ) : (
+            <TrendLine
+              data={h.months.map((m, i) => ({ date: `${m}-01`, value: h.values[i] }))}
+              unit="%"
+              mode="month"
+              max={100}
+              guides={[
+                { value: 90, tone: 'good' },
+                { value: 70, tone: 'bad' },
+              ]}
+              toneOf={(v) => kpiTone(kpiStatus(v))}
+            />
+          )}
+        </div>
+      ),
+      note: empty ? `No ${item.short.toLowerCase()} history yet for this work order.` : undefined,
+      actions: woActions(s, item),
     })
   }
 
@@ -289,6 +347,7 @@ export default function EntryPage() {
               onChange={(fn) => change(s, fn)}
               onMonth={(m) => setLink({ m })}
               onMore={() => openSheet({ kind: 'submission', ...subjectArgs(s) })}
+              onHold={() => itemMenu(s)}
             />
           ))}
         </CardList>
@@ -306,7 +365,7 @@ export default function EntryPage() {
             ? 'Tap a work order to fill it in · hold for past scores, documents, workers and more.'
             : 'Tap a work order to open it.'
           : canEdit
-            ? 'Type straight into the list, then Save. Each work order saves only this item.'
+            ? 'Type straight into the list, then Save. Each work order saves only this item · hold a work order for its history.'
             : 'What each work order has entered.'}
       </div>
 
@@ -352,6 +411,7 @@ function EntryRow({
   onChange,
   onMonth,
   onMore,
+  onHold,
 }: {
   s: KpiSubject
   item: EntryItem
@@ -367,7 +427,10 @@ function EntryRow({
   onChange: (fn: (rec: KpiMonth & Manpower) => KpiMonth | Manpower) => void
   onMonth: (m: string) => void
   onMore: () => void
+  /** Held (on the name, not the input): this item's history for the work order. */
+  onHold: () => void
 }) {
+  const press = useLongPress(onHold)
   const k = rec as (KpiMonth & Manpower) | undefined
   const today = localDate()
   const prior = item.kind === 'doc' ? subjectPrior(s, d.kpis, month) : undefined
@@ -431,12 +494,14 @@ function EntryRow({
   return (
     <div className={`entry-row${edited ? ' edited' : ''}`}>
       <div className="entry-top">
-        <IconTile text={s.contractor.name} tone={tone} size={44} />
-        <div className="entry-main">
-          <div className="entry-title">{s.label}</div>
-          <div className="entry-sub">
-            {edited && <span className="entry-dot" aria-label="Not saved" />}
-            {other ? `${other.pct}% in ${monthLabel(other.month).slice(0, 3)} (this quarter)` : value || (canEdit ? 'Not entered' : '—')}
+        <div className="entry-head" {...press}>
+          <IconTile text={s.contractor.name} tone={tone} size={44} />
+          <div className="entry-main">
+            <div className="entry-title">{s.label}</div>
+            <div className="entry-sub">
+              {edited && <span className="entry-dot" aria-label="Not saved" />}
+              {other ? `${other.pct}% in ${monthLabel(other.month).slice(0, 3)} (this quarter)` : value || (canEdit ? 'Not entered' : '—')}
+            </div>
           </div>
         </div>
         {control}

@@ -23,7 +23,10 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
   over a fresh copy, `src/lib/merge.ts`; unsaved rows kept in `src/lib/entryDraft.ts`). By work order rows show the
   month's KPI score in its status colour with ▲/▼ against last month and a thin entered-so-far bar; holding a row (or
   ⋯) shows its last 12 months' scores as a chart above the actions (`src/lib/woScore.ts`: `woScore`, `woHistory`;
-  `ScoreTrail` in `SubjectPicker.tsx`). Old `/missing/:item` links
+  `ScoreTrail` in `SubjectPicker.tsx`). In By item, holding a row's name (`EntryRow` `onHold`, `.entry-head`) shows that
+  item's 12 months for the work order: a KPI's score line, the worker count line, or a document's month strip
+  (`itemHistory`; `src/components/charts/MonthMarks.tsx`; months before a document was first answered show as not
+  tracked). Old `/missing/:item` links
   redirect there. Home ("Good morning") is sections each person
   orders with Edit Home (kept on the phone): Start here (every late or this-week job as a swipeable
   card with its button), All areas (six app icons: Tickets, Submission, KPIs, Accommodation, Audits,
