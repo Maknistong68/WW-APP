@@ -1,4 +1,5 @@
 import { daysBetween, localDate, monthRange } from './dates'
+import { isDocOn } from './docRules'
 import type { DeclField, KpiMonth, Manpower, Ticket } from '../types'
 
 // Every KPI rule in one place (spec §5). All values are 0–100, null = blank
@@ -35,7 +36,7 @@ export const KPI_PARTS: { key: Exclude<keyof KpiResult, 'overall' | 'status'>; l
 
 export const DECLARATIONS: { key: DeclField; label: string; short: string }[] = [
   { key: 'wps', label: 'WPS certificate', short: 'WPS' },
-  { key: 'manpowerDecl', label: 'Manpower declaration', short: 'Manpower' },
+  { key: 'manpowerDecl', label: 'Manpower register', short: 'Manpower' },
   { key: 'salaryDecl', label: 'Salary declaration', short: 'Salary' },
 ]
 
@@ -54,17 +55,21 @@ export function setDecl(k: KpiMonth, f: DeclField, v: boolean | null): KpiMonth 
   return out
 }
 
+/** The declarations asked for in a month (the Admin can switch one off: Settings › Monthly documents). */
+const declsFor = (month?: string) => DECLARATIONS.filter((d) => isDocOn(d.key, month))
+
 /** Declarations still awaited (neither in nor marked not provided). */
-export const declWaiting = (k: KpiMonth | undefined) => DECLARATIONS.filter((d) => declState(k, d.key) === null)
+export const declWaiting = (k: KpiMonth | undefined) => declsFor(k?.month).filter((d) => declState(k, d.key) === null)
 /** Declarations marked not provided. */
-export const declNotProvided = (k: KpiMonth | undefined) => DECLARATIONS.filter((d) => declState(k, d.key) === false)
+export const declNotProvided = (k: KpiMonth | undefined) => declsFor(k?.month).filter((d) => declState(k, d.key) === false)
 
 /**
  * WPS + manpower + salary declarations: all in = 100, none = 0, else 50. Ones the
- * contractor can't provide are left out; if none can be provided it's blank.
+ * contractor can't provide, and ones switched off for the month, are left out;
+ * if none is left it's blank.
  */
 export function submissionPct(k: KpiMonth): number | null {
-  const due = DECLARATIONS.filter((d) => declState(k, d.key) !== false)
+  const due = declsFor(k.month).filter((d) => declState(k, d.key) !== false)
   if (due.length === 0) return null
   const yes = due.filter((d) => k[d.key]).length
   return yes === due.length ? 100 : yes === 0 ? 0 : 50

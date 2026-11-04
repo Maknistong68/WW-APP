@@ -152,6 +152,8 @@ export const FIELD_LABELS: Record<string, string> = {
   notProvided: 'Not provided',
   visibility: 'Who sees it',
   docs: 'Documents',
+  docRules: 'Monthly documents',
+  subcons: 'Subcontractors',
   accommodationPct: 'Accommodation %',
   onboardingPct: 'Onboarding %',
   offboardingPct: 'Offboarding %',

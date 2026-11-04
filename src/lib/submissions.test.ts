@@ -12,23 +12,24 @@ import {
   applyDocChanges,
   carryBefore,
   editDoc,
+  docText,
+  wpsFlag,
 } from './submissions'
 import { submissionPct } from './kpi'
 import { emptyKpi } from './subjects'
-import type { KpiMonth } from '../types'
+import type { DocEntry, KpiMonth } from '../types'
 
 const oct = (p: Partial<KpiMonth> = {}): KpiMonth => ({ ...emptyKpi('c1', 'w1', '2026-10'), ...p })
 const sep = (p: Partial<KpiMonth> = {}): KpiMonth => ({ ...emptyKpi('c1', 'w1', '2026-09'), ...p })
 
 describe('The monthly documents', () => {
-  it('your 9 in order, then WPS and Salary', () => {
+  it('your 8 in order (the Manpower register is also the full manpower declaration), then WPS and Salary', () => {
     expect(SUBMISSION_ITEMS.map((i) => i.key)).toEqual([
       'welfareReport',
       'issueLog',
       'manpowerDecl',
       'subconDecl',
       'committeeMinutes',
-      'workforceDecl',
       'pestControl',
       'activitySchedule',
       'waterTest',
@@ -36,13 +37,14 @@ describe('The monthly documents', () => {
       'salaryDecl',
     ])
     expect(SUBMISSION_ITEMS.find((i) => i.key === 'manpowerDecl')?.label).toBe('Manpower register')
+    expect(SUBMISSION_ITEMS.find((i) => i.key === 'manpowerDecl')?.detail).toMatch(/Full manpower declaration/)
   })
 })
 
 describe('Where a document stands', () => {
   it('nothing yet: everything waiting', () => {
-    expect(awaitedItems(oct()).length).toBe(11)
-    expect(submissionCounts(oct())).toEqual({ in: 0, required: 11, awaited: 11 })
+    expect(awaitedItems(oct()).length).toBe(10)
+    expect(submissionCounts(oct())).toEqual({ in: 0, required: 10, awaited: 10 })
   })
   it('WPS, Manpower and Salary read the fields older months already have', () => {
     const k = oct({ wps: true, notProvided: ['salaryDecl'] })
@@ -61,7 +63,7 @@ describe('Where a document stands', () => {
   it('not provided and not applicable are not chased and not required', () => {
     let k = setDoc(oct(), 'pestControl', { state: 'notProvided' })
     k = setDoc(k, 'activitySchedule', { state: 'na' })
-    expect(submissionCounts(k)).toEqual({ in: 0, required: 9, awaited: 9 })
+    expect(submissionCounts(k)).toEqual({ in: 0, required: 8, awaited: 8 })
   })
   it('settled = nothing waiting', () => {
     expect(allSettled(undefined)).toBe(false)
@@ -220,5 +222,42 @@ describe('Typing a note', () => {
     expect(typing.docs?.pestControl?.note).toBe('Asked ')
     const saved = applyDocChanges(oct(), oct(), editDoc(typing, 'pestControl', { note: ' Asked again ' }))
     expect(saved.docs?.pestControl?.note).toBe('Asked again')
+  })
+})
+
+describe('WPS: are all the subcontractors included?', () => {
+  const inWps = (p: Partial<DocEntry> = {}) => setDoc(oct(), 'wps', { state: 'in', on: '2026-11-03', ...p })
+  it('Yes, or No with the missing ones ticked; WPS still counts as in', () => {
+    let k = editDoc(inWps(), 'wps', { allSubcons: false, missing: ['AGS', 'SNC'] })
+    expect(k.docs?.wps).toEqual({ state: 'in', on: '2026-11-03', allSubcons: false, missing: ['AGS', 'SNC'] })
+    expect(docState(k, 'wps')).toBe('in')
+    expect(k.wps).toBe(true)
+    expect(wpsFlag(k.docs?.wps)).toBe('2 subcons missing')
+    k = editDoc(k, 'wps', { allSubcons: true })
+    expect(k.docs?.wps).toEqual({ state: 'in', on: '2026-11-03', allSubcons: true })
+    expect(wpsFlag(k.docs?.wps)).toBeNull()
+  })
+  it('No without names ticked: "Not all subcons"; cleared back to unanswered', () => {
+    const k = editDoc(inWps(), 'wps', { allSubcons: false })
+    expect(wpsFlag(k.docs?.wps)).toBe('Not all subcons')
+    expect(editDoc(k, 'wps', { allSubcons: null }).docs?.wps).toEqual({ state: 'in', on: '2026-11-03' })
+  })
+  it('only WPS keeps the answer, and only while it is in', () => {
+    expect(setDoc(oct(), 'waterTest', { state: 'in', allSubcons: false, missing: ['AGS'] }).docs?.waterTest).toEqual({ state: 'in' })
+    const k = editDoc(editDoc(inWps(), 'wps', { allSubcons: false, missing: ['AGS'] }), 'wps', { state: 'notProvided' })
+    expect(k.docs?.wps).toEqual({ state: 'notProvided' })
+  })
+  it('the line, the history, the reminder', () => {
+    const k = editDoc(inWps(), 'wps', { allSubcons: false, missing: ['AGS', 'SNC'] })
+    expect(docText(k, 'wps')).toBe('In 3 Nov · 2 subcons missing')
+    expect(docChangeText(inWps().docs, k.docs)).toEqual(['WPS certificate: in 3 Nov → in 3 Nov (missing AGS, SNC)'])
+    expect(docChangeText(inWps().docs, editDoc(inWps(), 'wps', { allSubcons: true }).docs)).toEqual(['WPS certificate: in 3 Nov → in 3 Nov (all subcons)'])
+    expect(chaseText('Al Fahad · WO 882', '2026-10', [], '2026-11-15', k)).toBe(
+      'Al Fahad · WO 882 — October documents: all in. WPS is missing: AGS, SNC. Thank you.',
+    )
+    const missing = awaitedItems(setDoc(k, 'waterTest', null))
+    expect(chaseText('X', '2026-10', missing.filter((i) => i.key === 'waterTest'), '2026-11-15', k)).toBe(
+      'X — October documents still missing: Water test certificates. WPS is missing: AGS, SNC. Due 15 Nov.',
+    )
   })
 })

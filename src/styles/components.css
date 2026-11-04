@@ -313,6 +313,7 @@ button.row { cursor: pointer; }
 .checks .yes { color: var(--good); }
 .checks .no { color: var(--bad); }
 .checks .na { color: var(--muted); }
+.checks .warn { color: var(--warn); }
 .kpi-table { width: 100%; border-collapse: collapse; font-size: 15px; }
 .kpi-table td { padding: 12px 0; border-top: 1px solid var(--line); }
 .kpi-table tr:first-child td { border-top: none; }
@@ -370,6 +371,14 @@ button.row { cursor: pointer; }
 .doc-edit .doc-states { grid-template-columns: 0.6fr 1fr 1.3fr 0.65fr; }
 .doc-edit .row { min-height: 52px; padding: 8px 4px; }
 .doc-edit .row + .row::before { left: 4px; right: 4px; }
+/* A work order's subcontractors: the add box reads left to right; long names wrap */
+.add-row input { text-align: left; }
+.row-title.wrap { white-space: normal; overflow: visible; }
+/* WPS: are all the subcontractors on it? */
+.doc-ask { margin: 4px 4px 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.doc-ask.muted { font-weight: 400; }
+.wps-subcons .obs-chips { margin-top: 0; }
+.warn-text { color: var(--warn); font-weight: 600; }
 .docs-card { padding: 16px 18px; }
 .docs-card .checks { gap: 8px 14px; }
 

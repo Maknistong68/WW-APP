@@ -11,7 +11,7 @@ import { TicketRow } from './TicketsPage'
 import { ageDays, isOpen } from '../lib/aging'
 import { addMonths, monthLabel, monthOf } from '../lib/dates'
 import { KPI_PARTS, STATUS_LABEL, pct, type KpiResult } from '../lib/kpi'
-import { SUBMISSION_ITEMS, docState, submissionCounts, type DocState } from '../lib/submissions'
+import { docState, itemsFor, submissionCounts, wpsFlag, type DocState } from '../lib/submissions'
 import { auditPctFor, kpiForSubject, rollup, useAllData } from '../lib/kpiData'
 import { mentions } from '../lib/names'
 import { saveRecord } from '../lib/records'
@@ -151,17 +151,18 @@ export default function ContractorDetailPage() {
     : rollup(data.subjects.map((s) => data.results.get(s.key)!))
   const kpi = chosen ? subjectKpi(chosen, d.kpis, month) : undefined
   const prior = chosen ? subjectPrior(chosen, d.kpis, month) : undefined
-  const docCount = chosen ? submissionCounts(kpi, prior) : null
+  const docCount = chosen ? submissionCounts(kpi, prior, month) : null
   const manpower = chosen ? subjectManpower(chosen, d.manpower, month) : undefined
   const open = data.tickets.filter(isOpen).sort((a, b) => a.openedAt.localeCompare(b.openedAt))
   const openCases = data.cases.filter(isOpen).sort((a, b) => a.openedAt.localeCompare(b.openedAt))
   // ✓ in · ✗ waiting · – not provided or not applicable (not chased)
-  const mark = (v: DocState, label: string) => (
+  const mark = (v: DocState, label: string, flag?: string | null) => (
     <span
-      className={v === 'in' ? 'yes' : v === 'awaited' ? 'no' : 'na'}
-      title={v === 'notProvided' ? `${label} not provided` : v === 'na' ? `${label} not applicable` : undefined}
+      className={v === 'in' ? (flag ? 'warn' : 'yes') : v === 'awaited' ? 'no' : 'na'}
+      title={v === 'notProvided' ? `${label} not provided` : v === 'na' ? `${label} not applicable` : (flag ?? undefined)}
     >
       <Icon name={v === 'in' ? 'check' : v === 'awaited' ? 'x' : 'minus'} size={16} strokeWidth={2.6} /> {label}
+      {flag ? ` · ${flag}` : ''}
     </span>
   )
   const topResult: KpiResult = rollup(data.subjects.map((s) => data.results.get(s.key)!))
@@ -259,7 +260,12 @@ export default function ContractorDetailPage() {
             <WoRow
               key={w.uuid}
               title={`WO ${w.number}${w.label ? ` · ${w.label}` : ''}`}
-              sub={w.active && c.active ? `KPI ${pct(r?.overall)} · ${STATUS_LABEL[r?.status ?? 'none']}` : 'Inactive'}
+              sub={[
+                w.active && c.active ? `KPI ${pct(r?.overall)} · ${STATUS_LABEL[r?.status ?? 'none']}` : 'Inactive',
+                w.subcons?.length ? `${w.subcons.length} subcon${w.subcons.length === 1 ? '' : 's'}` : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
               active={w.active}
               canEdit={canEdit}
               onOpen={() => setWoSheet(w)}
@@ -344,8 +350,8 @@ export default function ContractorDetailPage() {
               <div className="section-label">Documents · {monthLabel(month)}</div>
               <div className="card docs-card">
                 <div className="checks">
-                  {SUBMISSION_ITEMS.map((x) => (
-                    <Fragment key={x.key}>{mark(docState(kpi, x.key, prior), x.short)}</Fragment>
+                  {itemsFor(month).map((x) => (
+                    <Fragment key={x.key}>{mark(docState(kpi, x.key, prior), x.short, x.key === 'wps' ? wpsFlag(kpi?.docs?.wps) : null)}</Fragment>
                   ))}
                 </div>
               </div>

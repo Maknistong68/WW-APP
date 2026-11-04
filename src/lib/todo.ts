@@ -2,7 +2,7 @@ import { addMonths, monthLabel } from './dates'
 import { meetingAttended, offboardingScore } from './kpi'
 import { auditPctFor, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectManpower, subjectPrior, type KpiSubject } from './subjects'
-import { SUBMISSION_ITEMS as DOCS, allSettled, awaitedItems, docState, shortList, submissionCounts } from './submissions'
+import { allSettled, awaitedItems, docState, itemsFor, shortList, submissionCounts } from './submissions'
 import { closeoutState } from './closeout'
 
 // The per-work-order checklist (the monthly documents, accommodation, …):
@@ -36,14 +36,14 @@ export const SUBJECT_ITEMS: Record<SubjectItemKey, SubjectItem> = {
     title: 'Monthly documents',
     sheet: 'submission',
     // Done once nothing is waiting: each one in, not provided, or not applicable.
-    done: (d, s, m) => allSettled(kpiOf(d, s, m), subjectPrior(s, d.kpis, m)),
+    done: (d, s, m) => allSettled(kpiOf(d, s, m), subjectPrior(s, d.kpis, m), m),
     value: (d, s, m) => {
       const k = kpiOf(d, s, m)
       const prior = subjectPrior(s, d.kpis, m)
-      const c = submissionCounts(k, prior)
-      const notProvided = DOCS.filter((i) => docState(k, i.key, prior) === 'notProvided')
+      const c = submissionCounts(k, prior, m)
+      const notProvided = itemsFor(m).filter((i) => docState(k, i.key, prior) === 'notProvided')
       if (!c.in && !notProvided.length) return ''
-      const waiting = awaitedItems(k, prior)
+      const waiting = awaitedItems(k, prior, m)
       const parts = [`${c.in} of ${c.required} in`, waiting.length && `Missing ${shortList(waiting)}`, notProvided.length && `${shortList(notProvided)} not provided`]
       return parts.filter(Boolean).join(' · ')
     },

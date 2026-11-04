@@ -46,7 +46,7 @@ describe('Home tasks: documents and KPIs', () => {
     const { tasks, counts } = buildTasks(base(), '2026-11-01')
     const decl = tasks.find((t) => t.key === 'declarations:2026-10')!
     expect([decl.group, decl.title, decl.dueText, decl.members?.length]).toEqual(['later', 'October documents', 'due 15 Nov', 2])
-    expect(decl.detail).toBe('2 work orders · 11 documents each')
+    expect(decl.detail).toBe('2 work orders · 10 documents each')
     expect(tasks.find((t) => t.key === 'kpis:2026-10')!.dueText).toBe('due 30 Nov')
     expect([counts.overdue, counts.week]).toEqual([0, 0])
   })
@@ -58,7 +58,7 @@ describe('Home tasks: documents and KPIs', () => {
   it('a work order part way says how many are in and names the first ones still missing', () => {
     const kpis = [setDoc(setDoc({ contractorUuid: 'c1', workOrderUuid: 'w1', month: '2026-10', wps: true } as KpiMonth, 'welfareReport', { state: 'in', on: '2026-11-03' }), 'waterTest', { state: 'na' })]
     const row = buildTasks(base({ kpis }), '2026-11-08').tasks.find((t) => t.kind === 'declarations' && t.title === 'RPCO · WO 882')!
-    expect(row.detail).toBe('Oct: 2 of 10 in · Issue log, Manpower +6')
+    expect(row.detail).toBe('Oct: 2 of 9 in · Issue log, Manpower +5')
   })
   it('after the 15th the ones still missing are overdue, "1d late"', () => {
     const kpis = [docsIn('w1', '2026-10')]

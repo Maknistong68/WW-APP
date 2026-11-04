@@ -1,4 +1,5 @@
 import { lastEndedMonth } from './due'
+import { isDocOn } from './docRules'
 import { KPI_AUDIT_FIELDS, MANPOWER_FIELDS, mergeEdited } from './merge'
 import { SUBMISSION_ITEMS, applyDocChanges, docState, docText, submissionCounts } from './submissions'
 import { SUBJECT_ITEMS, quarterMonths, type SubjectItemKey } from './todo'
@@ -49,6 +50,9 @@ export const MONTHLY_KPIS: EntryItem[] = ['accommodation', 'onboarding', 'offboa
 
 export const entryItem = (key: string): EntryItem | undefined => ENTRY_ITEMS.find((i) => i.key === key)
 
+/** The items asked for in a month: documents the Admin switched off are left out. */
+export const entryItemsFor = (month: string): EntryItem[] => ENTRY_ITEMS.filter((i) => i.kind !== 'doc' || isDocOn(i.key as SubmissionKey, month))
+
 /** The fields one KPI item writes (offboarding's older counts and `legacy` go with it). */
 const FIELDS: Record<KpiEntryKey, readonly string[]> = {
   accommodation: ['accommodationPct'],
@@ -75,9 +79,9 @@ export function entryValue(d: AllData, s: KpiSubject, month: string, item: Entry
 export const itemLeft = (d: AllData, month: string, item: EntryItem) =>
   kpiSubjects(d.contractors, d.workOrders).filter((s) => !entryDone(d, s, month, item)).length
 
-/** One work order's month at a glance: "Docs 4/11 · KPIs 3/5". */
+/** One work order's month at a glance: "Docs 4/10 · KPIs 3/5". */
 export function woProgress(d: AllData, s: KpiSubject, month: string): { text: string; done: boolean } {
-  const c = submissionCounts(subjectKpi(s, d.kpis, month), subjectPrior(s, d.kpis, month))
+  const c = submissionCounts(subjectKpi(s, d.kpis, month), subjectPrior(s, d.kpis, month), month)
   const kpis = MONTHLY_KPIS.filter((i) => entryDone(d, s, month, i)).length
   return { text: `Docs ${c.in}/${c.required} · KPIs ${kpis}/${MONTHLY_KPIS.length}`, done: c.awaited === 0 && kpis === MONTHLY_KPIS.length }
 }

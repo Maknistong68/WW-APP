@@ -13,13 +13,14 @@ import { showActions } from '../components/ActionSheet'
 import { openSheet } from '../components/SheetHost'
 import { showToast } from '../components/Toast'
 import { MonthStepper, SubjectList } from '../components/SubjectPicker'
+import WpsSubcons from '../components/WpsSubcons'
 import { YesNo, count, pctOf, str } from '../components/Inputs'
 import { useAuthInfo } from '../lib/auth'
 import { copyText } from '../lib/clipboard'
 import { setAuditDate } from '../lib/closeout'
 import { localDate, monthLabel, shortDate } from '../lib/dates'
 import { declarationsDue } from '../lib/due'
-import { ENTRY_ITEMS, entryDone, entryItem, entryProblem, entryValue, itemLeft, mergeRow, otherQuarterAudit, parseEntry, rowChanged, woProgress, type EntryBy, type EntryItem } from '../lib/entryItems'
+import { entryDone, entryItem, entryItemsFor, entryProblem, entryValue, itemLeft, mergeRow, otherQuarterAudit, parseEntry, rowChanged, woProgress, type EntryBy, type EntryItem } from '../lib/entryItems'
 import { editKey, readDraft, writeDraft, type EntryEdit } from '../lib/entryDraft'
 import { beginEdit } from '../lib/editing'
 import { haptic } from '../lib/haptics'
@@ -58,8 +59,10 @@ export default function EntryPage() {
   const [params, setParams] = useSearchParams()
   const today = localDate()
   const { by, item: itemKey, month } = parseEntry(params, today)
-  const item = entryItem(itemKey)!
   const d = useAllData()
+  // a document switched off for this month is not offered (Settings › Monthly documents)
+  const items = useMemo(() => entryItemsFor(month), [month, d.docRules])
+  const item = items.find((i) => i.key === itemKey) ?? items[0]
   const { canEdit } = useAuthInfo()
   const navigate = useNavigate()
   const goBack = useGoBack()
@@ -158,8 +161,8 @@ export default function EntryPage() {
   const due = declarationsDue(month)
   const reminderOf = (s: KpiSubject, only?: EntryItem) => {
     const k = subjectKpi(s, d.kpis, month)
-    const missing = awaitedItems(k, subjectPrior(s, d.kpis, month))
-    return chaseText(s.label, month, only ? missing.filter((m) => m.key === only.key) : missing, due)
+    const missing = awaitedItems(k, subjectPrior(s, d.kpis, month), month)
+    return chaseText(s.label, month, only ? missing.filter((m) => m.key === only.key) : missing, due, k)
   }
   const copy = (text: string, many: boolean) =>
     void copyText(text).then((ok) => showToast({ text: ok ? `${many ? 'Reminders' : 'Reminder'} copied. Paste in WhatsApp or email.` : 'Could not copy.' }))
@@ -181,11 +184,11 @@ export default function EntryPage() {
   // ---- By item ----
   const chips = useMemo(
     () =>
-      ENTRY_ITEMS.map((i, n) => {
+      items.map((i, n) => {
         const left = d.loaded ? itemLeft(d, month, i) : 0
-        return { key: i.key, label: left ? `${i.short} · ${left}` : i.short, sep: n > 0 && i.group !== ENTRY_ITEMS[n - 1].group }
+        return { key: i.key, label: left ? `${i.short} · ${left}` : i.short, sep: n > 0 && i.group !== items[n - 1].group }
       }),
-    [d, month],
+    [d, month, items],
   )
   const itemRows = useMemo(
     () => (d.loaded ? subjects.map((s) => ({ s, done: entryDone(d, s, month, item), value: entryValue(d, s, month, item) })).sort((a, b) => Number(a.done) - Number(b.done)) : []),
@@ -454,6 +457,13 @@ function EntryRow({
               More ›
             </button>
           </div>
+          {item.key === 'wps' && state === 'in' && (
+            <WpsSubcons
+              entry={(k as KpiMonth | undefined)?.docs?.wps}
+              subcons={s.workOrder?.subcons ?? []}
+              onEdit={(change) => onChange((r) => editDoc(r, 'wps', change, prior, today))}
+            />
+          )}
         </div>
       )}
 

@@ -299,7 +299,13 @@ export default function TicketSheet({
               </label>
               <label className="row">
                 <span className="row-label">Sub-contractor</span>
-                <input value={t.subcontractor} onChange={(e) => set('subcontractor', e.target.value)} />
+                {/* the work order's own list as suggestions; any name can still be typed */}
+                <input value={t.subcontractor} list="ticket-subcons" onChange={(e) => set('subcontractor', e.target.value)} />
+                <datalist id="ticket-subcons">
+                  {(cWos.find((w) => w.uuid === t.workOrderUuid)?.subcons ?? []).map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
               </label>
               <div className="row">
                 <span className="row-label" style={{ flex: 1 }}>

@@ -73,6 +73,7 @@ body.has-actionbar .page { padding-bottom: calc(var(--bottom-gap) + var(--action
 .section-label { font-size: 15px; font-weight: 700; color: var(--muted); margin: 24px 0 10px; }
 .list-foot { font-size: 14px; color: var(--muted); margin: 8px 0 18px; line-height: 1.45; }
 .list-foot.warn-text { color: var(--warn); font-weight: 600; }
+.row-sub.warn-text { color: var(--warn); font-weight: 600; }
 
 /* ---- Floating tab bar (One UI 8.5 / 9): blurred pill + Create button -------- */
 .tabbar {

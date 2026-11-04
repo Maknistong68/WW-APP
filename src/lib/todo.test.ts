@@ -32,7 +32,7 @@ describe('Monthly documents: one work order', () => {
     const [w1134, w882] = kpiSubjects(d.contractors, d.workOrders).sort((a, b) => a.label.localeCompare(b.label))
     expect(SUBJECT_ITEMS.submission.done(d, w882, '2026-10')).toBe(true)
     expect(SUBJECT_ITEMS.submission.done(d, w1134, '2026-10')).toBe(false)
-    expect(SUBJECT_ITEMS.submission.value(d, w1134, '2026-10')).toBe('1 of 11 in · Missing Report, Issue log +8')
+    expect(SUBJECT_ITEMS.submission.value(d, w1134, '2026-10')).toBe('1 of 10 in · Missing Report, Issue log +7')
   })
   it('N/A last month is not chased this month', () => {
     const d = data([setDoc(emptyKpi('c1', 'w1', '2026-09'), 'waterTest', { state: 'na' })])

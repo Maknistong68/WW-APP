@@ -209,7 +209,18 @@ export const EVIDENCE_NOTES: string[] = [
 // ---------------------------------------------------------------------------
 
 /** Dexie table names of the uuid-keyed record tables (also the sync tables). */
-export type RecordTable = 'contractors' | 'workOrders' | 'camps' | 'tickets' | 'kpiMonths' | 'manpower' | 'weeklyCounts' | 'sitePlaces' | 'mapItems' | 'routines'
+export type RecordTable =
+  | 'contractors'
+  | 'workOrders'
+  | 'camps'
+  | 'tickets'
+  | 'kpiMonths'
+  | 'manpower'
+  | 'weeklyCounts'
+  | 'sitePlaces'
+  | 'mapItems'
+  | 'routines'
+  | 'teamSettings'
 
 interface RecordBase {
   uuid: string
@@ -237,6 +248,8 @@ export interface WorkOrder extends RecordBase {
   label: string
   active: boolean
   notes: string
+  /** Its subcontractors: company names only (src/lib/subcons.ts). WPS asks if all are included. */
+  subcons?: string[]
 }
 
 /** Where a site sits on the 3D "Live site" map (one shared row per site; uuid fixed per site). */
@@ -345,7 +358,6 @@ export type SubmissionKey =
   | 'manpowerDecl'
   | 'subconDecl'
   | 'committeeMinutes'
-  | 'workforceDecl'
   | 'pestControl'
   | 'activitySchedule'
   | 'waterTest'
@@ -364,6 +376,23 @@ export interface DocEntry {
   note?: string
   /** Item 2: which one was sent. */
   variant?: 'issueLog' | 'iap'
+  /** WPS (in): are all the work order's subcontractors included? Unset = not answered. */
+  allSubcons?: boolean
+  /** WPS with allSubcons false: the subcontractors it is missing (names). */
+  missing?: string[]
+}
+
+/** One switch of a monthly document (Settings › Monthly documents): off, or back on, from a month on. */
+export interface DocRule {
+  key: SubmissionKey
+  off: boolean
+  /** YYYY-MM: the first month it applies to; earlier months are untouched. */
+  from: string
+}
+
+/** The team's shared settings: one row (TEAM_SETTINGS_UUID); only the Admin changes it. */
+export interface TeamSettings extends RecordBase {
+  docRules: DocRule[]
 }
 
 export interface KpiMonth extends RecordBase {
@@ -423,7 +452,7 @@ export interface WeeklyCount extends RecordBase {
   openTickets: number
 }
 
-export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import' | 'site' | 'map' | 'routine'
+export type ActivityEntity = 'ticket' | 'contractor' | 'workOrder' | 'camp' | 'user' | 'kpi' | 'manpower' | 'weekly' | 'audit' | 'import' | 'site' | 'map' | 'routine' | 'settings'
 export type ActivityAction = 'add' | 'edit' | 'close' | 'reopen' | 'delete' | 'restore' | 'import'
 
 export interface ActivityChange {

@@ -39,6 +39,8 @@ import { useInstallState } from './lib/installPrompt'
 import UsersPage from './pages/UsersPage'
 import { AuthContext, actorName, canEditRole, useAuth, useAuthInfo } from './lib/auth'
 import { setActor, setRole } from './lib/actor'
+import { TEAM_SETTINGS_UUID, setDocRules } from './lib/docRules'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { setOnboardingUser } from './lib/onboarding'
 import ToastHost, { showToast } from './components/Toast'
 import { backgroundSync, type SyncResult } from './lib/sync'
@@ -122,6 +124,9 @@ export default function App() {
 /** The app itself, shown once signed in and approved (or in local-only mode). */
 function AppShell() {
   const { canEdit } = useAuthInfo()
+  // Monthly documents the Admin switched off (Settings › Monthly documents): every list and score reads this store.
+  const team = useLiveQuery(async () => (await db.teamSettings.get(TEAM_SETTINGS_UUID)) ?? null, [])
+  if (team !== undefined) setDocRules(team?.docRules)
   // Auto-sync when the app opens or connectivity returns (no-op until
   // cloud sync is configured in Settings).
   useEffect(() => {

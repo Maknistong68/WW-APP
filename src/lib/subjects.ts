@@ -79,7 +79,7 @@ export const subjectRows = (s: KpiSubject, kpis: KpiMonth[]) =>
 export const subjectPrior = (s: KpiSubject, kpis: KpiMonth[], month: string) => carryBefore(subjectRows(s, kpis), month)
 
 /** Every document answered for the month (in, not provided or not applicable). */
-export const docsSettled = (s: KpiSubject, kpis: KpiMonth[], month: string) => allSettled(subjectKpi(s, kpis, month), subjectPrior(s, kpis, month))
+export const docsSettled = (s: KpiSubject, kpis: KpiMonth[], month: string) => allSettled(subjectKpi(s, kpis, month), subjectPrior(s, kpis, month), month)
 
 export const subjectManpower = (s: KpiSubject, rows: Manpower[], month: string) =>
   rows.find((m) => m.contractorUuid === s.contractor.uuid && (m.workOrderUuid || '') === woOf(s) && m.month === month)

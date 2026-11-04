@@ -136,7 +136,7 @@ per screen.
     Each is a gradient tile in its menu hue (`MENU_HUE`, menu `home`) with a badge (`areaTile`): the
     late count (red), else this week's (amber), or a green check when all is done. Under the name:
     "Late", "This week", the next date ("15 Nov") or "Done".
-    - Tickets: over 30 days or turning 30 this week. Submission: the 11 monthly documents per
+    - Tickets: over 30 days or turning 30 this week. Submission: the monthly documents (10, fewer if the admin switched some off) per
       work order and older months. KPIs: scores and worker counts. Accommodation: camp
       inspections due and draft inspections. Audits: quarterly audits and close-outs. Tasks: the
       team's own to-dos.
@@ -158,7 +158,7 @@ per screen.
     next month (`src/lib/due.ts`).
   - **Monthly documents** (`src/components/SubmissionSheet.tsx`, rules `src/lib/submissions.ts`): one
     work order, one month. The header shows "7 of 11 in" with a green bar, the due date, **Mark all
-    in** and **Reminder** (copies a WhatsApp-ready list of what is missing). The 11 documents sit in
+    in** and **Reminder** (copies a WhatsApp-ready list of what is missing). The documents sit in
     four groups (Reports · Registers & declarations · Committee · Accommodation), each a row with its
     status chip: In 2 Nov (green) · Waiting (blue, amber near the 15th, red Late after) · Not provided
     · N/A (grey). Tap a row to open its choices in place: In · Waiting · Not provided · N/A, the date
@@ -173,7 +173,7 @@ per screen.
     - **By work order**: every work order with "Docs 4/11 · KPIs 3/5" (tile green when complete);
       tap opens its KPI panel (Documents and Workers rows open their panels over it); hold for
       Documents / KPIs / Workers / Copy reminder / Open contractor; "Copy all N reminders" below.
-    - **By item**: a chip per item, the 11 documents | KPIs (Accommodation, Onboarding,
+    - **By item**: a chip per item, the documents | KPIs (Accommodation, Onboarding,
       Offboarding, Meeting, Workers, Quarterly audit), each with how many are left. Each work
       order's row (≥ 76 px) takes the item in place: a document's In · Waiting · Not provided · N/A
       (and the date when In; More › opens the full panel), a % box, Yes / No, or Workers' total and

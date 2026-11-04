@@ -1,10 +1,12 @@
-import { dayMonth } from './dates'
+import { dayMonth, monthLabel } from './dates'
+import { isDocOn } from './docRules'
 import { setDecl } from './kpi'
-import type { DeclField, DocEntry, KpiMonth, SubmissionKey } from '../types'
+import type { DeclField, DocEntry, DocRule, KpiMonth, SubmissionKey } from '../types'
 
 // ---------------------------------------------------------------------------
 // The documents each work order's contractor hands in every month: the owner's
-// 9, plus the WPS certificate and the Salary declaration. Each one is in (with
+// 8 (the Manpower register is also the full manpower declaration), plus the WPS
+// certificate and the Salary declaration. Each one is in (with
 // the date it came), not provided (they can't give it), not applicable (it
 // doesn't apply, e.g. no apartments — this carries on to the next months until
 // changed), or still waiting. Tracked only: the KPI score still reads WPS /
@@ -27,10 +29,9 @@ export interface SubmissionItem {
 export const SUBMISSION_ITEMS: SubmissionItem[] = [
   { key: 'welfareReport', label: 'Welfare report', short: 'Report', group: 'Reports', detail: 'Monthly Worker Welfare Report, contractor and subcontractors' },
   { key: 'issueLog', label: 'Issue log / IAP', short: 'Issue log', group: 'Reports', detail: 'Issue logs or Internal Audit Practices, whichever applies' },
-  { key: 'manpowerDecl', label: 'Manpower register', short: 'Manpower', group: 'Registers & declarations' },
+  { key: 'manpowerDecl', label: 'Manpower register', short: 'Manpower', group: 'Registers & declarations', detail: 'Full manpower declaration, including the full subcontractor chain' },
   { key: 'subconDecl', label: 'Subcontractor declaration', short: 'Subcon', group: 'Registers & declarations' },
   { key: 'committeeMinutes', label: 'Committee minutes', short: 'Minutes', group: 'Committee', detail: 'Worker Welfare Committee meeting minutes' },
-  { key: 'workforceDecl', label: 'Full workforce declaration', short: 'Workforce', group: 'Registers & declarations', detail: 'Including the full subcontractor chain' },
   { key: 'pestControl', label: 'Pest control records', short: 'Pest control', group: 'Accommodation', detail: 'Dining and mess areas' },
   { key: 'activitySchedule', label: 'Activity schedule', short: 'Activities', group: 'Accommodation', detail: 'Social and sporting activities, group accommodation' },
   { key: 'waterTest', label: 'Water test certificates', short: 'Water test', group: 'Accommodation', detail: 'Drinking water, apartments and villas' },
@@ -39,6 +40,12 @@ export const SUBMISSION_ITEMS: SubmissionItem[] = [
 ]
 
 export const DOC_GROUPS: DocGroup[] = ['Reports', 'Registers & declarations', 'Committee', 'Accommodation']
+
+/**
+ * The documents asked for in a month: the Admin can switch some off from a
+ * month on (Settings › Monthly documents, src/lib/docRules.ts). No month: all.
+ */
+export const itemsFor = (month?: string): SubmissionItem[] => (month ? SUBMISSION_ITEMS.filter((i) => isDocOn(i.key, month)) : SUBMISSION_ITEMS)
 
 const LEGACY = new Set<SubmissionKey>(['wps', 'manpowerDecl', 'salaryDecl'])
 const isLegacy = (k: SubmissionKey): k is DeclField => LEGACY.has(k)
@@ -73,11 +80,13 @@ function answerOf(k: KpiMonth, key: SubmissionKey): DocState | null {
   return own === 'awaited' ? null : own
 }
 
-export const awaitedItems = (k: KpiMonth | undefined, prev?: KpiMonth) => SUBMISSION_ITEMS.filter((i) => docState(k, i.key, prev) === 'awaited')
+/** Documents still waiting. `month`: for a work order with nothing saved yet (else the record's own). */
+export const awaitedItems = (k: KpiMonth | undefined, prev?: KpiMonth, month = k?.month) =>
+  itemsFor(month).filter((i) => docState(k, i.key, prev) === 'awaited')
 
-/** In, required (everything not "not provided"/"not applicable") and still waiting. */
-export function submissionCounts(k: KpiMonth | undefined, prev?: KpiMonth): { in: number; required: number; awaited: number } {
-  const states = SUBMISSION_ITEMS.map((i) => docState(k, i.key, prev))
+/** In, required (everything not "not provided"/"not applicable") and still waiting; switched-off documents are left out. */
+export function submissionCounts(k: KpiMonth | undefined, prev?: KpiMonth, month = k?.month): { in: number; required: number; awaited: number } {
+  const states = itemsFor(month).map((i) => docState(k, i.key, prev))
   return {
     in: states.filter((s) => s === 'in').length,
     required: states.filter((s) => s === 'in' || s === 'awaited').length,
@@ -86,12 +95,12 @@ export function submissionCounts(k: KpiMonth | undefined, prev?: KpiMonth): { in
 }
 
 /** Every document answered for the month: in, not provided or not applicable. */
-export const allSettled = (k: KpiMonth | undefined, prev?: KpiMonth) => awaitedItems(k, prev).length === 0
+export const allSettled = (k: KpiMonth | undefined, prev?: KpiMonth, month = k?.month) => awaitedItems(k, prev, month).length === 0
 
 /** Set one document (null = back to waiting). WPS / Manpower / Salary also set the fields the KPI score reads. */
 export function setDoc(k: KpiMonth, key: SubmissionKey, entry: DocEntry | null): KpiMonth {
   const docs = { ...(k.docs ?? {}) }
-  if (entry) docs[key] = clean(entry)
+  if (entry) docs[key] = clean(key, entry)
   else delete docs[key]
   let out: KpiMonth = { ...k, docs }
   if (!Object.keys(docs).length) delete out.docs
@@ -99,13 +108,25 @@ export function setDoc(k: KpiMonth, key: SubmissionKey, entry: DocEntry | null):
   return out
 }
 
-function clean(e: DocEntry): DocEntry {
+function clean(key: SubmissionKey, e: DocEntry): DocEntry {
   const out: DocEntry = { state: e.state }
   if (e.state === 'in' && e.on) out.on = e.on
   // trimmed when saved (applyDocChanges), so a space can be typed
   if (e.note?.trim()) out.note = e.note
   if (e.variant) out.variant = e.variant
+  // WPS in: whether every subcontractor is on it, and if not, which are missing
+  if (key === 'wps' && e.state === 'in' && e.allSubcons !== undefined) {
+    out.allSubcons = e.allSubcons
+    if (!e.allSubcons && e.missing?.length) out.missing = e.missing
+  }
   return out
+}
+
+/** WPS in without every subcontractor: "2 subcons missing" (or "Not all subcons" when none were ticked); else null. */
+export function wpsFlag(e: DocEntry | undefined): string | null {
+  if (e?.state !== 'in' || e.allSubcons !== false) return null
+  const n = e.missing?.length ?? 0
+  return n ? `${n} subcon${n === 1 ? '' : 's'} missing` : 'Not all subcons'
 }
 
 /**
@@ -117,7 +138,7 @@ function clean(e: DocEntry): DocEntry {
 export function editDoc(
   k: KpiMonth,
   key: SubmissionKey,
-  change: { state?: DocState; on?: string; note?: string; variant?: DocEntry['variant'] | null },
+  change: { state?: DocState; on?: string; note?: string; variant?: DocEntry['variant'] | null; allSubcons?: boolean | null; missing?: string[] },
   prev?: KpiMonth,
   today?: string,
 ): KpiMonth {
@@ -126,6 +147,11 @@ export function editDoc(
   if (change.on !== undefined) next.on = change.on
   if (change.note !== undefined) next.note = change.note
   if (change.variant !== undefined) next.variant = change.variant ?? undefined
+  if (change.allSubcons !== undefined) {
+    next.allSubcons = change.allSubcons ?? undefined
+    if (change.allSubcons !== false) delete next.missing
+  }
+  if (change.missing !== undefined) next.missing = change.missing
   if (next.state === 'in' && !next.on && today) next.on = today
   if (next.state === 'awaited' && !next.note?.trim()) {
     const carried = docState(setDoc(k, key, null), key, prev) === 'na'
@@ -134,10 +160,10 @@ export function editDoc(
   return setDoc(k, key, next)
 }
 
-/** "They sent everything": every document still waiting becomes in, on this date. */
+/** "They sent everything": every document still waiting becomes in, on this date (switched-off ones are left alone). */
 export function markAllIn(k: KpiMonth, on: string, prev?: KpiMonth): KpiMonth {
   let out = k
-  for (const i of SUBMISSION_ITEMS) {
+  for (const i of itemsFor(k.month)) {
     if (docState(out, i.key, prev) === 'awaited') out = setDoc(out, i.key, { ...out.docs?.[i.key], state: 'in', on })
     else if (docState(out, i.key) === 'awaited' && docState(out, i.key, prev) === 'na') out = setDoc(out, i.key, { state: 'na' })
   }
@@ -198,16 +224,22 @@ export function shortList(items: SubmissionItem[], max = 2): string {
 export function docText(k: KpiMonth | undefined, key: SubmissionKey, prev?: KpiMonth): string {
   const st = docState(k, key, prev)
   const on = k?.docs?.[key]?.on
-  return st === 'in' ? (on ? `In ${dayMonth(on)}` : 'In') : st === 'notProvided' ? 'Not provided' : st === 'na' ? 'N/A' : 'Waiting'
+  if (st === 'in') {
+    const flag = key === 'wps' ? wpsFlag(k?.docs?.wps) : null
+    return [on ? `In ${dayMonth(on)}` : 'In', flag].filter(Boolean).join(' · ')
+  }
+  return st === 'notProvided' ? 'Not provided' : st === 'na' ? 'N/A' : 'Waiting'
 }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-/** A reminder to send the contractor (WhatsApp, email). */
-export function chaseText(subject: string, month: string, missing: SubmissionItem[], due: string): string {
+/** A reminder to send the contractor (WhatsApp, email); `k` adds the subcontractors a WPS is missing. */
+export function chaseText(subject: string, month: string, missing: SubmissionItem[], due: string, k?: KpiMonth): string {
   const name = MONTHS[Number(month.slice(5, 7)) - 1] ?? month
-  if (!missing.length) return `${subject} — ${name} documents: all in. Thank you.`
-  return `${subject} — ${name} documents still missing: ${missing.map((i) => i.label).join(', ')}. Due ${dayMonth(due)}.`
+  const w = k?.docs?.wps
+  const wps = wpsFlag(w) ? (w?.missing?.length ? ` WPS is missing: ${w.missing.join(', ')}.` : ' WPS does not cover all subcontractors.') : ''
+  if (!missing.length) return `${subject} — ${name} documents: all in.${wps} Thank you.`
+  return `${subject} — ${name} documents still missing: ${missing.map((i) => i.label).join(', ')}.${wps} Due ${dayMonth(due)}.`
 }
 
 const STATE_WORDS: Record<DocState, string> = { in: 'in', notProvided: 'not provided', na: 'not applicable', awaited: 'waiting' }
@@ -217,6 +249,8 @@ function entryText(e: DocEntry | undefined): string {
   let t = STATE_WORDS[e.state]
   if (e.state === 'in' && e.on) t += ` ${dayMonth(e.on)}`
   if (e.variant) t += ` (${e.variant === 'iap' ? 'IAP' : 'issue log'})`
+  if (e.allSubcons === true) t += ' (all subcons)'
+  else if (e.allSubcons === false) t += e.missing?.length ? ` (missing ${e.missing.join(', ')})` : ' (not all subcons)'
   return t
 }
 
@@ -232,4 +266,16 @@ export function docChangeText(from: KpiMonth['docs'], to: KpiMonth['docs']): str
     out.push(line)
   }
   return out
+}
+
+/** History lines for a change to Settings › Monthly documents: "Salary declaration off from Oct 2026". */
+export function docRuleChangeText(from: DocRule[] | undefined, to: DocRule[] | undefined): string[] {
+  const id = (r: DocRule) => `${r.key}|${r.from}|${r.off}`
+  const before = new Set((from ?? []).map(id))
+  const after = new Set((to ?? []).map(id))
+  const label = (k: SubmissionKey) => SUBMISSION_ITEMS.find((i) => i.key === k)?.label ?? k
+  return [
+    ...(to ?? []).filter((r) => !before.has(id(r))).map((r) => `${label(r.key)} ${r.off ? 'off' : 'on again'} from ${monthLabel(r.from)}`),
+    ...(from ?? []).filter((r) => !after.has(id(r)) && !(to ?? []).some((t) => t.key === r.key && t.from === r.from)).map((r) => `${label(r.key)}: ${monthLabel(r.from)} switch undone`),
+  ]
 }

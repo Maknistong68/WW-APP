@@ -1,11 +1,13 @@
 import { Fragment, useRef, useState } from 'react'
 import Dexie from 'dexie'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import History from './History'
 import Icon from './Icon'
 import Modal, { type ModalHandle } from './Modal'
 import SaveButton from './SaveButton'
 import StatusChip from './StatusChip'
+import WpsSubcons from './WpsSubcons'
 import { showToast } from './Toast'
 import { useSave } from '../lib/useSave'
 import { saveRecord } from '../lib/records'
@@ -23,8 +25,10 @@ import {
   chaseText,
   docState,
   editDoc,
+  itemsFor,
   markAllIn,
   submissionCounts,
+  wpsFlag,
   type DocState,
   type SubmissionItem,
 } from '../lib/submissions'
@@ -81,10 +85,15 @@ export default function SubmissionSheet({
   const [k, setK] = useState(kpi)
   const [open, setOpen] = useState<SubmissionKey | null>(null)
   const today = localDate()
+  // the work order's subcontractors, for WPS's "all included?"
+  const wo = useLiveQuery(() => (kpi.workOrderUuid ? db.workOrders.get(kpi.workOrderUuid) : undefined), [kpi.workOrderUuid])
   const due = declarationsDue(k.month)
   const counts = submissionCounts(k, prev)
   const awaited = awaitedItems(k, prev)
-  const notNeeded = SUBMISSION_ITEMS.length - counts.required
+  // documents switched off for this month (Settings › Monthly documents) are not shown or counted
+  const items = itemsFor(k.month)
+  const off = SUBMISSION_ITEMS.filter((i) => !items.includes(i))
+  const notNeeded = items.length - counts.required
   const tone = dueTone(due, today)
 
   const edit = (key: SubmissionKey, change: Parameters<typeof editDoc>[2]) => setK((p) => editDoc(p, key, change, prev, today))
@@ -103,7 +112,7 @@ export default function SubmissionSheet({
     })
 
   const copyReminder = () => {
-    const text = chaseText(subjectLabel, k.month, awaited, due)
+    const text = chaseText(subjectLabel, k.month, awaited, due, k)
     void copyText(text).then((ok) => showToast({ text: ok ? 'Reminder copied. Paste it in WhatsApp or email.' : text }))
   }
 
@@ -136,19 +145,21 @@ export default function SubmissionSheet({
             <div style={{ width: `${counts.required ? (counts.in / counts.required) * 100 : 100}%` }} />
           </div>
           <div className={`docs-due${tone && awaited.length ? ` ${tone}` : ''}`}>{dueLine}</div>
-          {awaited.length > 0 && (
+          {(awaited.length > 0 || !!wpsFlag(k.docs?.wps)) && (
             <div className="btn-row">
-              <button
-                className="btn primary"
-                onClick={() => {
-                  haptic('tick')
-                  setK((p) => markAllIn(p, today, prev))
-                  setOpen(null)
-                }}
-              >
-                <Icon name="check-circle" size={20} />
-                Mark all in
-              </button>
+              {awaited.length > 0 && (
+                <button
+                  className="btn primary"
+                  onClick={() => {
+                    haptic('tick')
+                    setK((p) => markAllIn(p, today, prev))
+                    setOpen(null)
+                  }}
+                >
+                  <Icon name="check-circle" size={20} />
+                  Mark all in
+                </button>
+              )}
               <button className="btn" onClick={copyReminder}>
                 <Icon name="copy" size={20} />
                 Reminder
@@ -156,11 +167,11 @@ export default function SubmissionSheet({
             </div>
           )}
         </div>
-        {DOC_GROUPS.map((g) => (
+        {DOC_GROUPS.filter((g) => items.some((i) => i.group === g)).map((g) => (
           <Fragment key={g}>
             <div className="section-label">{g}</div>
             <div className="list">
-              {SUBMISSION_ITEMS.filter((i) => i.group === g).map((i) => (
+              {items.filter((i) => i.group === g).map((i) => (
                 <DocRow
                   key={i.key}
                   item={i}
@@ -168,6 +179,7 @@ export default function SubmissionSheet({
                   prev={prev}
                   due={due}
                   today={today}
+                  subcons={wo?.subcons ?? []}
                   open={open === i.key}
                   onToggle={() => setOpen(open === i.key ? null : i.key)}
                   onEdit={(change) => edit(i.key, change)}
@@ -180,6 +192,7 @@ export default function SubmissionSheet({
           Not provided = they can’t give it. N/A = it doesn’t apply, and stays so next month until you change it. Neither is chased. The KPI score still
           counts WPS, Manpower register and Salary only.
         </div>
+        {off.length > 0 && <div className="list-foot">Switched off for {monthLabel(k.month)} (Settings): {off.map((i) => i.label).join(', ')}.</div>}
         {opened.updatedAt && <History uuid={opened.uuid} />}
       </div>
     </Modal>
@@ -192,6 +205,7 @@ function DocRow({
   prev,
   due,
   today,
+  subcons,
   open,
   onToggle,
   onEdit,
@@ -201,6 +215,7 @@ function DocRow({
   prev?: KpiMonth
   due: string
   today: string
+  subcons: string[]
   open: boolean
   onToggle: () => void
   onEdit: (change: Parameters<typeof editDoc>[2]) => void
@@ -211,13 +226,20 @@ function DocRow({
   const carried = state === 'na' && docState(k, item.key) !== 'na'
   const variant = e?.variant === 'iap' ? 'IAP' : e?.variant === 'issueLog' ? 'Issue log' : ''
   const sub = [variant, e?.note ? `“${e.note}”` : '', carried ? 'N/A since last month' : ''].filter(Boolean).join(' · ') || item.detail
+  const flag = item.key === 'wps' ? wpsFlag(e) : null
   const id = `doc-${item.key}`
   return (
     <div className={`doc${open ? ' open' : ''}`}>
       <button className="row" aria-expanded={open} aria-controls={id} onClick={onToggle}>
         <span className="row-main">
           <div className="row-title">{item.label}</div>
-          {sub && <div className="row-sub">{sub}</div>}
+          {(sub || flag) && (
+            <div className="row-sub">
+              {flag && <span className="warn-text">{flag}</span>}
+              {flag && sub ? ' · ' : ''}
+              {sub}
+            </div>
+          )}
         </span>
         <StatusChip tone={chip.tone} icon={chip.icon}>
           {chip.text}
@@ -248,6 +270,7 @@ function DocRow({
               <input type="date" max={today} value={e?.on ?? ''} onChange={(ev) => onEdit({ on: ev.target.value })} />
             </label>
           )}
+          {item.key === 'wps' && state === 'in' && <WpsSubcons entry={e} subcons={subcons} onEdit={onEdit} />}
           {item.key === 'issueLog' && state === 'in' && (
             <div className="segmented fit doc-variant" role="radiogroup" aria-label="Which was sent">
               {(['issueLog', 'iap'] as const).map((v) => (

@@ -43,8 +43,8 @@ const subject = (d: AllData, w: string) => kpiSubjects(d.contractors, d.workOrde
 const item = (key: string) => ENTRY_ITEMS.find((i) => i.key === key)!
 
 describe('The items you can enter for every work order', () => {
-  it('the 11 documents, then the KPIs', () => {
-    expect(ENTRY_ITEMS.filter((i) => i.group === 'Documents')).toHaveLength(11)
+  it('the 10 documents, then the KPIs', () => {
+    expect(ENTRY_ITEMS.filter((i) => i.group === 'Documents')).toHaveLength(10)
     expect(ENTRY_ITEMS.filter((i) => i.group === 'KPIs').map((i) => i.key)).toEqual(['accommodation', 'onboarding', 'offboarding', 'meeting', 'workers', 'quarterly'])
     expect(MONTHLY_KPIS.map((i) => i.key)).toEqual(['accommodation', 'onboarding', 'offboarding', 'workers', 'meeting'])
   })
@@ -63,7 +63,7 @@ describe('The items you can enter for every work order', () => {
   })
   it('a work order at a glance', () => {
     const d = data([setDoc(oct('w1', { accommodationPct: 90, onboardingPct: 80 }), 'wps', { state: 'in', on: '2026-11-02' })])
-    expect(woProgress(d, subject(d, 'w1'), '2026-10')).toEqual({ text: 'Docs 1/11 · KPIs 2/5', done: false })
+    expect(woProgress(d, subject(d, 'w1'), '2026-10')).toEqual({ text: 'Docs 1/10 · KPIs 2/5', done: false })
   })
 })
 

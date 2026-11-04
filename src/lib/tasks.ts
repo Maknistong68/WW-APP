@@ -4,7 +4,7 @@ import { closeouts } from './closeout'
 import { workforce } from './dashboard'
 import { addDays, addMonths, dayMonth, daysDiff, localDate, monthLabel, monthOf, monthRange } from './dates'
 import { declarationsDue, dueTone, kpisDue, lastEndedMonth } from './due'
-import { SUBMISSION_ITEMS as DOCS, awaitedItems, docState, shortList, submissionCounts } from './submissions'
+import { awaitedItems, docState, itemsFor, shortList, submissionCounts } from './submissions'
 import { kpisForMonth, type AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectPrior, woOf, type KpiSubject } from './subjects'
 import { SUBJECT_ITEMS, quarterMonths, type SubjectItemKey } from './todo'
@@ -39,7 +39,7 @@ export interface Task {
   group: TaskGroup
   /** Who or what: "RPCO · WO 882", "Project Pioneers" (a ticket's contractor), "Camp 3", "October documents". */
   title: string
-  /** What: "Oct: 4 of 11 in · Minutes, Water test +5". */
+  /** What: "Oct: 4 of 10 in · Minutes, Water test +4". */
   detail: string
   /** YYYY-MM-DD, or null when there is no deadline. */
   due: string | null
@@ -116,7 +116,7 @@ const chipFor = (g: TaskGroup, due: string, today: string) => (g === 'overdue' ?
 const KPI_ITEMS: { key: SubjectItemKey; name: string }[] = MONTHLY_KPIS.map((i) => ({ key: i.check!, name: i.short }))
 
 const HELP = {
-  declarations: 'The 11 monthly documents from every work order: reports, registers, declarations, minutes, camp records, WPS and salary. A month’s are due by the 15th of the next month.',
+  declarations: 'The monthly documents from every work order: reports, registers, declarations, minutes, camp records, WPS and salary. A month’s are due by the 15th of the next month.',
   kpis: 'Accommodation, onboarding, offboarding, worker counts and meeting attendance. A month’s are due by the end of the next month.',
   ticket: 'Tickets should close within 30 days.',
   camp: 'Every camp is inspected once per cycle (90 days).',
@@ -136,9 +136,9 @@ function subjectRows(d: AllData, subjects: KpiSubject[], m: string, today: strin
     const k = subjectKpi(sub, d.kpis, m)
     const prior = subjectPrior(sub, d.kpis, m)
     // Documents the contractor can't provide, or that don't apply, are not chased.
-    const declMissing = awaitedItems(k, prior)
-    const docCount = submissionCounts(k, prior)
-    const notProvided = DOCS.filter((i) => docState(k, i.key, prior) === 'notProvided').map((i) => i.short)
+    const declMissing = awaitedItems(k, prior, m)
+    const docCount = submissionCounts(k, prior, m)
+    const notProvided = itemsFor(m).filter((i) => docState(k, i.key, prior) === 'notProvided').map((i) => i.short)
     const kpiMissing = KPI_ITEMS.filter((i) => !SUBJECT_ITEMS[i.key].done(d, sub, m))
     entered += (declMissing.length ? 0 : 1) + (KPI_ITEMS.length - kpiMissing.length)
     const subject = { contractorUuid: sub.contractor.uuid, workOrderUuid: woOf(sub), month: m }
@@ -216,7 +216,7 @@ function foldLater(rows: Task[], kind: 'declarations' | 'kpis', m: string): Task
       kind,
       group: 'later',
       title: `${longMonth(m)} ${kind === 'declarations' ? 'documents' : 'KPIs'}`,
-      detail: `${n} work order${s(n)} · ${kind === 'declarations' ? `${DOCS.length} documents each` : 'scores, worker counts'}`,
+      detail: `${n} work order${s(n)} · ${kind === 'declarations' ? `${itemsFor(m).length} documents each` : 'scores, worker counts'}`,
       due,
       dueText: `due ${dayMonth(due)}`,
       tone: 'info',

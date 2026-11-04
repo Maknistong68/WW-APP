@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
+import { TEAM_SETTINGS_UUID, setDocRules } from './docRules'
 import { splitTickets } from './cases'
 import { inspectionPct } from './inspectionScore'
 import { KPI_PARTS, computeKpi, kpiStatus, type KpiResult } from './kpi'
 import { mentions } from './names'
 import { kpiSubjects, subjectKpi, subjectManpower, subjectTickets, type KpiSubject } from './subjects'
-import type { Camp, Contractor, Inspection, KpiMonth, Manpower, Ticket, WeeklyCount, WorkOrder } from '../types'
+import type { Camp, Contractor, DocRule, Inspection, KpiMonth, Manpower, Ticket, WeeklyCount, WorkOrder } from '../types'
 
 export interface AllData {
   loaded: boolean
@@ -23,6 +24,8 @@ export interface AllData {
   manpower: Manpower[]
   weekly: WeeklyCount[]
   inspections: Inspection[]
+  /** Monthly documents switched off (Settings › Monthly documents); here so screens recompute when it changes. */
+  docRules?: DocRule[]
 }
 
 /** What the database holds: every ticket together, D&C and cases. */
@@ -60,7 +63,10 @@ export function useAllData(): AllData {
       manpower: await db.manpower.toArray(),
       weekly: await db.weeklyCounts.toArray(),
       inspections: await db.inspections.toArray(),
+      docRules: (await db.teamSettings.get(TEAM_SETTINGS_UUID))?.docRules ?? [],
     }
+    // every list and score asks the store (src/lib/docRules.ts): keep it in step before screens compute
+    setDocRules(r.docRules)
     lastRaw = r
     return r
   }, [], lastRaw)

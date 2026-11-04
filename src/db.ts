@@ -15,6 +15,7 @@ import type {
   SitePlace,
   MapItemRecord,
   Routine,
+  TeamSettings,
 } from './types'
 import { NORMALIZE } from './lib/normalize'
 import { writeLocalLog } from './lib/localLog'
@@ -40,6 +41,7 @@ class WWDatabase extends Dexie {
   sitePlaces!: Table<SitePlace, string>
   mapItems!: Table<MapItemRecord, string>
   routines!: Table<Routine, string>
+  teamSettings!: Table<TeamSettings, string>
 
   constructor() {
     super('ww-app')
@@ -86,6 +88,7 @@ class WWDatabase extends Dexie {
     this.version(6).stores({ sitePlaces: 'uuid, siteId' })
     this.version(7).stores({ mapItems: 'uuid, kind' })
     this.version(8).stores({ routines: 'uuid' })
+    this.version(9).stores({ teamSettings: 'uuid' })
   }
 }
 
@@ -189,9 +192,10 @@ interface BackupFile {
   sitePlaces?: SitePlace[]
   mapItems?: MapItemRecord[]
   routines?: Routine[]
+  teamSettings?: TeamSettings[]
 }
 
-const RECORD_KEYS = ['contractors', 'workOrders', 'camps', 'tickets', 'kpiMonths', 'manpower', 'weeklyCounts', 'sitePlaces', 'mapItems', 'routines', 'activity'] as const
+const RECORD_KEYS = ['contractors', 'workOrders', 'camps', 'tickets', 'kpiMonths', 'manpower', 'weeklyCounts', 'sitePlaces', 'mapItems', 'routines', 'teamSettings', 'activity'] as const
 
 const blobToBase64 = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {

@@ -3,8 +3,8 @@ import { db } from '../db'
 import { FIELD_LABELS } from '../lib/useData'
 import { DECLARATIONS, meetingAttended } from '../lib/kpi'
 import { sourceLabel } from '../lib/cases'
-import { docChangeText } from '../lib/submissions'
-import type { ActivityChange, ActivityEntry, Contractor } from '../types'
+import { docChangeText, docRuleChangeText } from '../lib/submissions'
+import type { ActivityChange, ActivityEntry, Contractor, DocRule } from '../types'
 import { whoName } from '../lib/actor'
 import { useTeam } from '../lib/team'
 import { useAuthInfo } from '../lib/auth'
@@ -52,6 +52,10 @@ const DOC_MIRRORS = new Set(['wps', 'manpowerDecl', 'salaryDecl', 'notProvided']
 export function changeLines(changes: ActivityChange[], contractors?: Map<string, Contractor>, ticketNos?: Map<string, string>): string[] {
   const docs = changes.some((c) => c.field === 'docs')
   return changes.flatMap((c) => {
+    if (c.field === 'docRules') {
+      const lines = docRuleChangeText(c.from as DocRule[] | undefined, c.to as DocRule[] | undefined)
+      return lines.length ? lines : [changeText(c, contractors, ticketNos)]
+    }
     if (c.field === 'docs') {
       const lines = docChangeText((c.from ?? undefined) as Parameters<typeof docChangeText>[0], (c.to ?? undefined) as Parameters<typeof docChangeText>[1])
       return lines.length ? lines : [changeText(c, contractors, ticketNos)]

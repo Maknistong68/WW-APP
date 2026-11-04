@@ -61,7 +61,8 @@ npm run build   # strict tsc + vite build
   `linkedTicketUuid` on the case only (rules `src/lib/caseLinks.ts`, sheet `LinkTicketSheet`, menu `link`/`linked`);
   closing the ticket asks to close its open cases too (`src/components/closeLinked.ts`).
 - Quarterly audit close-out (findings / closed / due = audit + 30 days): `src/lib/closeout.ts`.
-- Monthly documents (per work order, 11: the owner's 9 + WPS + Salary; due the 15th of the next month):
+- Monthly documents (per work order, 10: the owner's 8 + WPS + Salary; the Manpower register **is** the full manpower
+  declaration, one item `manpowerDecl`; due the 15th of the next month):
   rules `src/lib/submissions.ts` (`SUBMISSION_ITEMS`; each in with a date / not provided / N/A / waiting, a note,
   item 2's Issue log or IAP; N/A carries on until changed: `carryBefore`, `subjectPrior`, `docsSettled`). Stored in
   `KpiMonth.docs`; WPS / Manpower register / Salary also set the old fields the KPI score reads, so the score is
@@ -69,6 +70,20 @@ npm run build   # strict tsc + vite build
   changed there onto a fresh copy (`applyDocChanges`); the KPI panel shows a Documents row. Every panel saves only
   the fields it changed over a fresh copy (`src/lib/merge.ts`: `applyKpiChanges`, `mergeEdited`; inputs `Inputs.tsx`). Lists: Home › Submission (`tasks.ts`), Monthly entry (a chip per
   document, reminders via `chaseText`), contractor page, Excel sheet "Submissions".
+- Documents on/off (Settings › Monthly documents, `src/components/DocSwitches.tsx`, Admin only): a switch per
+  document for the whole team, from the month being collected (`lastEndedMonth`) on; earlier months keep their
+  numbers. Rules `src/lib/docRules.ts` (`DocRule` timeline `{ key, off, from }`, `switchDoc`, `docOn`; store
+  `setDocRules` / `isDocOn` filled in `App.tsx` and `useAllData`), stored in the one shared row of table
+  `teamSettings` / `team_settings` (`TEAM_SETTINGS_UUID`; team read, admin write). Every list and count goes through
+  `itemsFor(month)` (`awaitedItems`, `submissionCounts`, `allSettled` take the month for a work order with nothing
+  saved yet; `entryItemsFor` for Monthly entry); an off WPS / Manpower / Salary also leaves the KPI submission score
+  (`submissionPct` in `kpi.ts`).
+- Subcontractors: each work order keeps its subcontractors (company names only, `WorkOrder.subcons`; rules
+  `src/lib/subcons.ts`), edited in its sheet (Library › contractor › work order: add, remove, "From this work order's
+  tickets" suggestions; the ticket sheet offers them). When WPS is in it asks **All subcontractors included?**
+  (`src/components/WpsSubcons.tsx`, in the Documents panel and Monthly entry): Yes / No and the missing ones ticked
+  (`DocEntry.allSubcons` / `missing`). WPS still counts as in, with an amber flag (`wpsFlag`) on the row, the
+  contractor page, the reminder text and the Excel cell.
 - Dashboard numbers: `src/lib/dashboard.ts`; the Tickets view's tabs **D&C Tickets | Cases | All** (`?src=`, list and
   wording `src/lib/dashSource.ts`; Cases/All have no Closure KPI but "Closed in 30 days" and "Turned into tickets");
   its three sections: Focus cards `src/lib/focus.ts`,

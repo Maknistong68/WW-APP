@@ -23,6 +23,7 @@ export const ENTITY_OF: Record<RecordTable, ActivityEntity> = {
   sitePlaces: 'site',
   mapItems: 'map',
   routines: 'routine',
+  teamSettings: 'settings',
 }
 
 type AnyRecord = { uuid: string; updatedAt: string }

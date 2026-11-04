@@ -93,7 +93,7 @@ describe('dashboard', () => {
     const k = [
       // every document in
       markAllIn({ contractorUuid: 'a', workOrderUuid: '', month: '2026-10' } as KpiMonth, '2026-11-02'),
-      // the three the score reads, but not the other eight
+      // the three the score reads, but not the other seven
       { contractorUuid: 'b', workOrderUuid: 'w1', month: '2026-10', wps: true, manpowerDecl: true, salaryDecl: true },
     ] as KpiMonth[]
     const subjects = kpiSubjects(cs, wos)

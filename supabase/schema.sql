@@ -289,14 +289,15 @@ create policy "team photo remove" on storage.objects for delete to authenticated
 
 -- ---------------------------------------------------------------------------
 -- "Live site" map (Dashboard → 3D): where each site sits (site_places) and the
--- roads, highways, palms, camps and villages drawn on it (map_items). Shared
--- by the team; everyone approved can read it, only Admins can change it.
--- Same row shape as the other record tables. Safe to re-run.
+-- roads, highways, palms, camps and villages drawn on it (map_items), and the
+-- team's settings (team_settings: one row, Settings › Monthly documents).
+-- Shared by the team; everyone approved can read them, only Admins can change
+-- them. Same row shape as the other record tables. Safe to re-run.
 -- ---------------------------------------------------------------------------
 do $$
 declare t text;
 begin
-  foreach t in array array['site_places', 'map_items'] loop
+  foreach t in array array['site_places', 'map_items', 'team_settings'] loop
     execute format(
       'create table if not exists public.%I (
          uuid uuid primary key,
@@ -427,7 +428,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['inspections', 'photos', 'contractors', 'work_orders', 'camps', 'tickets', 'kpi_months',
-                           'manpower', 'weekly_counts', 'activity_log', 'site_places', 'map_items', 'routines'] loop
+                           'manpower', 'weekly_counts', 'activity_log', 'site_places', 'map_items', 'routines', 'team_settings'] loop
     execute format('alter table public.%I drop constraint if exists %I', t, t || '_user_id_fkey');
     execute format('alter table public.%I add constraint %I foreign key (user_id) references auth.users (id) on delete restrict',
                    t, t || '_user_id_fkey');
@@ -583,7 +584,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['inspections', 'photos', 'contractors', 'work_orders', 'camps', 'tickets', 'kpi_months',
-                           'manpower', 'weekly_counts', 'activity_log', 'site_places', 'map_items', 'routines', 'profiles'] loop
+                           'manpower', 'weekly_counts', 'activity_log', 'site_places', 'map_items', 'routines', 'team_settings', 'profiles'] loop
     execute format('revoke all on public.%I from anon', t);
     execute format('revoke truncate, trigger, references on public.%I from authenticated', t);
   end loop;
@@ -629,7 +630,7 @@ language plpgsql security definer set search_path = '' as $$
 declare t text;
 begin
   foreach t in array array['inspections', 'contractors', 'work_orders', 'camps', 'tickets', 'kpi_months',
-                           'manpower', 'weekly_counts', 'site_places', 'map_items', 'routines'] loop
+                           'manpower', 'weekly_counts', 'site_places', 'map_items', 'routines', 'team_settings'] loop
     execute format(
       'update public.%I set data = jsonb_build_object(''purged'', true) where deleted and updated_at < now() - interval ''180 days'' and not (data ? ''purged'')',
       t);

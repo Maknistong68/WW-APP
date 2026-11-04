@@ -16,7 +16,7 @@ import {
 import { dayMonth, localDate, monthLabel } from './dates'
 import { declarationsDue, dueTone } from './due'
 import { kpiStatus, pct } from './kpi'
-import { SUBMISSION_ITEMS } from './submissions'
+import { itemsFor } from './submissions'
 import { itemStats, subjectKpis, type AllData } from './kpiData'
 import { moneyStats, owedOf, sarShort } from './money'
 import { ageParts, countDomain, partsTone, type Peek, type PeekPart } from './peek'
@@ -311,7 +311,7 @@ function kpiCards(d: AllData, o: Required<FocusOptions>): FocusCard[] {
     tone: subTone,
     icon: 'file-text',
     meter: { pct: total ? (inCount / total) * 100 : null },
-    line: `Work orders with all ${SUBMISSION_ITEMS.length} documents for ${short(kpiMonth)} · due ${dayMonth(due)} · ${missing} missing`,
+    line: `Work orders with all ${itemsFor(kpiMonth).length} documents for ${short(kpiMonth)} · due ${dayMonth(due)} · ${missing} missing`,
     link: { label: 'Monthly entry', to: entryLink({ m: kpiMonth }) },
     peek: {
       sub: `${monthLabel(kpiMonth)} · due ${dayMonth(due)}`,
