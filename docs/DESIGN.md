@@ -148,6 +148,13 @@ per screen.
     - **Hold** (`areaMenu`): Late / This week / Later, the most urgent names (or what the area
       means), the shortcut (Open Tickets, Missing documents, KPI dashboard, Open Camps, Audit
       close-outs) and Add task.
+  - **KPIs** (`src/lib/homeKpis.ts`, `src/components/HomeKpis.tsx`): last month's overall score, big
+    in its status colour, with the work orders on track / at risk / critical; then the three KPIs
+    the app works out by itself (Ticket closure, Grievance, Formal vs illegal), each with its
+    average (the same as the KPI page) and what it's made of ("4 of 7 closed", "4 closed · avg 24
+    days", "1,950 workers · 105 illegal"). Ticket closure and grievance also show the running month
+    ("Nov so far 75%"). Every number opens its `/kpis/:key?m=` page (the counts with `&s=`).
+    Hidden until there's anything to score.
   - **Watch** (no deadline) and **Month progress** (how much of the month is entered) are sections
     too.
   - Rows (`src/components/TaskRow.tsx`): urgent ones are named one by one, e.g. "RPCO · WO 882 ·
@@ -188,7 +195,7 @@ per screen.
   - A finished row turns into a drawn check and slides away, with a success buzz.
   - With nothing overdue or due this week, Start here shows "All caught up" with its check (with a
     burst once a day).
-  - Watch lists KPI below 70%, illegal workers, visas and recruitment fees.
+  - Watch lists illegal workers, visas and recruitment fees (KPI scores have their own section).
   - **Tasks** (+ → Task, `src/lib/routines.ts`): the team's own to-dos, Once / Daily / Weekly /
     Monthly, shared with everyone (Editors add and tick off; Viewers see them).
     - Weekly repeats on the start date's weekday, monthly on its day (the last day in shorter
@@ -211,6 +218,11 @@ per screen.
     were switched off still count in their past months.
   - A KPI row opens `/contractors/:id/kpi/:key`: how it's scored, its line, and a month table
     that says what made each score (e.g. "2 closed · avg 19 days").
+  - Grievance and Ticket closure also show **Tickets behind {month}** (`ticketKpiBreakdown`,
+    `src/lib/ticketKpi.ts`; ‹ › and `?m=`, the newest month with tickets by default): per work
+    order, each counted ticket (opened → closed, "19 days → 80%" or "Closed 9 Oct" / "Still open" /
+    "Closed later") and the sum ("(19 + 7) ÷ 2 = 13 days → 90%", "2 of 3 closed = 67%"), then how
+    the work orders average into the contractor's score.
   - **Audits** (`src/lib/audits.ts`): quarterly audit scores per work order plus camp inspection
     scores, as a line and a list, newest first. Quarterly rows open their month; inspections open
     themselves. This month shows the last 3, with "All audits ›".
@@ -232,6 +244,14 @@ per screen.
     apart, or both. The large title ("Tickets" / "Cases" / "Tickets & cases"), the search, the
     Open / 30+d / Closed / All counts and the footer follow the tab. A link that names a source
     (a Dashboard bar) hides the tabs. Home's Tickets area keeps two tabs.
+  - On the plain D&C list a **KPIs · {month} so far** strip shows Ticket closure and Grievance for
+    the running month with their sums (`TicketKpiStrip`, the same numbers as Home); each opens its
+    KPI page. KPIs count D&C tickets only, so Cases and drilled lists don't show it.
+  - A ticket's own screen has **Counts toward KPIs** (`ticketKpiRows`, `src/lib/ticketKpi.ts`):
+    Grievance ("Closed in 19 days → 80%" with its month's average, or for an open one what closing
+    it today would score, with the steps) and Ticket closure ("October: 2 of 3 closed = 67%", and
+    whether this one closed). Each opens the contractor's KPI page on that month. A case, a
+    contractor not followed, or a ticket waiting for its work order says why it isn't counted.
   - **Cases** (`src/lib/cases.ts`): the team's own items raised with a contractor. Stored as
     `source: 'Internal'` (never changed: older builds turn any other value into D&C), numbered by the
     app `CASE-0001`, `CASE-0002`… (read-only in the sheet; WWCMPL… is typed for D&C tickets), made from
@@ -290,9 +310,12 @@ per screen.
 - **Drill-down: every number opens what's behind it.**
   - A number that has a list shows a small green ›; a plain number has none.
   - Ticket links carry their filters (`src/lib/ticketFilter.ts`: contractor, month, opened /
-    closed / open / over 30 days at month end, issue, category, source, age, money). The Tickets
+    closed / open / over 30 days at month end / open during the month (what closure counts), issue,
+    category, source, age, money). The Tickets
     list shows them as removable chips, with Back.
-  - Counts and lists use the same rules, so they always match.
+  - Counts and lists use the same rules, so they always match. The two ticket KPIs' rules live
+    once in `src/lib/kpi.ts` (`ticketsInMonth`, `closedInMonth`, `ticketKpiFacts`); the scores,
+    their explanations and their lists all use them.
   - A tapped ticket number flies into the chips (view transition `drill`).
   - Bars open their tickets. Holding a contractor bar or row opens its pop-up.
   - Tapping or scrubbing a month in a chart selects it with a tick, and a callout pops out with

@@ -7,6 +7,7 @@ import Icon from '../components/Icon'
 import IconTile from '../components/IconTile'
 import ItemRow from '../components/ItemRow'
 import SourceTabs from '../components/SourceTabs'
+import TicketKpiStrip from '../components/TicketKpiStrip'
 import CardList from '../components/CardList'
 import ActionBar from '../components/ActionBar'
 import { ticketTone } from '../lib/tone'
@@ -317,6 +318,8 @@ export default function TicketsPage() {
           </button>
         </div>
       )}
+      {/* KPIs count D&C tickets only: shown on the plain D&C list, not on Cases or a drilled link */}
+      {!drilled && bySource && source === 'tickets' && <TicketKpiStrip />}
       <div className="segmented fit" role="group" aria-label="Show">
         {FILTERS.map((f) => (
           <button

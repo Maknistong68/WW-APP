@@ -4,11 +4,12 @@ import Page, { NotFound, PageSkeleton } from '../components/Page'
 import Icon from '../components/Icon'
 import StatusChip from '../components/StatusChip'
 import TrendLine from '../components/charts/TrendLine'
-import { localDate, monthLabel } from '../lib/dates'
+import { addMonths, localDate, monthLabel, monthName, monthOf } from '../lib/dates'
 import { haptic } from '../lib/haptics'
 import { KPI_PARTS, STATUS_LABEL, kpiStatus, pct } from '../lib/kpi'
 import { useAllData, type KpiItemKey } from '../lib/kpiData'
 import { ticketLink } from '../lib/ticketFilter'
+import { ticketKpiBreakdown } from '../lib/ticketKpi'
 import { kpiTone } from '../lib/tone'
 import { contractorKpiSeries, itemInputs, trendMonths, type TrendRange } from '../lib/trends'
 
@@ -47,6 +48,26 @@ export default function ContractorKpiPage() {
   const today = localDate()
   const months = useMemo(() => (c ? trendMonths(d, c, range, today) : []), [d, c, range, today])
   const values = useMemo(() => (c ? contractorKpiSeries(d, c, months, wo)[itemKey] : []), [d, c, months, wo, itemKey])
+  // Grievance and closure: the tickets behind one month's score (?m=, else the newest month with tickets).
+  const ticketKey = itemKey === 'grievance' || itemKey === 'closure' ? itemKey : null
+  const firstMonth = months[0] ?? monthOf(today)
+  const lastMonth = monthOf(today)
+  const mParam = params.get('m')
+  const behindMonth = useMemo(() => {
+    if (!c || !ticketKey) return lastMonth
+    if (mParam && /^\d{4}-\d{2}$/.test(mParam) && mParam >= firstMonth && mParam <= lastMonth) return mParam
+    for (let m = lastMonth; m >= firstMonth; m = addMonths(m, -1)) {
+      if (ticketKpiBreakdown(d, c, ticketKey, m, wo, today).parts.some((p) => p.tickets.length)) return m
+    }
+    return addMonths(lastMonth, -1)
+  }, [d, c, ticketKey, mParam, firstMonth, lastMonth, wo, today])
+  const behind = useMemo(() => (c && ticketKey ? ticketKpiBreakdown(d, c, ticketKey, behindMonth, wo, today) : null), [d, c, ticketKey, behindMonth, wo, today])
+  const setBehindMonth = (m: string) => {
+    haptic('tick')
+    const next = new URLSearchParams(params)
+    next.set('m', m)
+    setParams(next, { replace: true })
+  }
 
   if (!d.loaded || !c) {
     return (
@@ -60,7 +81,7 @@ export default function ContractorKpiPage() {
   const back = `/contractors/${c.uuid}?tab=trends${range !== '1y' ? `&r=${range}` : ''}${wo ? `&wo=${wo}` : ''}`
   const openMonth = (m: string) =>
     fromTickets
-      ? navigate(ticketLink({ c: c.uuid, wo, m, in: itemKey === 'grievance' ? 'closed' : 'openAtEnd' }, `/contractors/${c.uuid}/kpi/${itemKey}?${params.toString()}`))
+      ? navigate(ticketLink({ c: c.uuid, wo, m, in: itemKey === 'grievance' ? 'closed' : 'during' }, `/contractors/${c.uuid}/kpi/${itemKey}?${params.toString()}`))
       : navigate(`/contractors/${c.uuid}?m=${m}`)
 
   return (
@@ -91,6 +112,51 @@ export default function ContractorKpiPage() {
         <b>How it’s scored</b>
         <span>{RULE[itemKey]}</span>
       </div>
+
+      {behind && (
+        <div className="chart-card tkb">
+          <div className="tkb-head">
+            <div>
+              <div className="chart-title">Tickets behind {monthName(behindMonth)}</div>
+              <div className="chart-sub">
+                {title}
+                {behindMonth === lastMonth ? ' so far' : ''}: {pct(behind.value)}
+              </div>
+            </div>
+            <div className="tkb-step">
+              <button type="button" className="round-btn" aria-label="Month before" disabled={behindMonth <= firstMonth} onClick={() => setBehindMonth(addMonths(behindMonth, -1))}>
+                <Icon name="chevron-left" size={22} strokeWidth={2.4} />
+              </button>
+              <button type="button" className="round-btn" aria-label="Month after" disabled={behindMonth >= lastMonth} onClick={() => setBehindMonth(addMonths(behindMonth, 1))}>
+                <Icon name="chevron-right" size={22} strokeWidth={2.4} />
+              </button>
+            </div>
+          </div>
+          {behind.parts.map((p) => (
+            <div key={p.label} className="tkb-part">
+              {behind.parts.length > 1 && (
+                <div className="tkb-part-head">
+                  <b>{p.label}</b>
+                  <span>{pct(p.value)}</span>
+                </div>
+              )}
+              {p.tickets.map((x) => (
+                <button key={x.uuid} type="button" className="tkb-row" onClick={() => navigate(`/tickets/${x.uuid}`)}>
+                  <span className="tkb-text">
+                    <span className="tkb-no">{x.ticketNo || 'Ticket'}</span>
+                    <span className="tkb-dates">{x.dates}</span>
+                  </span>
+                  <StatusChip tone={x.tone} icon={false}>
+                    {x.note}
+                  </StatusChip>
+                </button>
+              ))}
+              <div className="tkb-sum">{p.sum}</div>
+            </div>
+          ))}
+          {behind.total && <div className="tkb-sum total">{behind.total}</div>}
+        </div>
+      )}
 
       <div className="chart-card">
         <div className="chart-title">{title} per month</div>

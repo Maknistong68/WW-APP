@@ -7,7 +7,7 @@ import History from '../components/History'
 import TicketSheet, { CloseTicketSheet } from '../components/TicketSheet'
 import { showToast } from '../components/Toast'
 import { ageDays, isOpen } from '../lib/aging'
-import { shortDate } from '../lib/dates'
+import { localDate, shortDate } from '../lib/dates'
 import { priorityLabel } from '../lib/lists'
 import { saveRecord } from '../lib/records'
 import { tryWrite } from '../lib/safeWrite'
@@ -24,7 +24,10 @@ import StatusChip from '../components/StatusChip'
 import { lastAction, whoName } from '../lib/actor'
 import { useTeam } from '../lib/team'
 import ActionBar from '../components/ActionBar'
-import { ticketTone } from '../lib/tone'
+import { kpiTone, ticketTone } from '../lib/tone'
+import { kpiStatus, pct } from '../lib/kpi'
+import { useAllData } from '../lib/kpiData'
+import { ticketKpiRows } from '../lib/ticketKpi'
 import { ticketMenu } from '../components/menus'
 import { useAuthInfo } from '../lib/auth'
 import { isCase, noun, sourceLabel } from '../lib/cases'
@@ -58,6 +61,7 @@ export default function TicketDetailPage() {
   const { uuid = '' } = useParams()
   const navigate = useNavigate()
   const { byUuid, woByUuid } = useContractors()
+  const d = useAllData()
   const t = useCachedLiveQuery(`ticket:${uuid}`, () => db.tickets.get(uuid).then((x) => x ?? null), [uuid])
   const allTickets = useCachedLiveQuery('tickets', () => db.tickets.toArray())
   const [sheet, setSheet] = useState<'edit' | 'close' | 'closeGroup' | null>(null)
@@ -98,6 +102,8 @@ export default function TicketDetailPage() {
   const linkedTo = isCase(t) ? linkedTicket(t, allTickets ?? []) : undefined
   const fromCases = isCase(t) ? [] : casesFor(t.uuid, allTickets ?? [])
   const ticketNos = new Map((allTickets ?? []).map((x) => [x.uuid, x.ticketNo]))
+  // What it counts toward: grievance and ticket closure, with the sums (src/lib/ticketKpi.ts).
+  const kpi = d.loaded ? ticketKpiRows(t, d, localDate()) : null
 
   return (
     <Page title={t.ticketNo || Kind} back={list} backLabel={listLabel} album>
@@ -122,6 +128,31 @@ export default function TicketDetailPage() {
           { label: `Priority ${t.priority}`, value: priorityLabel(t.priority) },
         ]}
       />
+
+      {kpi && (
+        <>
+          <div className="section-label">Counts toward KPIs</div>
+          {kpi.kind === 'not' ? (
+            <div className="list-foot">{kpi.why}</div>
+          ) : (
+            <div className="list">
+              {kpi.rows.map((r) => (
+                <button key={r.key} className="row" onClick={() => navigate(r.to)}>
+                  <span className="row-main">
+                    <div className="row-title">{r.label}</div>
+                    <div className="row-sub kpi-why strong">{r.line}</div>
+                    {r.sub && <div className="row-sub kpi-why">{r.sub}</div>}
+                  </span>
+                  <StatusChip tone={kpiTone(kpiStatus(r.value))}>{pct(r.value)}</StatusChip>
+                  <span className="row-chev">
+                    <Icon name="chevron-right" size={18} />
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       <div className="info-card">
         <Field

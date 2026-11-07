@@ -1,7 +1,7 @@
 // Home's sections and their order. Each person sets their own order with
 // Edit Home; it is kept on the phone (localStorage), like the theme.
 
-export type HomeSection = 'start' | 'areas' | 'watch' | 'progress'
+export type HomeSection = 'start' | 'areas' | 'kpis' | 'watch' | 'progress'
 
 export interface HomeSectionDef {
   key: HomeSection
@@ -14,7 +14,8 @@ export interface HomeSectionDef {
 export const HOME_SECTIONS: HomeSectionDef[] = [
   { key: 'start', label: 'Start here', help: 'Late and this week’s jobs, one card each' },
   { key: 'areas', label: 'All areas', help: 'The six areas: what’s late, or the next date' },
-  { key: 'watch', label: 'Watch', help: 'No deadline: low KPIs, workers, visas, fees' },
+  { key: 'kpis', label: 'KPIs', help: 'Last month’s scores, worked out from the data' },
+  { key: 'watch', label: 'Watch', help: 'No deadline: illegal workers, visas, fees' },
   { key: 'progress', label: 'Month progress', help: 'How much of the month is entered' },
 ]
 
@@ -22,11 +23,18 @@ export const DEFAULT_ORDER: HomeSection[] = HOME_SECTIONS.map((s) => s.key)
 
 const isSection = (v: unknown): v is HomeSection => DEFAULT_ORDER.includes(v as HomeSection)
 
-/** A saved order made safe: known names once each, then any section it didn't have. */
+/**
+ * A saved order made safe: known names once each. A section it didn't have (one
+ * added since it was saved) goes right after the sections that come before it by default.
+ */
 export function normalizeOrder(saved: unknown): HomeSection[] {
   const out: HomeSection[] = []
   if (Array.isArray(saved)) for (const v of saved) if (isSection(v) && !out.includes(v)) out.push(v)
-  for (const k of DEFAULT_ORDER) if (!out.includes(k)) out.push(k)
+  DEFAULT_ORDER.forEach((k, i) => {
+    if (out.includes(k)) return
+    const after = Math.max(-1, ...DEFAULT_ORDER.slice(0, i).map((x) => out.indexOf(x)))
+    out.splice(after + 1, 0, k)
+  })
   return out
 }
 

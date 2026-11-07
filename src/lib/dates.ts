@@ -50,6 +50,11 @@ export const monthLabel = (month: string) => {
   return `${MONTHS[(m || 1) - 1]} ${y}`
 }
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+/** "October" */
+export const monthName = (month: string) => MONTH_NAMES[(Number(month.slice(5, 7)) || 1) - 1]
+
 /** "15 Nov" (never the year) */
 export function dayMonth(ymd: string): string {
   const [, m, d] = ymd.split('-').map(Number)

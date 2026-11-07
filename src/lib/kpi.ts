@@ -117,34 +117,58 @@ export function grievanceTier(avgDays: number): number {
 const closedIn = (t: Ticket, start: string, end: string) =>
   t.status === 'Closed' && !!t.closedAt && t.closedAt >= start && t.closedAt <= end
 
-/** Grievance %: average days-to-close of tickets closed in the month. */
-export function grievancePct(tickets: Ticket[], month: string): number | null {
+/** Closed in the month (a closed ticket with no closing date can't be placed in time). */
+export function closedInMonth(t: Ticket, month: string): boolean {
   const { start, end } = monthRange(month)
-  const closed = tickets.filter((t) => closedIn(t, start, end))
-  if (closed.length === 0) return null
-  const avg = closed.reduce((s, t) => s + daysBetween(t.openedAt, t.closedAt), 0) / closed.length
-  return grievanceTier(avg)
+  return closedIn(t, start, end)
 }
 
 /**
- * Ticket closure %: closed in the month ÷ open at any point in the month
- * (opened by month end, and not closed before the month started). Closed
- * tickets with no closing date can't be placed in time and are ignored.
+ * The tickets a month's closure counts: open at any point in it (opened by its
+ * end, and not closed before it began). Closed ones with no closing date are left out.
  */
-export function closurePct(tickets: Ticket[], month: string, today: string = localDate()): number | null {
+export const ticketsInMonth = (tickets: Ticket[], month: string): Ticket[] => tickets.filter((t) => openDuring(t, month))
+
+/** One ticket of `ticketsInMonth`: open at any point in the month. */
+export function openDuring(t: Ticket, month: string): boolean {
   const { start, end } = monthRange(month)
-  const during = tickets.filter((t) => {
-    if (!t.openedAt || t.openedAt > end) return false
-    if (t.status !== 'Closed') return true
-    return !!t.closedAt && t.closedAt >= start
-  })
-  if (during.length === 0) return null
-  const closed = during.filter((t) => closedIn(t, start, end)).length
-  // The month is still running and nothing has closed yet: not scored yet,
-  // rather than 0% (which would mark every contractor Critical on the 1st).
-  if (closed === 0 && today <= end) return null
-  return (closed / during.length) * 100
+  if (!t.openedAt || t.openedAt > end) return false
+  if (t.status !== 'Closed') return true
+  return !!t.closedAt && t.closedAt >= start
 }
+
+/** What the two ticket KPIs of a month are made of, so every screen can show the sum. */
+export interface TicketKpiFacts {
+  /** Open at any point in the month: what closure counts out of. */
+  during: Ticket[]
+  /** How many of `during` closed in the month. */
+  closedDuring: number
+  /** Closed in the month: the tickets grievance averages. */
+  closed: Ticket[]
+  /** Each closed ticket's days to close, in the order of `closed`. */
+  days: number[]
+  avgDays: number | null
+  grievance: number | null
+  closure: number | null
+}
+
+export function ticketKpiFacts(tickets: Ticket[], month: string, today: string = localDate()): TicketKpiFacts {
+  const { end } = monthRange(month)
+  const closed = tickets.filter((t) => closedInMonth(t, month))
+  const days = closed.map((t) => daysBetween(t.openedAt, t.closedAt))
+  const avgDays = days.length ? days.reduce((s, n) => s + n, 0) / days.length : null
+  const during = ticketsInMonth(tickets, month)
+  const closedDuring = during.filter((t) => closedInMonth(t, month)).length
+  // A running month with nothing closed yet isn't scored (0% would mark every contractor Critical on the 1st).
+  const closure = during.length === 0 || (closedDuring === 0 && today <= end) ? null : (closedDuring / during.length) * 100
+  return { during, closedDuring, closed, days, avgDays, grievance: avgDays === null ? null : grievanceTier(avgDays), closure }
+}
+
+/** Grievance %: average days-to-close of tickets closed in the month. */
+export const grievancePct = (tickets: Ticket[], month: string): number | null => ticketKpiFacts(tickets, month).grievance
+
+/** Ticket closure %: closed in the month ÷ open at any point in it (`ticketsInMonth`). */
+export const closurePct = (tickets: Ticket[], month: string, today: string = localDate()): number | null => ticketKpiFacts(tickets, month, today).closure
 
 export function kpiStatus(overall: number | null): KpiStatus {
   if (overall === null) return 'none'

@@ -78,12 +78,12 @@
 @keyframes ring { from { stroke-dasharray: 0 999; } }
 
 /* ---- Press: controls press in, rows highlight --------------------------------- */
-:where(.bcard, .atile, button.hero, .create-card, .btn, .actionbar-main, .actionbar-icon, .round-btn, .tab-fab, .fab, .segmented button, .chip, .pill, .tog, .result-btns button, .city-btn, .city-floor, .show-more, .dialog-btn, .nav-btn) {
+:where(.bcard, .atile, .tkpi-item, .hkpi-count, button.hero, .create-card, .btn, .actionbar-main, .actionbar-icon, .round-btn, .tab-fab, .fab, .segmented button, .chip, .pill, .tog, .result-btns button, .city-btn, .city-floor, .show-more, .dialog-btn, .nav-btn) {
   transition-property: transform, background-color, color, box-shadow, opacity;
   transition-duration: var(--dur-med);
   transition-timing-function: var(--ease-80);
 }
-:where(.bcard, .atile, button.hero, .create-card, .btn, .actionbar-main, .actionbar-icon, .tab-fab, .fab, .segmented button, .chip, .pill, .tog, .result-btns button, .city-btn, .city-floor, .show-more):active:not(:disabled) {
+:where(.bcard, .atile, .tkpi-item, .hkpi-count, button.hero, .create-card, .btn, .actionbar-main, .actionbar-icon, .tab-fab, .fab, .segmented button, .chip, .pill, .tog, .result-btns button, .city-btn, .city-floor, .show-more):active:not(:disabled) {
   transform: scale(0.97); transition-duration: var(--dur-press);
 }
 :where(.round-btn, .icon-btn, .irow-more, .nav-btn, .dialog-btn, .toast-close, .clear-btn, .city-x):active:not(:disabled) { background-color: var(--press); }

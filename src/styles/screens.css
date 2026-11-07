@@ -146,6 +146,56 @@
 .atile-sub.bad { color: var(--bad); }
 .atile-sub.warn { color: var(--warn); }
 .atile-sub.good { color: var(--good); }
+/* Home KPIs: last month's overall score, its status counts, and the three KPIs worked out from the data. */
+.hkpi-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; }
+.hkpi-top { display: flex; align-items: center; gap: 14px; padding: 16px 16px 14px; border-bottom: 1px solid var(--line); }
+.hkpi-overall {
+  display: flex; flex-direction: column; align-items: flex-start; flex: none; padding: 0; border: 0; background: none;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.hkpi-num { font-size: 36px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hkpi-num.good { color: var(--good); }
+.hkpi-num.warn { color: var(--warn); }
+.hkpi-num.bad { color: var(--bad); }
+.hkpi-num.none { color: var(--muted); }
+.hkpi-label { font-size: 14px; font-weight: 600; color: var(--muted); }
+.hkpi-counts { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.hkpi-count { padding: 0; border: 0; background: none; font: inherit; cursor: pointer; border-radius: 999px; }
+.hkpi-count .schip { min-height: 32px; }
+.hkpi-row + .hkpi-row { border-top: 1px solid var(--line); }
+.hkpi-row-main {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 10px 12px 10px 16px; border: 0;
+  background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.hkpi-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hkpi-row-name { font-size: 16px; font-weight: 600; }
+.hkpi-row-why { font-size: 14px; font-weight: 500; color: var(--muted); }
+.hkpi-chev { flex: none; color: var(--faint); }
+.hkpi-sofar {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 36px; margin: -4px 0 10px 16px; padding: 0 12px; border: 0; border-radius: 999px;
+  background: var(--press); color: var(--muted); font: 600 13px var(--font); cursor: pointer;
+}
+.hkpi-sofar b { color: var(--text); font-weight: 700; }
+/* A ticket's "Counts toward KPIs" rows: the sum wraps instead of being cut off. */
+.row-sub.kpi-why { white-space: normal; }
+.row-sub.kpi-why.strong { color: var(--text); font-weight: 500; }
+/* The ticket log's KPI strip: closure and grievance for the month so far. */
+.tkpi { margin: 0 0 14px; }
+.tkpi-head { margin: 0 4px 8px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.tkpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tkpi-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding: 12px 14px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 20px; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.tkpi-name { font-size: 14px; font-weight: 600; color: var(--muted); }
+.tkpi-num { font-size: 24px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.tkpi-num.good { color: var(--good); }
+.tkpi-num.warn { color: var(--warn); }
+.tkpi-num.bad { color: var(--bad); }
+.tkpi-num.none { color: var(--muted); }
+.tkpi-why { max-width: 100%; font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* KPI rows highlight while pressed (rows highlight, controls press in). */
+:is(.hkpi-row-main, .hkpi-overall, .tkb-row):active { background: var(--press); }
 .home-foot { display: flex; justify-content: center; margin: 0 0 12px; }
 .home-edit-btn { min-height: 44px; padding: 0 18px; gap: 8px; background: var(--card); border: 1px solid var(--line); color: var(--accent); font-size: 15px; font-weight: 700; }
 /* Edit Home: each section moved up or down on its own. */
@@ -182,6 +232,23 @@
 .rule-card b { display: block; font-size: 15px; }
 .rule-card span { display: block; margin-top: 4px; font-size: 14px; line-height: 1.45; font-weight: 500; }
 
+/* A contractor's ticket KPI: the tickets behind one month's score, and the sum. */
+.tkb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.tkb-step { display: flex; gap: 2px; margin: -6px -8px 0 0; }
+.tkb-step .round-btn:disabled { opacity: 0.3; cursor: default; }
+.tkb-part + .tkb-part { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.tkb-part-head { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 15px; }
+.tkb-part-head span { font-weight: 700; font-variant-numeric: tabular-nums; }
+.tkb-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 6px 0; border: 0; background: none;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.tkb-row + .tkb-row { border-top: 1px solid var(--line); }
+.tkb-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tkb-no { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tkb-dates { font-size: 13px; font-weight: 500; color: var(--muted); }
+.tkb-sum { margin-top: 8px; padding: 10px 12px; border-radius: 14px; background: var(--press); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tkb-sum.total { margin-top: 12px; background: var(--info-tint); color: var(--info); }
 /* ---- Compare contractors: names down the side, months across ------------------ */
 .cmp { position: relative; }
 .cmp-scroll { overflow-x: auto; margin-right: -4px; padding: 0 4px 4px 0; scrollbar-width: none; }

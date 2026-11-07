@@ -5,7 +5,7 @@ import { workforce } from './dashboard'
 import { addDays, addMonths, dayMonth, daysDiff, localDate, monthLabel, monthOf, monthRange } from './dates'
 import { declarationsDue, dueTone, kpisDue, lastEndedMonth } from './due'
 import { awaitedItems, docState, itemsFor, shortList, submissionCounts } from './submissions'
-import { kpisForMonth, type AllData } from './kpiData'
+import type { AllData } from './kpiData'
 import { kpiSubjects, subjectKpi, subjectPrior, woOf, type KpiSubject } from './subjects'
 import { SUBJECT_ITEMS, quarterMonths, type SubjectItemKey } from './todo'
 import type { Tone } from './tone'
@@ -470,14 +470,11 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
   const counts: Record<TaskGroup, number> = { overdue: 0, week: 0, later: 0, done: 0 }
   for (const t of sorted) counts[t.group] += t.weight
 
-  // Risks without a deadline, for the month that just ended.
+  // Risks without a deadline, for the month that just ended (KPI scores have their own Home section).
   const lm = lastEndedMonth(today)
-  const kpis = kpisForMonth(d, lm)
-  const critical = d.contractors.filter((c) => c.active && kpis.get(c.uuid)?.status === 'bad').length
   const wf = workforce(subjects, d.manpower, lm)
   const wfMonth = wf.month ?? lm
   const watch: WatchItem[] = [
-    { key: 'kpi', n: critical, text: `Contractor${s(critical)} below 70% KPI`, tone: 'bad' as Tone, to: `/kpis/overall?m=${lm}&s=bad` },
     { key: 'illegal', n: wf.illegal, text: 'Illegal / freelance workers', tone: 'warn' as Tone, to: entryLink({ by: 'item', item: 'workers', m: wfMonth }) },
     { key: 'visa', n: wf.visaExpiring, text: 'Visas expire within 30 days', tone: 'warn' as Tone, to: entryLink({ by: 'item', item: 'workers', m: wfMonth }) },
     { key: 'fees', n: wf.paidFees, text: 'Paid recruitment fees', tone: 'bad' as Tone, to: entryLink({ by: 'item', item: 'workers', m: wfMonth }) },

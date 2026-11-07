@@ -1,7 +1,7 @@
 import { lastMonths } from './dashboard'
-import { addMonths, daysBetween, localDate, monthRange } from './dates'
+import { addMonths, daysBetween, localDate } from './dates'
 import { lastEndedMonth } from './due'
-import { KPI_PARTS, declNotProvided, declWaiting } from './kpi'
+import { KPI_PARTS, declNotProvided, declWaiting, ticketKpiFacts } from './kpi'
 import { kpiForSubject, rollup, type AllData, type KpiItemKey } from './kpiData'
 import { holdsContractorTickets, type KpiSubject } from './subjects'
 import { owedOf } from './money'
@@ -130,21 +130,10 @@ export function trendSummary(values: (number | null)[]) {
 
 /** What made a month's score, in a few words ("2 closed · avg 19 days"). Empty when it's simply typed in. */
 export function itemInputs(d: AllData, c: Contractor, key: KpiItemKey, month: string, wo?: string): string {
-  if (key === 'grievance') {
-    const closed = mine(d, c, wo).filter((t) => closedIn(t, month))
-    if (!closed.length) return 'No tickets closed'
-    const avg = closed.reduce((s, t) => s + daysBetween(t.openedAt, t.closedAt), 0) / closed.length
-    return `${closed.length} closed · avg ${Math.round(avg)} days`
-  }
-  if (key === 'closure') {
-    const { start, end } = monthRange(month)
-    const during = mine(d, c, wo).filter((t) => {
-      if (!t.openedAt || t.openedAt > end) return false
-      if (t.status !== 'Closed') return true
-      return !!t.closedAt && t.closedAt >= start
-    })
-    if (!during.length) return 'No tickets'
-    return `${during.filter((t) => closedIn(t, month)).length} of ${during.length} closed`
+  if (key === 'grievance' || key === 'closure') {
+    const f = ticketKpiFacts(mine(d, c, wo), month)
+    if (key === 'grievance') return f.avgDays === null ? 'No tickets closed' : `${f.closed.length} closed · avg ${Math.round(f.avgDays)} days`
+    return f.during.length ? `${f.closedDuring} of ${f.during.length} closed` : 'No tickets'
   }
   if (key === 'formal') {
     const w = contractorWorkforceSeries(d, c, [month], wo)[0]

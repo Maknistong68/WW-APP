@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { filterTickets, hasQuery, parseTicketQuery, parseSourceTab, queryChips, ticketLink, sourceTab } from './ticketFilter'
 import { periodStats } from './dashboard'
+import { ticketsInMonth } from './kpi'
 import type { Ticket } from '../types'
 
 const T = (p: Partial<Ticket>): Ticket =>
@@ -24,6 +25,13 @@ describe('Ticket filters in the link', () => {
     expect(n({ m: '2026-10', in: 'closed' })).toBe(s.closed.length)
     expect(n({ m: '2026-10', in: 'openAtEnd' })).toBe(s.openAtEnd)
     expect(n({ m: '2026-10', in: 'lateAtEnd' })).toBe(s.over30AtEnd)
+  })
+  it('a closure score opens exactly the tickets it counted (open at any point in the month)', () => {
+    const during = filterTickets(tickets, { m: '2026-10', in: 'during' }, today)
+    expect(during).toEqual(ticketsInMonth(tickets, '2026-10'))
+    expect(during).toHaveLength(5)
+    const chips = queryChips({ m: '2026-10', in: 'during' }, { contractor: () => '', workOrder: () => '' })
+    expect(chips.map((c) => c.label)).toEqual(['Open during Oct 2026'])
   })
   it('filters by contractor, issue (blank as —), source, age and money', () => {
     expect(filterTickets(tickets, { c: 'c2' }, today)).toHaveLength(1)

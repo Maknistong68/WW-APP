@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attendedPct, closurePct, computeKpi, declState, declWaiting, setDecl, formalPct, grievancePct, grievanceTier, kpiStatus, meetingAttended, offboardingScore, setOffboarding, submissionPct } from './kpi'
+import { attendedPct, closedInMonth, closurePct, computeKpi, declState, declWaiting, setDecl, formalPct, grievancePct, grievanceTier, kpiStatus, meetingAttended, offboardingScore, setOffboarding, submissionPct, ticketKpiFacts, ticketsInMonth } from './kpi'
 import type { KpiMonth, Ticket } from '../types'
 
 const tk = (openedAt: string, closedAt = ''): Ticket => ({
@@ -74,6 +74,37 @@ describe('KPI rules', () => {
     expect(closurePct([tk('2026-10-01')], '2026-11', '2026-11-02')).toBeNull()
     // once the month is over, nothing closed is 0%
     expect(closurePct([tk('2026-10-01')], '2026-10', '2026-11-02')).toBe(0)
+  })
+  it('ticket facts: the tickets and sums behind closure and grievance', () => {
+    const t = [
+      tk('2026-09-01'), // still open → counted, not closed
+      tk('2026-10-03', '2026-10-10'), // closed in 7 days
+      tk('2026-09-20', '2026-10-09'), // closed in 19 days
+      tk('2026-08-01', '2026-09-15'), // closed before the month → left out
+      tk('2026-11-02'), // opened after → left out
+      { ...tk('2026-09-01'), status: 'Closed' as const }, // closed with no date → can't be placed
+    ]
+    const f = ticketKpiFacts(t, '2026-10', '2026-11-07')
+    expect(f.during).toHaveLength(3)
+    expect(f.closedDuring).toBe(2)
+    expect(f.closed).toHaveLength(2)
+    expect(f.days).toEqual([7, 19])
+    expect(f.avgDays).toBe(13)
+    // (7 + 19) / 2 = 13 days → 90; 2 of 3 closed
+    expect(f.grievance).toBe(90)
+    expect(f.closure).toBeCloseTo(66.67, 1)
+    // the same numbers the KPI uses
+    expect(f.grievance).toBe(grievancePct(t, '2026-10'))
+    expect(f.closure).toBe(closurePct(t, '2026-10', '2026-11-07'))
+    expect(ticketsInMonth(t, '2026-10')).toEqual(f.during)
+    expect(t.filter((x) => closedInMonth(x, '2026-10'))).toEqual(f.closed)
+  })
+  it('ticket facts: a running month with nothing closed yet is not scored', () => {
+    const f = ticketKpiFacts([tk('2026-11-01')], '2026-11', '2026-11-07')
+    expect(f.during).toHaveLength(1)
+    expect(f.closure).toBeNull()
+    expect(f.grievance).toBeNull()
+    expect(f.avgDays).toBeNull()
   })
   it('formal vs illegal from manpower counts', () => {
     expect(formalPct({ totalWorkers: 200, illegalOrFreelance: 10 })).toBe(95)

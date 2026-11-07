@@ -7,6 +7,7 @@ import CardList from '../components/CardList'
 import RoutineSheet from '../components/RoutineSheet'
 import AreaCard from '../components/AreaCard'
 import StartHere from '../components/StartHere'
+import HomeKpis from '../components/HomeKpis'
 import HomeEditor from '../components/HomeEditor'
 import GetStarted from '../components/GetStarted'
 import UseAppNote from '../components/UseAppNote'
@@ -18,6 +19,7 @@ import { lastEndedMonth } from '../lib/due'
 import { haptic } from '../lib/haptics'
 import { DEFAULT_ORDER, greeting, loadOrder, moveSection, saveOrder, type HomeSection } from '../lib/homeLayout'
 import { useAllData } from '../lib/kpiData'
+import { homeKpis } from '../lib/homeKpis'
 import { newRoutine, useRoutines } from '../lib/useData'
 import { AREAS, areaSummaries, buildTasks } from '../lib/tasks'
 import type { Routine } from '../types'
@@ -26,6 +28,7 @@ import type { Routine } from '../types'
 // - Start here: every late or this-week job as a card with its button, side by side.
 // - All areas: the six areas as app icons with a badge for what's urgent, or the next date.
 //   Tap opens the area's list (/today/:area); hold for a quick look.
+// - KPIs: last month's overall score and the three KPIs worked out from the data (src/lib/homeKpis.ts).
 // - Watch: things with no deadline. Month progress: how much is entered.
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -54,6 +57,9 @@ export default function TodoPage() {
   const list = useMemo(() => (d.loaded && routines ? buildTasks(d, today, { routines }) : null), [d, today, routines])
   const areas = useMemo(() => (list ? areaSummaries(list.tasks) : null), [list])
   const urgent = useMemo(() => (list ? list.tasks.filter((t) => t.group === 'overdue' || t.group === 'week') : []), [list])
+  // Last month's KPIs and the ones worked out from tickets and workers (hidden until there's anything to score).
+  const kpis = useMemo(() => (d.loaded ? homeKpis(d, today) : null), [d, today])
+  const hasKpis = !!kpis && (kpis.overall.avg !== null || kpis.rows.some((r) => r.value !== null || r.soFar?.value != null))
   // Finished since the last look: check, fade, buzz.
   const { leaving } = useFinished(list?.tasks ?? null)
   const [burst] = useState(() => burstToday(today))
@@ -102,6 +108,8 @@ export default function TodoPage() {
             </div>
           </section>
         )
+      case 'kpis':
+        return kpis && hasKpis ? <HomeKpis k={kpis} /> : null
       case 'watch':
         return list.watch.length ? (
           <CardList title="Watch">

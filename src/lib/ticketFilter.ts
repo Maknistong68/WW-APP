@@ -1,5 +1,6 @@
 import { agingBucket, ageDays, isOpen, type AgingBucket } from './aging'
 import { daysBetween, localDate, monthLabel, monthRange } from './dates'
+import { openDuring } from './kpi'
 import type { Ticket } from '../types'
 
 // Ticket filters carried in the link (/tickets?f=all&c=…&m=…), so every number
@@ -7,8 +8,11 @@ import type { Ticket } from '../types'
 // ones the Dashboard counts with (periodStats), so lists and numbers agree.
 
 export type TicketTab = 'open' | 'late' | 'closed' | 'all'
-/** Which tickets of the month: opened in it, closed in it, open at its end, or over 30 days at its end. */
-export type TicketIn = 'opened' | 'closed' | 'openAtEnd' | 'lateAtEnd'
+/**
+ * Which tickets of the month: opened in it, closed in it, open at its end, over 30 days at its end,
+ * or open at any point in it (what the closure KPI counts, `openDuring` in src/lib/kpi.ts).
+ */
+export type TicketIn = 'opened' | 'closed' | 'openAtEnd' | 'lateAtEnd' | 'during'
 /** Money: still owed (open), recovered (closed), or any amount. */
 export type TicketOwed = 'open' | 'paid' | 'any'
 
@@ -95,6 +99,7 @@ export function filterTickets(tickets: Ticket[], q: TicketQuery, today = localDa
     if (scope === 'closed' && q.m && !closedIn(t, q.m)) return false
     if (scope === 'openAtEnd' && !openOn(t, end)) return false
     if (scope === 'lateAtEnd' && !lateOn(t, end)) return false
+    if (scope === 'during' && q.m && !openDuring(t, q.m)) return false
     if (q.issue !== undefined && (t.issue || '—') !== q.issue) return false
     if (q.cat !== undefined && (t.category || '—') !== q.cat) return false
     if (q.src !== undefined && (t.source || '—') !== q.src) return false
@@ -120,6 +125,7 @@ const IN_LABEL: Record<TicketIn, string> = {
   closed: 'Closed in',
   openAtEnd: 'Open at end of',
   lateAtEnd: 'Over 30 days at end of',
+  during: 'Open during',
 }
 const OWED_LABEL: Record<TicketOwed, string> = { open: 'Money owed', paid: 'Money recovered', any: 'With money' }
 

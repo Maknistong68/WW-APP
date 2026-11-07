@@ -30,7 +30,8 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
   redirect there. Home ("Good morning") is sections each person
   orders with Edit Home (kept on the phone): Start here (every late or this-week job as a swipeable
   card with its button), All areas (six app icons: Tickets, Submission, KPIs, Accommodation, Audits,
-  Tasks, with a count badge or the next date), Watch and Month progress. An area opens its named
+  Tasks, with a count badge or the next date), KPIs (last month's score and the three worked out
+  from the data, with their sums), Watch and Month progress. An area opens its named
   task list (overdue / this week / later) whose rows open the right form or record, and holding an
   area gives a quick look.
 - Short, simple UI wording. "Field tool" design in Samsung One UI 9 style: light by default
@@ -51,6 +52,10 @@ npm run build   # strict tsc + vite build
 - KPI rules: `src/lib/kpi.ts`; per-work-order subjects: `src/lib/subjects.ts`, `src/lib/kpiData.ts`.
 - Home: `src/pages/TodoPage.tsx`; section order and Edit Home `src/lib/homeLayout.ts`,
   `src/components/HomeEditor.tsx`; Start here `src/components/StartHere.tsx` (cards: `TaskCard`).
+- KPIs worked out from the data: the ticket rules once in `src/lib/kpi.ts` (`ticketsInMonth`,
+  `ticketKpiFacts`); Home's KPIs `src/lib/homeKpis.ts` (also the Tickets list strip,
+  `src/components/TicketKpiStrip.tsx`); what one ticket counts toward and the tickets behind a
+  contractor's score `src/lib/ticketKpi.ts`.
 - Home task list: `src/lib/tasks.ts` (areas: `AREAS`, `areaSummaries`, `areaTile`, icons
   `src/components/AreaCard.tsx`; rows `src/components/TaskRow.tsx`; an area's list `src/pages/AreaPage.tsx`, `/today/:area`; due rules in `src/lib/due.ts`; the team's own routine tasks in
   `src/lib/routines.ts`, table `routines`, sheet `src/components/RoutineSheet.tsx`; each task is **Everyone** or **Only me**:
