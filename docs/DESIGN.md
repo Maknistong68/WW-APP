@@ -371,6 +371,20 @@ per screen.
     final score and the grade bands (this audit's marked), Part 3 every "No" with its comment, note and
     up to two photos, then other comments. File `{Contractor}_WO{n}_Worker_Welfare_Audit_{date}.xlsx`.
     No Word report for audits.
+  - **On two devices at once** (laptop and phone): while an audit is open it keeps in step with the
+    same audit open on the other device. A change goes out ~2 s after it's made and the other
+    device's answers and photos come in every 5 s while the screen is on (`syncAudit`,
+    `useLiveAudit`). Answers merge **per question**: each answer has its own time, the later one
+    wins, and nothing either device typed is lost (`src/lib/auditMerge.ts`). A small **Live**
+    (green) or **Offline** (amber) mark sits at the end of the progress line.
+  - **Finish keeps the scores only.** The Finish panel saves the quarterly audit KPI, offers
+    **Download the Excel report** first (it can't be made after), then **Finish** turns the audit
+    into its scores (`scoresOnly`): final score, grade, each section's score, the number of
+    findings, and the work order, contractor, date, place and inspection no. The answers, notes,
+    names and phone number go, and its photos are deleted here, on the other devices and in the
+    cloud. A finished audit opens as a short page (`FinishedAudit`): score, grade, findings, date,
+    the 14 sections with their scores, and **New audit for this work order**. It always wins over
+    an older copy on another device, so its answers never come back.
 
 ## Long-press
 - **Hold 450 ms.** The item sinks a little while you hold (a "charge"), then a haptic press.

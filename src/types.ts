@@ -63,6 +63,8 @@ export interface QuestionResponse {
    * records don't have it, and the export falls back to a keyword guess.
    */
   evidenceNote?: string
+  /** When this answer last changed (ISO). Two devices' copies of an audit merge per answer by it (src/lib/auditMerge.ts). */
+  at?: string
 }
 
 export interface GeneralInfo {
@@ -122,6 +124,10 @@ export interface LoggedScore {
   pct: number
   /** Excellent · Good · Partially Compliant · Minimally Compliant */
   rating: string
+  /** A finished Worker Welfare audit kept as scores only: each section's score (null: all N/A). */
+  sections?: { letter: string; title: string; pct: number | null }[]
+  /** A finished Worker Welfare audit: how many "No" answers it had. */
+  findings?: number
 }
 
 export interface Photo {

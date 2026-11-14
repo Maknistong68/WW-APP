@@ -33,10 +33,14 @@ import { showToast } from '../components/Toast'
 import { describeSaveError } from '../lib/saveError'
 import { beginEdit } from '../lib/editing'
 import Icon from '../components/Icon'
-import { newer } from '../lib/sync'
+import { newer, sendAuditNow } from '../lib/sync'
 import { useAuthInfo } from '../lib/auth'
 import { useGoBack } from '../lib/nav'
+import { mergeAudit, mergesAnswers, sameContent, stampAnswers } from '../lib/auditMerge'
+import { liveMark, useLiveAudit } from '../lib/useLiveAudit'
+import { isWelfareAudit } from '../lib/inspectionKinds'
 import LoggedInspection from '../components/LoggedInspection'
+import FinishedAudit from '../components/FinishedAudit'
 import {
   learnedSuggestions,
   remarkSuggestionsFor,
@@ -122,9 +126,16 @@ export default function ChecklistPage() {
   const dbInspection = useLiveQuery(() => db.inspections.get(inspectionId), [inspectionId])
   useEffect(() => {
     if (!dbInspection) return
-    setInspection((prev) =>
-      !prev || newer(dbInspection.updatedAt, prev.updatedAt) ? dbInspection : prev,
-    )
+    setInspection((prev) => {
+      if (!prev) return dbInspection
+      // A Worker Welfare audit open on two devices: put the other device's answers
+      // together with this one's (per question), never drop what's on screen.
+      if (mergesAnswers(prev, dbInspection)) {
+        const merged = mergeAudit(prev, dbInspection)
+        return sameContent(merged, prev) && !newer(dbInspection.updatedAt, prev.updatedAt) ? prev : { ...merged, id: prev.id }
+      }
+      return newer(dbInspection.updatedAt, prev.updatedAt) ? dbInspection : prev
+    })
   }, [dbInspection])
 
   // F-07: collapse the toolbar while scrolling down, restore on scroll up.
@@ -172,7 +183,15 @@ export default function ChecklistPage() {
   const writeInspection = async (next: Inspection) => {
     await db.transaction('rw', db.inspections, async () => {
       const existing = await db.inspections.get(next.id!)
-      if (existing && newer(existing.updatedAt, next.updatedAt)) return
+      if (existing && newer(existing.updatedAt, next.updatedAt)) {
+        // An audit: the newer stored copy (the other device's) and this edit go together.
+        if (!mergesAnswers(existing, next)) return
+        const merged = mergeAudit(existing, next)
+        if (sameContent(merged, existing)) return
+        const after = new Date(Math.max(Date.now(), Date.parse(existing.updatedAt) + 1)).toISOString()
+        await db.inspections.put({ ...merged, id: next.id, updatedAt: after })
+        return
+      }
       await db.inspections.put(next)
     })
   }
@@ -243,8 +262,11 @@ export default function ChecklistPage() {
     setInspection((prev) => {
       if (!prev) return prev
       // Stamping updatedAt here (not at write time) keeps the in-memory copy
-      // comparable against sync-pulled records in the adoption effect.
-      const next = { ...mutate(prev), updatedAt: new Date().toISOString() }
+      // comparable against sync-pulled records in the adoption effect. Each
+      // changed answer gets the time too, so two devices' copies merge per answer.
+      const now = new Date().toISOString()
+      const changed = mutate(prev)
+      const next = { ...changed, responses: stampAnswers(prev.responses, changed.responses, now), updatedAt: now }
       persist(next)
       return next
     })
@@ -293,11 +315,20 @@ export default function ChecklistPage() {
     return out
   }, [template, inspection, query, filter])
 
+  // A Worker Welfare audit being worked on: in step with the same audit open on another device.
+  const live = useLiveAudit(
+    inspection?.uuid,
+    !!inspection && isWelfareAudit(inspection) && inspection.status === 'draft' && !inspection.logged,
+    !canEdit,
+    inspection?.updatedAt,
+  )
+
   if (!inspection || !template) {
     return <main className="page">{inspection === null ? <div className="empty">Loading…</div> : null}</main>
   }
-  // Camp-log inspections have no checklist: show their recorded score instead.
-  if (inspection.logged) return <LoggedInspection ins={inspection} logged={inspection.logged} />
+  // Camp-log inspections and finished Worker Welfare audits have no checklist: show their scores instead.
+  if (inspection.logged)
+    return isWelfareAudit(inspection) ? <FinishedAudit ins={inspection} logged={inspection.logged} /> : <LoggedInspection ins={inspection} logged={inspection.logged} />
 
   const questionByCode = new Map(template.sections.flatMap((s) => s.questions).map((q) => [q.code, q]))
 
@@ -558,7 +589,7 @@ export default function ChecklistPage() {
     })
   }
 
-  const doExport = async (kind: 'excel' | 'word') => {
+  const doExport = async (kind: 'excel' | 'word'): Promise<boolean> => {
     setExporting(kind)
     try {
       // export the latest state even if the debounce hasn't flushed yet
@@ -584,11 +615,13 @@ export default function ChecklistPage() {
             }
           : undefined,
       })
+      return true
     } catch (err) {
       showToast({
         text: `Export failed: ${err instanceof Error ? err.message : String(err)}`,
         duration: 8000,
       })
+      return false
     } finally {
       setExporting(null)
     }
@@ -600,6 +633,7 @@ export default function ChecklistPage() {
 
   const searching = matches !== null
   const score = scoreInspection(template, inspection)
+  const mark = liveMark(live)
   const sectionScore = (letter: string) => score.sections?.find((x) => x.letter === letter)
   const firstUnanswered = template.sections.flatMap((s) => s.questions).find((qq) => !isAnswered(inspection.responses[qq.code]))
   const now = audit && nowSection ? template.sections.find((s) => s.letter === nowSection) : undefined
@@ -753,10 +787,17 @@ export default function ChecklistPage() {
             <div style={{ transform: `scaleX(${progress.total ? progress.answered / progress.total : 0})` }} />
           </div>
           <div className="progress-text">
-            {progress.answered} of {progress.total} answered
-            {audit
-              ? score.pct !== null && ` · ${scoreText(score.pct)} ${gradeOf(score.pct)}`
-              : progress.flagged > 0 && ` · ${progress.flagged} non-compliance`}
+            <span className="progress-main">
+              {progress.answered} of {progress.total} answered
+              {audit
+                ? score.pct !== null && ` · ${scoreText(score.pct)} ${gradeOf(score.pct)}`
+                : progress.flagged > 0 && ` · ${progress.flagged} non-compliance`}
+            </span>
+            {mark && (
+              <span className={`live-mark ${live}`} title={mark.title}>
+                {mark.label}
+              </span>
+            )}
           </div>
           {now && (
             <div className="audit-now" aria-live="polite">
@@ -1063,7 +1104,7 @@ export default function ChecklistPage() {
                 }}
               >
                 <Icon name={inspection.status === 'completed' ? 'undo' : 'check'} size={19} />
-                {inspection.status === 'completed' ? 'Reopen as draft' : audit ? 'Mark audit complete' : 'Mark inspection complete'}
+                {inspection.status === 'completed' ? 'Reopen as draft' : audit ? 'Finish audit' : 'Mark inspection complete'}
               </button>
               <div className="btn-row">
                 <button className="btn" disabled={exporting !== null} onClick={() => doExport('excel')}>
@@ -1097,7 +1138,7 @@ export default function ChecklistPage() {
               ? undefined
               : firstUnanswered
                 ? { icon: 'arrow-right', label: `Next: ${firstUnanswered.code} · ${progress.total - progress.answered} left`, onClick: () => jumpToItem(firstUnanswered.code) }
-                : { icon: 'check', label: 'Complete audit', onClick: () => (flushSave(), setCompleting(true)) }
+                : { icon: 'check', label: 'Finish audit', onClick: () => (flushSave(), setCompleting(true)) }
           }
         />
       )}
@@ -1111,10 +1152,14 @@ export default function ChecklistPage() {
             setFilter(what)
             window.scrollTo({ top: 0 })
           }}
-          onComplete={() => {
-            update((ins) => ({ ...ins, status: 'completed' }))
-            logEvent(inspectionId, 'Audit completed', `${scoreText(score.pct)} ${gradeOf(score.pct)}`)
-            showToast({ text: `Audit complete · ${scoreText(score.pct)} ${gradeOf(score.pct)}` })
+          onExcel={async () => {
+            if (!(await doExport('excel'))) throw new Error('Excel not made')
+          }}
+          onComplete={(kept) => {
+            // the editor takes the kept record from the database (it always wins: auditMerge.ts)
+            logEvent(inspectionId, 'Audit completed', `${scoreText(kept.logged?.pct ?? null)} ${kept.logged?.rating ?? ''}`)
+            showToast({ text: `Audit finished · ${scoreText(kept.logged?.pct ?? null)} ${kept.logged?.rating ?? ''}. Scores kept.` })
+            if (kept.uuid) void sendAuditNow(kept.uuid)
           }}
           onClose={() => setCompleting(false)}
         />

@@ -28,6 +28,13 @@
 /* scaleX, not width: animating width re-lays out the page on every frame */
 .progress-bar > div { width: 100%; height: 100%; border-radius: 999px; background: var(--brand); transform-origin: left center; transition: transform var(--dur-in) var(--ease-90); }
 .progress-text { margin-top: 6px; font-size: 14px; font-weight: 500; color: var(--muted); max-height: 24px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; transition: opacity var(--dur-med) var(--ease-80); }
+/* the score text gives way; the Live / Offline mark at the end never does */
+.progress-text:has(.live-mark) { display: flex; align-items: center; gap: 10px; }
+.progress-main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.live-mark { flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; }
+.live-mark::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.live-mark.live { color: var(--good); }
+.live-mark.offline { color: var(--warn); }
 .toolbar { padding: 0 var(--gutter) 12px; }
 .toolbar > * { max-width: 720px; margin-left: auto; margin-right: auto; }
 .search-row { display: flex; gap: 8px; }
@@ -207,3 +214,8 @@ body:has(.fab-stack:not([hidden])) .page { padding-bottom: calc(var(--bottom-gap
 .audit-kpi input { flex: none; margin-top: 2px; }
 .audit-kpi b { display: block; font-size: 16px; }
 .audit-kpi span span { display: block; margin-top: 2px; font-size: 14px; color: var(--muted); line-height: 1.4; }
+/* Finish: the Excel first (it can't be made once only the scores are kept) */
+.audit-done .audit-excel { margin: 0 0 12px; border-radius: 20px; background: var(--card-on-sheet); overflow: hidden; }
+.audit-done .audit-excel .row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
+.audit-done .audit-excel .done-mark { flex-shrink: 0; color: var(--good); display: inline-flex; }
+.audit-done .audit-keep { margin: 0 0 4px; }

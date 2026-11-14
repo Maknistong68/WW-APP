@@ -1,11 +1,11 @@
 import { defaultDue, setAuditDate } from './closeout'
 import { monthOf } from './dates'
 import type { AllData } from './kpiData'
-import { scoreInspection } from './score'
+import { gradeOf, scoreInspection } from './score'
 import { kpiSubjects, subjectKpi, woOf } from './subjects'
 import { quarterMonths } from './todo'
 import { getTemplate } from '../templates'
-import type { Inspection, KpiMonth } from '../types'
+import type { Inspection, InspectionTemplate, KpiMonth } from '../types'
 
 export { WELFARE_AUDIT, isWelfareAudit, splitInspections } from './inspectionKinds'
 
@@ -56,4 +56,38 @@ export function withAudit(k: KpiMonth, plan: AuditKpiPlan, auditUuid: string): K
     { ...k, quarterlyAuditPct: plan.pct, auditFindings: plan.findings, auditClosed: same ? (k.auditClosed ?? 0) : 0, auditInspectionUuid: auditUuid },
     plan.date,
   )
+}
+
+// ---- Finishing an audit keeps the scores only ------------------------------------------------
+
+/**
+ * The short record a finished audit becomes: its final score, grade, each
+ * section's score and how many "No"s, with what says which audit it was (work
+ * order, contractor, date, place, inspection no.). The answers, notes and the
+ * people's names and phone number are not kept; its photos are deleted with it
+ * (AuditCompleteSheet `keepScoresOnly`). null when nothing is scored yet.
+ */
+export function scoresOnly(audit: Inspection, template: InspectionTemplate, now: string): Inspection | null {
+  const s = scoreInspection(template, audit)
+  if (s.pct === null) return null
+  const findings = Object.values(audit.responses).filter((r) => r.assessment === 'No compliance').length
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { auditor, contactNo, clientRep, contractorRep, approvedBy, ...info } = audit.info
+  return {
+    ...(audit.id !== undefined ? { id: audit.id } : {}),
+    ...(audit.uuid ? { uuid: audit.uuid } : {}),
+    templateId: audit.templateId,
+    status: 'completed',
+    createdAt: audit.createdAt,
+    updatedAt: now,
+    info: { ...info, auditTeam: '', facilityRepresentative: '' },
+    responses: {},
+    notes: '',
+    logged: {
+      pct: s.pct,
+      rating: gradeOf(s.pct),
+      sections: (s.sections ?? []).map((x) => ({ letter: x.letter, title: x.title, pct: x.pct })),
+      findings,
+    },
+  }
 }

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { auditKpiPlan, withAudit } from './welfareAudit'
+import { auditKpiPlan, scoresOnly, withAudit } from './welfareAudit'
+import { scoreInspection } from './score'
+import { getTemplate } from '../templates'
 import { emptyKpi } from './subjects'
 import type { AllData } from './kpiData'
 import type { ComplianceAssessment, Contractor, Inspection, KpiMonth, WorkOrder } from '../types'
@@ -51,5 +53,42 @@ describe('A completed Worker Welfare audit fills the quarterly audit KPI', () =>
     expect(auditKpiPlan(audit({ info: { reviewDate: '2026-11-12' } as Inspection['info'] }), data())).toBeNull()
     expect(auditKpiPlan(audit({ responses: {} }), data())).toBeNull()
     expect(auditKpiPlan(audit({ info: { workOrderUuid: 'w1', contractorUuid: 'c1' } as Inspection['info'] }), data())).toBeNull()
+  })
+})
+
+describe('Finishing an audit keeps the scores only', () => {
+  const template = getTemplate('welfare_audit')!
+  const full = audit({
+    id: 4,
+    status: 'draft',
+    notes: 'met the camp boss',
+    info: { ...audit().info, workOrder: '882', project: 'Package 1', auditor: 'Sam', contactNo: '0500000000', clientRep: 'A', contractorRep: 'B', approvedBy: 'C', inspectionNo: 'WWA-2026-Q4-882' } as Inspection['info'],
+  })
+
+  it('the final score, grade, every section’s score and the findings', () => {
+    const kept = scoresOnly(full, template, '2026-11-14T09:00:00.000Z')!
+    const s = scoreInspection(template, full)
+    expect(kept.logged).toEqual({
+      pct: s.pct,
+      rating: 'Non-compliant',
+      sections: s.sections!.map((x) => ({ letter: x.letter, title: x.title, pct: x.pct })),
+      findings: 2,
+    })
+    expect(kept.logged!.sections!.slice(0, 2)).toEqual([
+      { letter: 'A', title: template.sections[0].title, pct: 50 },
+      { letter: 'B', title: template.sections[1].title, pct: 0 },
+    ])
+    expect(kept.logged!.sections).toHaveLength(14)
+  })
+
+  it('no answers, notes, names or phone number; still says which audit it was', () => {
+    const kept = scoresOnly(full, template, '2026-11-14T09:00:00.000Z')!
+    expect(kept).toMatchObject({ id: 4, uuid: 'aud-1', status: 'completed', responses: {}, notes: '', updatedAt: '2026-11-14T09:00:00.000Z' })
+    expect(kept.info).toMatchObject({ reviewDate: '2026-11-12', workOrderUuid: 'w1', contractorUuid: 'c1', contractorNames: 'RPCO', workOrder: '882', project: 'Package 1', inspectionNo: 'WWA-2026-Q4-882' })
+    for (const k of ['auditor', 'contactNo', 'clientRep', 'contractorRep', 'approvedBy']) expect(kept.info).not.toHaveProperty(k)
+  })
+
+  it('nothing to keep before anything is scored', () => {
+    expect(scoresOnly(audit({ responses: {} }), template, 'now')).toBeNull()
   })
 })

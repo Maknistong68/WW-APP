@@ -47,6 +47,7 @@ const ROUTES = [
   '/closeouts',
   '/inspection/1',
   '/inspection/2',
+  '/inspection/3',
   '/new/accommodation',
   '/new/welfare_audit?wo=w1',
   '/settings',
@@ -105,6 +106,13 @@ async function seed(page) {
           A1: a('Full compliance'), A2: a('No compliance', 'No evidence of ethical recruitment review or supply-chain audits.'), A3: a('Partial compliance'), A4: a('Full compliance'),
           F1: a('Full compliance'), F2: a('No compliance'),
         },
+      })
+      // a finished audit: scores only
+      const titles = ['Employment practice', 'Worker onboarding', 'Wages and benefits', 'Working hours', 'Accommodation', 'Payment of workers', 'Health and safety', 'Grievances', 'Transport', 'Food', 'Training', 'Equality and non-discrimination', 'Freedom of association', 'Records']
+      await db.inspections.add({
+        id: 3, uuid: 'aud-2', templateId: 'welfare_audit', status: 'completed', createdAt: now, updatedAt: now, notes: '', responses: {},
+        info: { ...info, typeOfReview: 'Worker Welfare audit', reviewDate: '2026-08-20', facilityType: 'Work order', workOrderUuid: 'w2', contractorUuid: 'c1', workOrder: '1134', project: 'Package 2 infrastructure and long name', inspectionNo: 'WWA-2026-Q3-1134' },
+        logged: { pct: 87.4, rating: 'Good', findings: 6, sections: titles.map((title, i) => ({ letter: String.fromCharCode(65 + i), title, pct: i === 12 ? null : [100, 92.3, 57.1, 83.3, 88.2, 54.5, 100, 71.4, 100, 85.7, 100, 75, null, 80][i] })) },
       })
       const canvas = new OffscreenCanvas(800, 600)
       const g = canvas.getContext('2d')

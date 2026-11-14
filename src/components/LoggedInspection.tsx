@@ -58,7 +58,7 @@ export default function LoggedInspection({ ins, logged }: { ins: Inspection; log
       <div className="list">
         {camp ? (
           <button className="row" onClick={() => navigate(`/camps/${camp.uuid}`)}>
-            <span className="row-main">Camp</span>
+            <span className="row-label">Camp</span>
             <span className="row-trail" style={{ color: 'var(--brand)', fontWeight: 600 }}>{camp.name}</span>
             <span className="row-chev">
               <Icon name="chevron-right" size={18} />
@@ -67,7 +67,7 @@ export default function LoggedInspection({ ins, logged }: { ins: Inspection; log
         ) : null}
         {contractor ? (
           <button className="row" onClick={() => navigate(`/contractors/${contractor.uuid}`)}>
-            <span className="row-main">Contractor</span>
+            <span className="row-label">Contractor</span>
             <span className="row-trail" style={{ color: 'var(--brand)', fontWeight: 600 }}>{contractor.name}</span>
             <span className="row-chev">
               <Icon name="chevron-right" size={18} />
@@ -75,7 +75,7 @@ export default function LoggedInspection({ ins, logged }: { ins: Inspection; log
           </button>
         ) : (
           <div className="row">
-            <span className="row-main">Contractor</span>
+            <span className="row-label">Contractor</span>
             <span className="row-trail">{info.contractorNames || '—'}</span>
           </div>
         )}
@@ -84,7 +84,7 @@ export default function LoggedInspection({ ins, logged }: { ins: Inspection; log
           ['Location', info.region || camp?.location || '—'],
         ].map(([l, v]) => (
           <div key={l} className="row">
-            <span className="row-main">{l}</span>
+            <span className="row-label">{l}</span>
             <span className="row-trail">{v}</span>
           </div>
         ))}

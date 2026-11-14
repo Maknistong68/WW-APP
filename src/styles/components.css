@@ -201,6 +201,8 @@ button.row { cursor: pointer; }
 .row-chev { color: var(--faint); display: inline-flex; flex-shrink: 0; }
 .row-icon { width: 36px; height: 36px; }
 .row-label { flex-shrink: 0; font-size: 16px; }
+/* a label and its value: the value lines up on the right edge */
+.row-label + .row-trail { margin-left: auto; }
 .row.tint { color: var(--brand); font-weight: 600; }
 .row input, .row select {
   flex: 1; min-width: 0; padding: 6px 0; border: none; background: none; outline: none;

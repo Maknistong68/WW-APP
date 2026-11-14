@@ -5,6 +5,8 @@ import { foreignPrivate, mineToSend } from './activityPush'
 import { monthTwinKeepsPulled, newer } from './syncRules'
 import { planRecordSync } from './syncPlan'
 import { isForeignTask } from './routines'
+import { mergeAudit, mergesAnswers, planAuditSync, sameContent } from './auditMerge'
+import { isWelfareAudit } from './inspectionKinds'
 
 export { newer }
 import type { ActivityEntry, Inspection, Photo, RecordTable } from '../types'
@@ -140,6 +142,193 @@ async function selectAll<T>(c: SupabaseClient, table: string, columns: string): 
   }
 }
 
+const PHOTO_COLUMNS = 'uuid, inspection_uuid, item_id, caption, created_at, updated_at, deleted'
+
+/**
+ * Send this device's deletions. Stamping updated_at gives a deletion a real
+ * time, so a copy edited *after* it counts as newer and is brought back by the
+ * push loops.
+ */
+async function pushTombstones(c: SupabaseClient, fail: (what: string, err: unknown) => void): Promise<void> {
+  const tombstones = await db.tombstones.toArray()
+  for (const t of tombstones) {
+    try {
+      const table =
+        t.table === 'inspections' || t.table === 'photos' ? t.table : REMOTE_TABLE[t.table]
+      const deletedAt = new Date().toISOString()
+      const { error } = await c
+        .from(table)
+        .update({ deleted: true, updated_at: deletedAt })
+        .eq('uuid', t.uuid)
+      if (error) throw new Error(error.message)
+      if (t.table === 'inspections') {
+        await c
+          .from('photos')
+          .update({ deleted: true, updated_at: deletedAt })
+          .eq('inspection_uuid', t.uuid)
+      }
+      // A deleted photo's file leaves the cloud too (Undo uploads it again).
+      if (t.table === 'photos') await c.storage.from('photos').remove([`team/${t.uuid}.jpg`])
+      await db.tombstones.delete(t.id!)
+    } catch (err) {
+      fail('Delete sync', err)
+    }
+  }
+}
+
+interface PhotoSync {
+  c: SupabaseClient
+  userId: string
+  readOnly: boolean
+  insIdByUuid: Map<string, number>
+  insUuidById: Map<number, string>
+  result: SyncResult
+  fail: (what: string, err: unknown) => void
+}
+
+/** Photos both ways for these rows: every photo (full sync) or one audit's (an audit open on two devices). */
+async function syncPhotoSet(ctx: PhotoSync, remotePhotos: RemotePhotoRow[], localPhotos: Photo[]): Promise<void> {
+  const { c, userId, readOnly, insIdByUuid, insUuidById, result, fail } = ctx
+  const remotePhotoMap = new Map(remotePhotos.map((r) => [r.uuid, r]))
+  const localPhotoMap = new Map(localPhotos.filter((p) => p.uuid).map((p) => [p.uuid!, p]))
+
+  // remote deletions → local (same newer-wins rule as inspections)
+  for (const r of remotePhotos) {
+    if (!r.deleted) continue
+    const local = localPhotoMap.get(r.uuid)
+    if (!local) continue
+    if (newer(local.updatedAt ?? local.createdAt, r.updated_at)) continue
+    await db.photos.delete(local.id!)
+    localPhotoMap.delete(r.uuid)
+    result.deleted++
+  }
+
+  const storage = c.storage.from('photos')
+  // Shared team folder: any approved user can read and replace a photo.
+  const photoPath = (uuid: string) => `team/${uuid}.jpg`
+
+  // push photos: new blobs + newer metadata
+  for (const p of readOnly ? [] : localPhotos) {
+    if (!p.uuid || !localPhotoMap.has(p.uuid)) continue
+    const insUuid = insUuidById.get(p.inspectionId)
+    if (!insUuid) continue
+    const remote = remotePhotoMap.get(p.uuid)
+    const localUpdated = p.updatedAt ?? p.createdAt
+    try {
+      if (!remote) {
+        const { error: upErr } = await storage.upload(photoPath(p.uuid), p.blob, {
+          upsert: true,
+          contentType: p.blob.type || 'image/jpeg',
+        })
+        if (upErr) throw new Error(upErr.message)
+        // upsert (not insert) so a retry after a partial earlier run succeeds
+        const { error } = await c.from('photos').upsert({
+          uuid: p.uuid,
+          user_id: userId,
+          inspection_uuid: insUuid,
+          item_id: p.itemId,
+          caption: p.caption,
+          created_at: p.createdAt,
+          updated_at: localUpdated,
+          deleted: false,
+        })
+        if (error) throw new Error(error.message)
+        await db.photos.update(p.id!, { syncedAt: new Date().toISOString() })
+        result.photosUp++
+      } else if (newer(localUpdated, remote.updated_at)) {
+        // deleted: false resurrects a remotely-deleted photo when the local
+        // copy is newer; its file was removed with the deletion, so it goes up again
+        if (remote.deleted) {
+          const { error: upErr } = await storage.upload(photoPath(p.uuid), p.blob, {
+            upsert: true,
+            contentType: p.blob.type || 'image/jpeg',
+          })
+          if (upErr) throw new Error(upErr.message)
+        }
+        const { error } = await c
+          .from('photos')
+          .update({
+            item_id: p.itemId,
+            caption: p.caption,
+            updated_at: localUpdated,
+            deleted: false,
+          })
+          .eq('uuid', p.uuid)
+        if (error) throw new Error(error.message)
+        result.photosUp++
+      }
+    } catch (err) {
+      fail(`Push photo ${p.uuid}`, err)
+    }
+  }
+
+  // pull photos: missing locally + newer metadata
+  for (const r of remotePhotos) {
+    if (r.deleted) continue
+    const localId = insIdByUuid.get(r.inspection_uuid)
+    if (localId === undefined) continue
+    const local = localPhotoMap.get(r.uuid)
+    try {
+      if (!local) {
+        // deleted here a moment ago, the deletion not sent yet: don't bring it back
+        if (await db.tombstones.where('uuid').equals(r.uuid).count()) continue
+        const { data: blobData, error } = await storage.download(photoPath(r.uuid))
+        if (error) throw new Error(error.message)
+        await db.photos.add({
+          uuid: r.uuid,
+          inspectionId: localId,
+          itemId: r.item_id ?? null,
+          caption: r.caption ?? '',
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+          syncedAt: new Date().toISOString(),
+          blob: blobData,
+        })
+        result.photosDown++
+      } else if (newer(r.updated_at, local.updatedAt ?? local.createdAt)) {
+        await db.photos.update(local.id!, {
+          itemId: r.item_id ?? null,
+          caption: r.caption ?? '',
+          updatedAt: r.updated_at,
+        })
+        result.photosDown++
+      }
+    } catch (err) {
+      fail(`Pull photo ${r.uuid}`, err)
+    }
+  }
+}
+
+/**
+ * Store an audit's merged copy, unless this device changed it while the sync was
+ * talking to the cloud (an edit, or Finish): then that change and the merge go
+ * together (a finished audit always wins: auditMerge.ts).
+ */
+async function storeAudit(planned: Inspection, merged: Inspection): Promise<void> {
+  await db.transaction('rw', db.inspections, async () => {
+    const cur = await db.inspections.get(planned.id!)
+    if (!cur || cur.updatedAt === planned.updatedAt) {
+      await db.inspections.put(merged)
+      return
+    }
+    const again = mergeAudit(cur, merged)
+    if (sameContent(again, cur)) return
+    const after = new Date(Math.max(Date.parse(cur.updatedAt) || 0, Date.parse(merged.updatedAt) || 0) + 1).toISOString()
+    await db.inspections.put({ ...again, id: cur.id, uuid: cur.uuid, updatedAt: after })
+  })
+}
+
+/** Send one inspection (the whole record) to the cloud. */
+async function pushInspection(c: SupabaseClient, userId: string, ins: Inspection): Promise<void> {
+  const { id: _localId, ...data } = ins
+  void _localId
+  const { error } = await c.from('inspections').upsert({ uuid: ins.uuid, user_id: userId, data, updated_at: ins.updatedAt, deleted: false })
+  if (error) throw new Error(error.message)
+}
+
+/** The same moment, whatever the format ("…+00:00" from the server, "…Z" here). */
+const sameTime = (a: string, b: string) => Date.parse(a) === Date.parse(b)
+
 let syncing = false
 
 let running: Promise<SyncResult> | null = null
@@ -161,6 +350,8 @@ async function runSync(): Promise<SyncResult> {
   // Claim the lock before the first await: app-open background sync and a
   // manual "Sync now" could otherwise both pass the check and interleave.
   syncing = true
+  // An open audit's quick sync finishes first (they'd both add the same photos).
+  await auditRunning?.catch(() => null)
   const result: SyncResult = {
     pushed: 0,
     pulled: 0,
@@ -186,33 +377,8 @@ async function runSync(): Promise<SyncResult> {
     const userId = session.user.id
     // Viewers only pull: the server refuses their writes anyway.
     const readOnly = await isViewer(c, userId)
-    // 1. Push tombstones (deletions made on this device). Stamping updated_at
-    // gives the deletion a real timestamp, so a copy edited *after* the
-    // deletion counts as newer and is resurrected by the push loops below.
-    const tombstones = readOnly ? [] : await db.tombstones.toArray()
-    for (const t of tombstones) {
-      try {
-        const table =
-          t.table === 'inspections' || t.table === 'photos' ? t.table : REMOTE_TABLE[t.table]
-        const deletedAt = new Date().toISOString()
-        const { error } = await c
-          .from(table)
-          .update({ deleted: true, updated_at: deletedAt })
-          .eq('uuid', t.uuid)
-        if (error) throw new Error(error.message)
-        if (t.table === 'inspections') {
-          await c
-            .from('photos')
-            .update({ deleted: true, updated_at: deletedAt })
-            .eq('inspection_uuid', t.uuid)
-        }
-        // A deleted photo's file leaves the cloud too (Undo uploads it again).
-        if (t.table === 'photos') await c.storage.from('photos').remove([`team/${t.uuid}.jpg`])
-        await db.tombstones.delete(t.id!)
-      } catch (err) {
-        fail('Delete sync', err)
-      }
-    }
+    // 1. Push tombstones (deletions made on this device).
+    if (!readOnly) await pushTombstones(c, fail)
 
     // 2. Inspections
     const remoteIns = await selectAll<RemoteInspectionRow>(
@@ -236,23 +402,42 @@ async function runSync(): Promise<SyncResult> {
       result.deleted++
     }
 
+    // Worker Welfare audits saved on two devices: put together per answer
+    // (src/lib/auditMerge.ts) instead of the newer copy replacing the other.
+    const merged = new Set<string>()
+    if (!readOnly) {
+      const both = localIns.filter((i) => {
+        const r = i.uuid && localInsMap.has(i.uuid) ? remoteInsMap.get(i.uuid) : undefined
+        return isWelfareAudit(i) && r && !r.deleted && !sameTime(i.updatedAt, r.updated_at)
+      })
+      for (let i = 0; i < both.length; i += 50) {
+        try {
+          const { data, error } = await c.from('inspections').select('uuid, data').in('uuid', both.slice(i, i + 50).map((x) => x.uuid!))
+          if (error) throw new Error(error.message)
+          for (const row of (data ?? []) as { uuid: string; data: Inspection }[]) {
+            const local = localInsMap.get(row.uuid)
+            if (!local || !mergesAnswers(local, row.data)) continue
+            const plan = planAuditSync(local, row.data)
+            if (plan.push) await pushInspection(c, userId, plan.merged)
+            if (plan.store) await storeAudit(local, plan.merged)
+            if (plan.push) result.pushed++
+            if (plan.store) result.pulled++
+            merged.add(row.uuid)
+          }
+        } catch (err) {
+          fail('Merge audits', err)
+        }
+      }
+    }
+
     // push local-new / local-newer (the upsert's deleted: false also
     // resurrects a remotely-deleted record when the local copy is newer)
     for (const ins of readOnly ? [] : localIns) {
-      if (!ins.uuid || !localInsMap.has(ins.uuid)) continue
+      if (!ins.uuid || !localInsMap.has(ins.uuid) || merged.has(ins.uuid)) continue
       const remote = remoteInsMap.get(ins.uuid)
       if (remote && !newer(ins.updatedAt, remote.updated_at)) continue
       try {
-        const { id: _localId, ...data } = ins
-        void _localId
-        const { error } = await c.from('inspections').upsert({
-          uuid: ins.uuid,
-          user_id: userId,
-          data,
-          updated_at: ins.updatedAt,
-          deleted: false,
-        })
-        if (error) throw new Error(error.message)
+        await pushInspection(c, userId, ins)
         result.pushed++
       } catch (err) {
         fail(`Push inspection ${ins.uuid}`, err)
@@ -261,7 +446,7 @@ async function runSync(): Promise<SyncResult> {
 
     // pull remote-new / remote-newer
     const toPull = remoteIns.filter((r) => {
-      if (r.deleted) return false
+      if (r.deleted || merged.has(r.uuid)) return false
       const local = localInsMap.get(r.uuid)
       return !local || newer(r.updated_at, local.updatedAt)
     })
@@ -303,118 +488,8 @@ async function runSync(): Promise<SyncResult> {
     for (const [u, i] of insIdByUuid) insUuidById.set(i, u)
 
     // 3. Photos
-    const remotePhotos = await selectAll<RemotePhotoRow>(
-      c,
-      'photos',
-      'uuid, inspection_uuid, item_id, caption, created_at, updated_at, deleted',
-    )
-    const remotePhotoMap = new Map(remotePhotos.map((r) => [r.uuid, r]))
-    const localPhotos = await db.photos.toArray()
-    const localPhotoMap = new Map(localPhotos.filter((p) => p.uuid).map((p) => [p.uuid!, p]))
-
-    // remote deletions → local (same newer-wins rule as inspections)
-    for (const r of remotePhotos) {
-      if (!r.deleted) continue
-      const local = localPhotoMap.get(r.uuid)
-      if (!local) continue
-      if (newer(local.updatedAt ?? local.createdAt, r.updated_at)) continue
-      await db.photos.delete(local.id!)
-      localPhotoMap.delete(r.uuid)
-      result.deleted++
-    }
-
-    const storage = c.storage.from('photos')
-    // Shared team folder: any approved user can read and replace a photo.
-    const photoPath = (uuid: string) => `team/${uuid}.jpg`
-
-    // push photos: new blobs + newer metadata
-    for (const p of readOnly ? [] : localPhotos) {
-      if (!p.uuid || !localPhotoMap.has(p.uuid)) continue
-      const insUuid = insUuidById.get(p.inspectionId)
-      if (!insUuid) continue
-      const remote = remotePhotoMap.get(p.uuid)
-      const localUpdated = p.updatedAt ?? p.createdAt
-      try {
-        if (!remote) {
-          const { error: upErr } = await storage.upload(photoPath(p.uuid), p.blob, {
-            upsert: true,
-            contentType: p.blob.type || 'image/jpeg',
-          })
-          if (upErr) throw new Error(upErr.message)
-          // upsert (not insert) so a retry after a partial earlier run succeeds
-          const { error } = await c.from('photos').upsert({
-            uuid: p.uuid,
-            user_id: userId,
-            inspection_uuid: insUuid,
-            item_id: p.itemId,
-            caption: p.caption,
-            created_at: p.createdAt,
-            updated_at: localUpdated,
-            deleted: false,
-          })
-          if (error) throw new Error(error.message)
-          await db.photos.update(p.id!, { syncedAt: new Date().toISOString() })
-          result.photosUp++
-        } else if (newer(localUpdated, remote.updated_at)) {
-          // deleted: false resurrects a remotely-deleted photo when the local
-          // copy is newer; its file was removed with the deletion, so it goes up again
-          if (remote.deleted) {
-            const { error: upErr } = await storage.upload(photoPath(p.uuid), p.blob, {
-              upsert: true,
-              contentType: p.blob.type || 'image/jpeg',
-            })
-            if (upErr) throw new Error(upErr.message)
-          }
-          const { error } = await c
-            .from('photos')
-            .update({
-              item_id: p.itemId,
-              caption: p.caption,
-              updated_at: localUpdated,
-              deleted: false,
-            })
-            .eq('uuid', p.uuid)
-          if (error) throw new Error(error.message)
-          result.photosUp++
-        }
-      } catch (err) {
-        fail(`Push photo ${p.uuid}`, err)
-      }
-    }
-
-    // pull photos: missing locally + newer metadata
-    for (const r of remotePhotos) {
-      if (r.deleted) continue
-      const localId = insIdByUuid.get(r.inspection_uuid)
-      if (localId === undefined) continue
-      const local = localPhotoMap.get(r.uuid)
-      try {
-        if (!local) {
-          const { data: blobData, error } = await storage.download(photoPath(r.uuid))
-          if (error) throw new Error(error.message)
-          await db.photos.add({
-            uuid: r.uuid,
-            inspectionId: localId,
-            itemId: r.item_id ?? null,
-            caption: r.caption ?? '',
-            createdAt: r.created_at,
-            updatedAt: r.updated_at,
-            syncedAt: new Date().toISOString(),
-            blob: blobData,
-          })
-          result.photosDown++
-        } else if (newer(r.updated_at, local.updatedAt ?? local.createdAt)) {
-          await db.photos.update(local.id!, {
-            itemId: r.item_id ?? null,
-            caption: r.caption ?? '',
-            updatedAt: r.updated_at,
-          })
-          result.photosDown++
-        }
-      } catch (err) {
-        fail(`Pull photo ${r.uuid}`, err)
-      }
-    }
+    const remotePhotos = await selectAll<RemotePhotoRow>(c, 'photos', PHOTO_COLUMNS)
+    await syncPhotoSet({ c, userId, readOnly, insIdByUuid, insUuidById, result, fail }, remotePhotos, await db.photos.toArray())
 
     // 4. Co-pilot records + activity log
     for (const table of Object.keys(REMOTE_TABLE) as RecordTable[]) {
@@ -646,6 +721,127 @@ export function backgroundSync(onDone?: (r: SyncResult) => void): void {
       return syncNow().then((r) => onDone?.(r))
     })
     .catch(() => {})
+}
+
+// ---------------------------------------------------------------------------
+// One Worker Welfare audit open on two devices (laptop and phone): every few
+// seconds while it's on screen (useLiveAudit), just this audit and its photos
+// go both ways. The answers merge per question (auditMerge.ts). Skipped while
+// a full sync runs: that one covers it.
+// ---------------------------------------------------------------------------
+
+export interface AuditSyncResult {
+  /** Something came in or went out. */
+  changed: boolean
+  /** The audit was deleted on another device. */
+  removed?: boolean
+}
+
+let auditRunning: Promise<AuditSyncResult | null> | null = null
+let lastAuditError = ''
+
+/** Sync one audit and its photos; null when it can't (not set up, signed out, offline, a full sync running). */
+export function syncAudit(uuid: string, readOnly: boolean): Promise<AuditSyncResult | null> {
+  if (syncing) return Promise.resolve(null)
+  if (auditRunning) return auditRunning
+  auditRunning = runAuditSync(uuid, readOnly)
+    .then((r) => {
+      lastAuditError = ''
+      return r
+    })
+    .catch((err) => {
+      const text = err instanceof Error ? err.message : String(err)
+      // every few seconds: log a problem once, not every time
+      if (text !== lastAuditError) logEvent(null, 'Audit sync failed', text)
+      lastAuditError = text
+      throw err
+    })
+    .finally(() => {
+      auditRunning = null
+    })
+  return auditRunning
+}
+
+async function runAuditSync(uuid: string, readOnly: boolean): Promise<AuditSyncResult | null> {
+  if (!getSyncConfig() || !navigator.onLine) return null
+  const c = await getClient()
+  if (!c) return null
+  const session = await getSession()
+  if (!session) return null
+  const userId = session.user.id
+  const result: SyncResult = { pushed: 0, pulled: 0, photosUp: 0, photosDown: 0, deleted: 0, records: 0, failed: 0 }
+  const problems: string[] = []
+  const fail = (what: string, err: unknown) => {
+    result.failed++
+    problems.push(`${what}: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  if (!readOnly) await pushTombstones(c, fail)
+
+  const local = await db.inspections.where('uuid').equals(uuid).first()
+  const { data, error } = await c.from('inspections').select('uuid, data, updated_at, deleted').eq('uuid', uuid).maybeSingle()
+  if (error) throw new Error(error.message)
+  const row = data as { uuid: string; data: Inspection; updated_at: string; deleted: boolean } | null
+  let localId = local?.id
+  if (!local && (!row || row.deleted)) return { changed: false }
+  if (row?.deleted) {
+    // deleted on another device: gone here too, unless this copy was changed after
+    if (readOnly || !newer(local!.updatedAt, row.updated_at)) {
+      await db.photos.where('inspectionId').equals(local!.id!).delete()
+      await db.inspections.delete(local!.id!)
+      return { changed: true, removed: true }
+    }
+    await pushInspection(c, userId, local!)
+    result.pushed++
+  } else if (!row) {
+    if (!readOnly) {
+      await pushInspection(c, userId, local!)
+      result.pushed++
+    }
+  } else if (!local) {
+    localId = await db.inspections.add({ ...row.data, id: undefined, uuid })
+    result.pulled++
+  } else if (readOnly || !mergesAnswers(local, row.data)) {
+    if (newer(row.updated_at, local.updatedAt)) {
+      await db.inspections.put({ ...row.data, id: local.id, uuid })
+      result.pulled++
+    } else if (!readOnly && newer(local.updatedAt, row.updated_at)) {
+      await pushInspection(c, userId, local)
+      result.pushed++
+    }
+  } else {
+    const plan = planAuditSync(local, row.data)
+    if (plan.push) {
+      await pushInspection(c, userId, plan.merged)
+      result.pushed++
+    }
+    if (plan.store) {
+      await storeAudit(local, plan.merged)
+      result.pulled++
+    }
+  }
+
+  if (localId !== undefined) {
+    const { data: photoRows, error: photoErr } = await c.from('photos').select(PHOTO_COLUMNS).eq('inspection_uuid', uuid)
+    if (photoErr) throw new Error(photoErr.message)
+    await syncPhotoSet(
+      { c, userId, readOnly, insIdByUuid: new Map([[uuid, localId]]), insUuidById: new Map([[localId, uuid]]), result, fail },
+      (photoRows ?? []) as RemotePhotoRow[],
+      await db.photos.where('inspectionId').equals(localId).toArray(),
+    )
+  }
+  if (problems.length) throw new Error(problems[0])
+  return { changed: result.pushed + result.pulled + result.photosUp + result.photosDown + result.deleted > 0 }
+}
+
+/** Right after Finish: the finished audit and its photo deletions go to the cloud now (else the next sync sends them). */
+export async function sendAuditNow(uuid: string): Promise<void> {
+  try {
+    await running?.catch(() => null)
+    await auditRunning?.catch(() => null)
+    await syncAudit(uuid, false)
+  } catch {
+    // offline or a problem: the next sync sends it (already in the log)
+  }
 }
 
 export { newUuid }

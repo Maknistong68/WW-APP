@@ -78,7 +78,13 @@ node scripts/layout-check.mjs   # after UI changes: phone layout (nothing under 
   camp inspections by `src/lib/inspectionKinds.ts` (`useAllData` → `inspections` / `audits`); scoring by sections and
   grades in `src/lib/score.ts`; answer card `src/components/AuditQuestion.tsx`; finishing `AuditCompleteSheet.tsx`,
   which fills the quarterly audit KPI (`auditKpiPlan` / `withAudit` in `src/lib/welfareAudit.ts`); its Excel in the client's
-  layout `src/export/welfareExcel.ts` (`buildWelfareWorkbook`, tested by reading it back).
+  layout `src/export/welfareExcel.ts` (`buildWelfareWorkbook`, tested by reading it back). Open on laptop and phone at
+  once: `useLiveAudit` (`src/lib/useLiveAudit.ts`) runs `syncAudit(uuid)` in `sync.ts` (this audit and its photos;
+  push ~2 s after a change, pull every 5 s), answers merge per question by `QuestionResponse.at`
+  (`src/lib/auditMerge.ts`: `mergeAudit`, `planAuditSync`; used by the editor, `writeInspection`, the full sync and
+  `storeAudit`). Finishing keeps the scores only: `scoresOnly` (`welfareAudit.ts`) → `Inspection.logged` with
+  `sections` / `findings`, photos deleted (`keepScoresOnly` in `AuditCompleteSheet.tsx`, Excel offered first), shown by
+  `src/components/FinishedAudit.tsx`. No Google Drive: photos stay in the app.
 - Monthly documents (per work order, 10: the owner's 8 + WPS + Salary; the Manpower register **is** the full manpower
   declaration, one item `manpowerDecl`; due the 15th of the next month):
   rules `src/lib/submissions.ts` (`SUBMISSION_ITEMS`; each in with a date / not provided / N/A / waiting, a note,
