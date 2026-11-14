@@ -566,7 +566,9 @@ export default function ChecklistPage() {
       // Export libraries are heavy — load them only when actually exporting.
       const { blob, fileName } =
         kind === 'excel'
-          ? await (await import('../export/excel')).buildExcel(template, inspection)
+          ? audit
+            ? await (await import('../export/welfareExcel')).buildWelfareExcel(template, inspection)
+            : await (await import('../export/excel')).buildExcel(template, inspection)
           : await (await import('../export/word')).buildWord(template, inspection)
       saveAs(blob, fileName)
       logEvent(inspectionId, kind === 'excel' ? 'Excel report exported' : 'Word report exported', fileName)
@@ -1065,15 +1067,18 @@ export default function ChecklistPage() {
               </button>
               <div className="btn-row">
                 <button className="btn" disabled={exporting !== null} onClick={() => doExport('excel')}>
-                  <Icon name="table" size={19} /> {exporting === 'excel' ? 'Exporting…' : 'Excel report'}
+                  <Icon name="table" size={19} /> {exporting === 'excel' ? 'Exporting…' : audit ? 'Excel audit report' : 'Excel report'}
                 </button>
-                <button className="btn" disabled={exporting !== null} onClick={() => doExport('word')}>
-                  <Icon name="file-text" size={19} /> {exporting === 'word' ? 'Exporting…' : 'Word report'}
-                </button>
+                {!audit && (
+                  <button className="btn" disabled={exporting !== null} onClick={() => doExport('word')}>
+                    <Icon name="file-text" size={19} /> {exporting === 'word' ? 'Exporting…' : 'Word report'}
+                  </button>
+                )}
               </div>
               <p className="note" style={{ marginTop: 10 }}>
-                Excel: full inspection report workbook. Word: non-compliance findings report. Both generated on
-                your phone, no internet needed.
+                {audit
+                  ? 'The audit in the client’s checklist layout: front page, Part 1 checklist, Part 2 scores and grade, Part 3 findings with photos. Made on your phone, no internet needed.'
+                  : 'Excel: full inspection report workbook. Word: non-compliance findings report. Both generated on your phone, no internet needed.'}
               </p>
             </div>
           </>

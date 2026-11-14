@@ -364,6 +364,13 @@ per screen.
     findings, close-out due date + 30 days, `auditInspectionUuid`), and says which typed score it
     replaces (`auditKpiPlan`, `withAudit` in `src/lib/welfareAudit.ts`). The quarterly row on the
     contractor page then opens the audit.
+  - **Excel audit report** (`src/export/welfareExcel.ts`, the client's workbook layout, amber headers,
+    Arial 9): **Front Page** (report title with year and quarter, final score and grade, contractor –
+    WO, project, location, the sign-off names) and **Worker Welfare**: Part 1 the checklist (code,
+    question, weight, answer, each section's score), Part 2 each section's points and score, the total
+    final score and the grade bands (this audit's marked), Part 3 every "No" with its comment, note and
+    up to two photos, then other comments. File `{Contractor}_WO{n}_Worker_Welfare_Audit_{date}.xlsx`.
+    No Word report for audits.
 
 ## Long-press
 - **Hold 450 ms.** The item sinks a little while you hold (a "charge"), then a haptic press.

@@ -77,7 +77,8 @@ node scripts/layout-check.mjs   # after UI changes: phone layout (nothing under 
   comments `welfareComments.ts` (generated from the client's workbook, the client's name replaced); kept apart from
   camp inspections by `src/lib/inspectionKinds.ts` (`useAllData` → `inspections` / `audits`); scoring by sections and
   grades in `src/lib/score.ts`; answer card `src/components/AuditQuestion.tsx`; finishing `AuditCompleteSheet.tsx`,
-  which fills the quarterly audit KPI (`auditKpiPlan` / `withAudit` in `src/lib/welfareAudit.ts`).
+  which fills the quarterly audit KPI (`auditKpiPlan` / `withAudit` in `src/lib/welfareAudit.ts`); its Excel in the client's
+  layout `src/export/welfareExcel.ts` (`buildWelfareWorkbook`, tested by reading it back).
 - Monthly documents (per work order, 10: the owner's 8 + WPS + Salary; the Manpower register **is** the full manpower
   declaration, one item `manpowerDecl`; due the 15th of the next month):
   rules `src/lib/submissions.ts` (`SUBMISSION_ITEMS`; each in with a date / not provided / N/A / waiting, a note,
