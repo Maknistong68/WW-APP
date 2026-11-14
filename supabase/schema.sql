@@ -703,3 +703,30 @@ where a.uuid = r.uuid::text and coalesce(r.data ->> 'ownerId', '') = '' and not 
 -- A private task's activity entries: only their author sees them.
 alter policy "team activity read" on public.activity_log
   using ((select private.is_approved()) and ((data ->> 'private') is distinct from 'true' or user_id = (select auth.uid())));
+
+-- ---------------------------------------------------------------------------
+-- Photos copied to Google Drive (migration drive_photos; Edge Functions
+-- drive-connect and drive-photo). One Google account, connected once by the
+-- admin. Its sign-in (refresh token) is kept in drive_link, which no phone can
+-- read or change: RLS on and no policies, so only the functions (service role)
+-- use it. A photo's Drive copy is drive_file_id; drive_claimed_at stops two
+-- calls copying the same photo. Safe to re-run.
+-- ---------------------------------------------------------------------------
+alter table public.photos add column if not exists drive_file_id text;
+alter table public.photos add column if not exists drive_claimed_at timestamptz;
+create index if not exists photos_drive_waiting_idx on public.photos (created_at)
+  where drive_file_id is null and not deleted;
+
+create table if not exists public.drive_link (
+  id int primary key default 1 check (id = 1),
+  refresh_token text,
+  root_folder_id text,
+  connected_email text,
+  connected_by uuid references auth.users (id) on delete set null,
+  connected_at timestamptz,
+  pending_state text,
+  pending_at timestamptz,
+  pending_by uuid references auth.users (id) on delete set null
+);
+alter table public.drive_link enable row level security;
+revoke all on public.drive_link from anon, authenticated;

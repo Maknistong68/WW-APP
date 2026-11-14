@@ -22,6 +22,7 @@ import { RECOVERY_KEY, authErrorText, sendPasswordReset, signInWithPassword, sig
 import { showToast } from '../components/Toast'
 import ProfileCard from '../components/ProfileCard'
 import DocSwitches from '../components/DocSwitches'
+import DriveCard from '../components/DriveCard'
 import { hideGetStarted } from '../lib/onboarding'
 import { logText, mergeLogs } from '../lib/logCopy'
 import { copyText } from '../lib/clipboard'
@@ -301,6 +302,7 @@ export default function SettingsPage() {
         </div>
         <div className="list-foot" style={{ marginTop: -8 }}>Auto follows your phone. Light is easiest to read in the sun.</div>
         <DocSwitches />
+        <DriveCard />
         <div className="section-label">Your data</div>
         <div className="list">
           <button

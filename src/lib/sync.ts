@@ -5,6 +5,7 @@ import { foreignPrivate, mineToSend } from './activityPush'
 import { monthTwinKeepsPulled, newer } from './syncRules'
 import { planRecordSync } from './syncPlan'
 import { isForeignTask } from './routines'
+import { copyToDrive, driveRecentlyOff, photosToCopy } from './drive'
 
 export { newer }
 import type { ActivityEntry, Inspection, Photo, RecordTable } from '../types'
@@ -124,7 +125,13 @@ interface RemotePhotoRow extends RemoteInspectionRow {
   item_id: string | null
   caption: string
   created_at: string
+  user_id?: string
+  /** Its Google Drive copy (src/lib/drive.ts); missing before the drive_photos migration. */
+  drive_file_id?: string | null
 }
+
+const PHOTO_COLUMNS = 'uuid, inspection_uuid, item_id, caption, created_at, updated_at, deleted'
+const missingColumn = (err: unknown) => /42703|column .* does not exist/i.test(err instanceof Error ? err.message : String(err))
 
 
 /** Fetch all rows of a table, paging past PostgREST's 1000-row response cap. */
@@ -303,11 +310,16 @@ async function runSync(): Promise<SyncResult> {
     for (const [u, i] of insIdByUuid) insUuidById.set(i, u)
 
     // 3. Photos
-    const remotePhotos = await selectAll<RemotePhotoRow>(
-      c,
-      'photos',
-      'uuid, inspection_uuid, item_id, caption, created_at, updated_at, deleted',
-    )
+    let remotePhotos: RemotePhotoRow[]
+    let driveColumns = true
+    try {
+      remotePhotos = await selectAll<RemotePhotoRow>(c, 'photos', `${PHOTO_COLUMNS}, user_id, drive_file_id`)
+    } catch (err) {
+      // a server without the Drive columns yet
+      if (!missingColumn(err)) throw err
+      driveColumns = false
+      remotePhotos = await selectAll<RemotePhotoRow>(c, 'photos', PHOTO_COLUMNS)
+    }
     const remotePhotoMap = new Map(remotePhotos.map((r) => [r.uuid, r]))
     const localPhotos = await db.photos.toArray()
     const localPhotoMap = new Map(localPhotos.filter((p) => p.uuid).map((p) => [p.uuid!, p]))
@@ -328,6 +340,7 @@ async function runSync(): Promise<SyncResult> {
     const photoPath = (uuid: string) => `team/${uuid}.jpg`
 
     // push photos: new blobs + newer metadata
+    const justUploaded: string[] = []
     for (const p of readOnly ? [] : localPhotos) {
       if (!p.uuid || !localPhotoMap.has(p.uuid)) continue
       const insUuid = insUuidById.get(p.inspectionId)
@@ -354,6 +367,7 @@ async function runSync(): Promise<SyncResult> {
           })
           if (error) throw new Error(error.message)
           await db.photos.update(p.id!, { syncedAt: new Date().toISOString() })
+          justUploaded.push(p.uuid)
           result.photosUp++
         } else if (newer(localUpdated, remote.updated_at)) {
           // deleted: false resurrects a remotely-deleted photo when the local
@@ -401,6 +415,7 @@ async function runSync(): Promise<SyncResult> {
             updatedAt: r.updated_at,
             syncedAt: new Date().toISOString(),
             blob: blobData,
+            ...(r.drive_file_id ? { driveFileId: r.drive_file_id } : {}),
           })
           result.photosDown++
         } else if (newer(r.updated_at, local.updatedAt ?? local.createdAt)) {
@@ -408,12 +423,23 @@ async function runSync(): Promise<SyncResult> {
             itemId: r.item_id ?? null,
             caption: r.caption ?? '',
             updatedAt: r.updated_at,
+            ...(r.drive_file_id ? { driveFileId: r.drive_file_id } : {}),
           })
           result.photosDown++
+        } else if (r.drive_file_id && local.driveFileId !== r.drive_file_id) {
+          // the Drive copy is the server's note: it doesn't change the photo (no updatedAt bump)
+          await db.photos.update(local.id!, { driveFileId: r.drive_file_id })
         }
       } catch (err) {
         fail(`Pull photo ${r.uuid}`, err)
       }
+    }
+
+    // Copy this person's new photos to the team's Google Drive folder, in the
+    // background: a slow Drive never holds up the sync.
+    if (!readOnly && driveColumns && !driveRecentlyOff()) {
+      const ask = photosToCopy(remotePhotos, userId, justUploaded)
+      if (ask.length) void copyDriveInBackground(c, ask)
     }
 
     // 4. Co-pilot records + activity log
@@ -451,6 +477,17 @@ async function runSync(): Promise<SyncResult> {
   } finally {
     syncing = false
   }
+}
+
+/** Ask drive-photo to copy these photos; mark the copied ones on this phone. */
+async function copyDriveInBackground(c: SupabaseClient, uuids: string[]): Promise<void> {
+  const res = await copyToDrive(c, uuids)
+  if (!res) return
+  for (const [uuid, id] of Object.entries(res.done ?? {})) {
+    await db.photos.where('uuid').equals(uuid).modify({ driveFileId: id }).catch(() => {})
+  }
+  if (res.problem || res.failed) logEvent(null, 'Google Drive copy failed', `${res.copied} copied, ${res.failed} not copied${res.problem ? `: ${res.problem}` : ''}`)
+  else if (res.copied) logEvent(null, 'Copied to Google Drive', `${res.copied} photo${res.copied === 1 ? '' : 's'}`)
 }
 
 type SyncedRecord = { uuid: string; updatedAt: string }

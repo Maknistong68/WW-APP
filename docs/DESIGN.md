@@ -372,6 +372,23 @@ per screen.
     up to two photos, then other comments. File `{Contractor}_WO{n}_Worker_Welfare_Audit_{date}.xlsx`.
     No Word report for audits.
 
+## Photos → Google Drive
+- **Every photo taken in the app is copied to one Google Drive folder**, by itself: after a photo
+  syncs, the phone of the person who took it asks the server to copy it. Nobody does anything per
+  photo, and team phones never sign in to Google.
+- **Folders:** `WW Co-pilot photos / {Contractor} – WO {n} / {date} Worker Welfare audit /` (a camp
+  inspection: `{Contractor} / {date} Camp inspection – {camp}`). **File:** `{question} {date} {time}
+  {short id}.jpg` (Saudi time; `General` for site photos, `Unplaced` before it's placed). Names:
+  `supabase/functions/_shared/drivePaths.ts`.
+- **Settings › Google Drive:** everyone sees whether it's on, the account and how many photos are
+  waiting; the admin connects once (Google's own sign-in, access to the files the app makes only),
+  opens the folder, copies the missing photos (older ones) and disconnects. If Google stops the
+  access (a password change), the line turns amber: Connect again.
+- **The photo viewer** says where the copy is under the photo: "Saved to Google Drive" (green, tick),
+  "Waiting to copy to Google Drive", or "On this phone. Goes to Google Drive after the next sync."
+  Nothing is said when Drive isn't used.
+- A photo deleted in the app stays in Drive (Drive is the safe copy).
+
 ## Long-press
 - **Hold 450 ms.** The item sinks a little while you hold (a "charge"), then a haptic press.
 - **Pop-up.**

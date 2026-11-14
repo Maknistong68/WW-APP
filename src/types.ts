@@ -143,6 +143,8 @@ export interface Photo {
   updatedAt?: string
   /** Set once the blob has been uploaded to cloud storage. */
   syncedAt?: string
+  /** Its copy in the team's Google Drive folder (set by the server; src/lib/drive.ts). */
+  driveFileId?: string
 }
 
 export interface WalkthroughLine {

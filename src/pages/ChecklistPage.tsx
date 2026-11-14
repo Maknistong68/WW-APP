@@ -36,6 +36,7 @@ import Icon from '../components/Icon'
 import { newer } from '../lib/sync'
 import { useAuthInfo } from '../lib/auth'
 import { useGoBack } from '../lib/nav'
+import { driveOn, photoDriveText } from '../lib/drive'
 import LoggedInspection from '../components/LoggedInspection'
 import {
   learnedSuggestions,
@@ -1258,6 +1259,17 @@ export default function ChecklistPage() {
         >
           <div className="viewer">
             <PhotoThumb blob={viewingPhoto.blob} />
+            {(() => {
+              // live: the Drive copy can land while the photo is open
+              const live = photos?.find((p) => p.id === viewingPhoto.id) ?? viewingPhoto
+              const text = photoDriveText(live, driveOn())
+              return text ? (
+                <div className={`drive-note${live.driveFileId ? ' saved' : ''}`}>
+                  <Icon name={live.driveFileId ? 'check-circle' : 'cloud'} size={16} fill={!!live.driveFileId} />
+                  {text}
+                </div>
+              ) : null
+            })()}
             <div className="field" style={{ marginTop: 12 }}>
               <label>Caption (printed in the reports)</label>
               <input
