@@ -393,14 +393,6 @@ button.row { cursor: pointer; }
 .subcon-check .obs-chips { margin-top: 0; }
 .subcon-check .subcon-all { font-weight: 600; }
 .warn-text { color: var(--warn); font-weight: 600; }
-.ok-text { color: var(--good); flex-shrink: 0; }
-.danger-text { color: var(--bad); font-weight: 600; }
-/* Settings › Google Drive: the account and counts are the point, so they wrap */
-.drive-card .row-sub { white-space: normal; overflow-wrap: anywhere; }
-a.row { color: inherit; text-decoration: none; }
-/* a photo's Drive copy, under the photo in the viewer */
-.drive-note { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; color: var(--muted); }
-.drive-note.saved { color: var(--good); font-weight: 600; }
 .docs-card { padding: 16px 18px; }
 .docs-card .checks { gap: 8px 14px; }
 

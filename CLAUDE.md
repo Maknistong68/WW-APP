@@ -161,15 +161,6 @@ node scripts/layout-check.mjs   # after UI changes: phone layout (nothing under 
   computer. Home shows `GetStarted` (steps from `src/lib/onboarding.ts`, done by doing: installed, name, synced,
   holding a ticket, saving KPIs, opening the Dashboard, inviting) and `UseAppNote` after a skip; Settings › Get
   started brings the card back. Waiting asks for the name and checks again every 30 s.
-- Edge Function settings live in `supabase/config.toml` (`sign-in`: verify_jwt off; `invite-user`: on; `drive-connect`:
-  off, it's Google's redirect; `drive-photo`: on). A phone only
+- Edge Function settings live in `supabase/config.toml` (`sign-in`: verify_jwt off; `invite-user`: on). A phone only
   sends its signed-in person's own activity entries (`src/lib/activityPush.ts`); others wait for their owner.
-- Photos → Google Drive: the admin connects one Google account once (Settings › Google Drive,
-  `src/components/DriveCard.tsx`; Edge Function `supabase/functions/drive-connect`, scope `drive.file`, secrets
-  `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`; the refresh token sits in table `drive_link`, RLS on with no policies, so
-  only the functions read it). After each sync a phone asks `drive-photo` to copy its person's photos with no
-  `photos.drive_file_id` yet (`photosToCopy` in `src/lib/drive.ts`, called from `sync.ts`; `drive_claimed_at` stops
-  double copies); the admin's "Copy missing photos now" sweeps the rest. Folder and file names:
-  `supabase/functions/_shared/drivePaths.ts`; Google calls `_shared/google.ts` (both tested by vitest). The viewer shows
-  the copy's state (`photoDriveText`).
 - Supabase schema: `supabase/schema.sql` (project `ww-copilot`; built-in config in `.env.production`).
