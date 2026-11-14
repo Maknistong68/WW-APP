@@ -119,7 +119,7 @@ export default function CampDetailPage() {
       <div className="list" style={{ marginTop: 12 }}>
         {contractor ? (
           <button className="row" onClick={() => navigate(`/contractors/${contractor.uuid}`)}>
-            <span className="row-main">Contractor</span>
+            <span className="row-label">Contractor</span>
             <span className="row-trail" style={{ color: 'var(--brand)', fontWeight: 600 }}>{contractor.name}</span>
             <span className="row-chev">
               <Icon name="chevron-right" size={18} />
@@ -127,7 +127,7 @@ export default function CampDetailPage() {
           </button>
         ) : (
           <div className="row">
-            <span className="row-main">Contractor</span>
+            <span className="row-label">Contractor</span>
             <span className="row-trail">—</span>
           </div>
         )}
@@ -137,7 +137,7 @@ export default function CampDetailPage() {
           ['Active', camp.active ? 'Yes' : 'No'],
         ].map(([l, v]) => (
           <div key={l} className="row">
-            <span className="row-main">{l}</span>
+            <span className="row-label">{l}</span>
             <span className="row-trail">{v}</span>
           </div>
         ))}

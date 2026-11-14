@@ -45,6 +45,7 @@ Welfare routine: tickets, contractors and work orders, KPIs, audits, dashboard a
 ```bash
 npm test        # vitest: KPI rules, roles, to-do, dashboard, money, filters
 npm run build   # strict tsc + vite build
+node scripts/layout-check.mjs   # after UI changes: phone layout (nothing under bars, no overlaps, no cut-off text)
 ```
 
 ## Where things are

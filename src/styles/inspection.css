@@ -27,7 +27,7 @@
 .progress-bar { height: 8px; border-radius: 999px; background: var(--press); overflow: hidden; }
 /* scaleX, not width: animating width re-lays out the page on every frame */
 .progress-bar > div { width: 100%; height: 100%; border-radius: 999px; background: var(--brand); transform-origin: left center; transition: transform var(--dur-in) var(--ease-90); }
-.progress-text { margin-top: 6px; font-size: 14px; font-weight: 500; color: var(--muted); max-height: 24px; transition: opacity var(--dur-med) var(--ease-80); }
+.progress-text { margin-top: 6px; font-size: 14px; font-weight: 500; color: var(--muted); max-height: 24px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; transition: opacity var(--dur-med) var(--ease-80); }
 .toolbar { padding: 0 var(--gutter) 12px; }
 .toolbar > * { max-width: 720px; margin-left: auto; margin-right: auto; }
 .search-row { display: flex; gap: 8px; }
@@ -58,7 +58,7 @@
   transition: background-color var(--dur-med) var(--ease-80), color var(--dur-med) var(--ease-80), transform var(--dur-med) var(--ease-80);
 }
 .chip.active { background: var(--brand-tint); color: var(--brand); box-shadow: inset 0 0 0 1.5px var(--brand); }
-.top-stack.compact .progress-text, .top-stack.compact .chip-row { max-height: 0; opacity: 0; margin: 0; pointer-events: none; }
+.top-stack.compact .progress-text, .top-stack.compact .chip-row { max-height: 0; opacity: 0; margin: 0; overflow: hidden; pointer-events: none; }
 .top-stack.compact .app-header { padding-top: 2px; padding-bottom: 2px; min-height: 52px; }
 .result-count { font-size: 14px; color: var(--muted); margin: 6px 2px 12px; }
 
@@ -116,6 +116,8 @@
 }
 .add-photo:active { background: var(--press); }
 .fab-stack { position: fixed; right: var(--gutter); bottom: calc(var(--bottom-gap) + 8px); z-index: 30; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+/* The page ends above the camera buttons, so the last card is never under them. */
+body:has(.fab-stack:not([hidden])) .page { padding-bottom: calc(var(--bottom-gap) + 160px); }
 .fab {
   width: 68px; height: 68px; border-radius: 50%; border: none; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;

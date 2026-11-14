@@ -71,6 +71,15 @@ per screen.
 - **Rows:** dividers are inset and start after the tile. The "more" icon is ⋮ (vertical).
 - **On/off:** a One UI switch, i.e. `input[type=checkbox][role=switch]`.
 - **Touch targets:** rows ≥ 76px, buttons ≥ 52px, inspection answers 56px, chips 40–44px.
+- **Nothing covers anything on a phone** (checked at 360 and 390 px, light and dark, by
+  `node scripts/layout-check.mjs`; `--only=/route`, `--shots=DIR [--all]`):
+  - every screen ends above its bottom bars (tab bar, action bar, camera buttons: the inspection
+    page reserves room for them);
+  - nothing in the flow sits on top of something else (pinned columns and sticky headers excepted);
+  - text wraps or ends in "…", never runs into its neighbour or off the card: a row's value
+    (`.row-trail`) takes at most 62% of the row and wraps; labels (`.row-label`) never shrink;
+  - the page never scrolls sideways (wide grids scroll inside their card, the names column stays
+    narrow: `clamp(112px, 34vw, 200px)`).
 - **Filter rows never cut a button at the margin.** Up to 4 options: `.segmented.fit` (equal columns, the
   count under the label, fits at 320 px). More: `.segmented.scroll` runs edge to edge and `useChipScroll`
   (`src/lib/chipScroll.ts`) keeps the chosen chip in view. Chips inside a card scroll to the card's edge.

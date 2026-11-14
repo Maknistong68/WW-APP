@@ -172,7 +172,7 @@
 .hkpi-row-why { font-size: 14px; font-weight: 500; color: var(--muted); }
 .hkpi-chev { flex: none; color: var(--faint); }
 .hkpi-sofar {
-  display: inline-flex; align-items: center; gap: 4px; min-height: 36px; margin: -4px 0 10px 16px; padding: 0 12px; border: 0; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 4px; min-height: 36px; margin: 0 0 12px 16px; padding: 0 12px; border: 0; border-radius: 999px;
   background: var(--press); color: var(--muted); font: 600 13px var(--font); cursor: pointer;
 }
 .hkpi-sofar b { color: var(--text); font-weight: 700; }
@@ -254,7 +254,7 @@
 .cmp-scroll { overflow-x: auto; margin-right: -4px; padding: 0 4px 4px 0; scrollbar-width: none; }
 .cmp-scroll::-webkit-scrollbar { display: none; }
 .cmp-grid { display: flex; flex-direction: column; gap: 4px; min-width: max-content; width: 100%; }
-.cmp-row { display: grid; grid-template-columns: minmax(112px, 1.6fr) repeat(var(--cols), minmax(44px, 1fr)); gap: 4px; align-items: center; }
+.cmp-row { display: grid; grid-template-columns: clamp(112px, 34vw, 200px) repeat(var(--cols), minmax(44px, 1fr)); gap: 4px; align-items: center; }
 .cmp-head .cmp-mon { text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); }
 /* The name stays pinned while the months scroll sideways. */
 .cmp-name {
