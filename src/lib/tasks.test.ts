@@ -142,6 +142,14 @@ describe('Home tasks: tickets, camps, drafts', () => {
     const draft = tasks.find((t) => t.kind === 'draft')!
     expect([draft.group, draft.dueText]).toEqual(['later', 'Continue'])
   })
+  it('a draft Worker Welfare audit waits under Audits, named by its work order; it never touches camps', () => {
+    const audits = [{ id: 9, uuid: 'a9', status: 'draft', templateId: 'welfare_audit', createdAt: '2026-11-03T08:00:00Z', info: { reviewDate: '2026-11-03', workOrderUuid: 'w1', contractorUuid: 'c1', contractorNames: 'RPCO' }, responses: {} } as unknown as Inspection]
+    const { tasks } = buildTasks(base({ audits }), '2026-11-04')
+    const draft = tasks.find((t) => t.key === 'draft:9')!
+    expect([draft.title, draft.detail, draft.group]).toEqual(['Draft welfare audit', 'WO 882 · started 3 Nov', 'later'])
+    expect(tasksIn(tasks, 'audits').some((t) => t.key === 'draft:9')).toBe(true)
+    expect(tasksIn(tasks, 'accommodation').some((t) => t.key === 'draft:9')).toBe(false)
+  })
 })
 
 describe('Home tasks: done since last look', () => {

@@ -11,6 +11,8 @@ export interface Question {
   /** Question code as it appears in the workbook, e.g. "A1". */
   code: string
   text: string
+  /** Points the question is worth when scoring by sections (default 1). */
+  weight?: number
 }
 
 export interface Section {
@@ -34,6 +36,19 @@ export interface InspectionTemplate {
   /** Title of the Word findings report. */
   wordTitle: string
   sections: Section[]
+  /**
+   * How a question is answered: 'compliance' = one row, Full / Partial / No / N/A
+   * (no Yes/No). Default: Yes/No plus the compliance assessment.
+   */
+  answers?: 'compliance'
+  /**
+   * 'sections': each section scores its points (Full = weight, Partial = half)
+   * out of the weights answered (N/A left out), and the audit scores the average
+   * of its sections. Default: the average over all scored questions.
+   */
+  scoring?: 'sections'
+  /** What it's done for: a camp (default) or a contractor's work order. */
+  startFrom?: 'camp' | 'workOrder'
 }
 
 export interface QuestionResponse {
@@ -69,6 +84,17 @@ export interface GeneralInfo {
   facilityRepresentative: string
   /** e.g. "4800000882/1272" — used in the Word report. */
   workOrder: string
+  /** Worker Welfare audit: the work order audited (and its contractor). */
+  workOrderUuid?: string
+  contractorUuid?: string
+  /** Worker Welfare audit: what the report's header and front page show. */
+  project?: string
+  auditor?: string
+  contactNo?: string
+  inspectionNo?: string
+  clientRep?: string
+  contractorRep?: string
+  approvedBy?: string
 }
 
 export interface Inspection {
@@ -431,6 +457,8 @@ export interface KpiMonth extends RecordBase {
   auditClosed?: number | null
   /** YYYY-MM-DD; defaults to the audit date + 30 days. */
   auditDueDate?: string
+  /** The Worker Welfare audit that filled the score, date and findings (its uuid). */
+  auditInspectionUuid?: string
 }
 
 export interface Manpower extends RecordBase {

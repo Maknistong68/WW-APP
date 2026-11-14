@@ -11,7 +11,8 @@ import { showToast } from '../components/Toast'
 import { describeSaveError } from '../lib/saveError'
 import { reloadApp } from '../lib/useSave'
 import { beginEdit } from '../lib/editing'
-import type { Camp, GeneralInfo, Inspection } from '../types'
+import { quarterOf } from '../lib/audits'
+import type { Camp, Contractor, GeneralInfo, Inspection, WorkOrder } from '../types'
 
 // The phone's own day (Saudi time), not UTC: an audit at 01:00 on the 1st belongs to that month.
 const today = () => localDate()
@@ -56,6 +57,25 @@ function fillFromCamp(
   }
 }
 
+/** Contractor, work order and project taken from the chosen work order (Worker Welfare audit). */
+function fillFromWorkOrder(prev: GeneralInfo, wo: WorkOrder, contractors: Contractor[]): GeneralInfo {
+  const c = contractors.find((x) => x.uuid === wo.contractorUuid)
+  return {
+    ...prev,
+    workOrderUuid: wo.uuid,
+    contractorUuid: wo.contractorUuid,
+    contractorNames: c?.name ?? prev.contractorNames,
+    workOrder: wo.number,
+    project: prev.project || wo.label,
+  }
+}
+
+/** A suggested inspection number: WWA-2026-Q4-882. */
+const suggestedNo = (info: GeneralInfo) => {
+  if (!info.workOrder || !info.reviewDate) return ''
+  return `WWA-${quarterOf(info.reviewDate.slice(0, 7)).key}-${info.workOrder}`
+}
+
 const remember = (key: string, fallback = '') => {
   try {
     return localStorage.getItem(`ww.${key}`) ?? fallback
@@ -67,13 +87,14 @@ const remember = (key: string, fallback = '') => {
 /** Unsubmitted new-inspection forms are drafted here so nothing typed is lost. */
 const draftKey = (templateId: string) => `ww.formDraft.${templateId}`
 
-const blankInfo = (): GeneralInfo => ({
-  typeOfReview: 'Welfare Inspection',
+const blankInfo = (templateId?: string): GeneralInfo => ({
+  ...(templateId === 'welfare_audit'
+    ? { typeOfReview: 'Worker Welfare audit', facilityType: 'Work order', auditor: remember('auditor', remember('auditTeam')), contactNo: remember('contactNo') }
+    : { typeOfReview: 'Welfare Inspection', facilityType: 'Camp' }),
   reviewDate: today(),
   auditTeam: remember('auditTeam'),
   region: remember('region'),
   facilityLocation: '',
-  facilityType: 'Camp',
   mapCoordinates: '',
   googleMapsLink: '',
   facilityManagement: '',
@@ -109,13 +130,13 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
         const raw = localStorage.getItem(draftKey(templateId))
         if (raw) {
           restoredDraft.current = true
-          return { ...blankInfo(), ...(JSON.parse(raw) as Partial<GeneralInfo>) }
+          return { ...blankInfo(templateId), ...(JSON.parse(raw) as Partial<GeneralInfo>) }
         }
       } catch {
         // corrupt draft — fall through to a blank form
       }
     }
-    return blankInfo()
+    return blankInfo(templateId)
   })
   const [loaded, setLoaded] = useState(mode === 'new')
   const [saving, setSaving] = useState(false)
@@ -144,6 +165,16 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
     prefilled.current = true
     setInfo((prev) => fillFromCamp(prev, camp, contractors, workOrders))
   }, [mode, campUuid, camps, contractors, workOrders])
+
+  // Starting from a work order (Worker Welfare audit): fill the contractor and work order once.
+  const woParam = params.get('wo') ?? ''
+  useEffect(() => {
+    if (prefilled.current || mode !== 'new' || !woParam || !contractors || !workOrders) return
+    const wo = workOrders.find((w) => w.uuid === woParam)
+    if (!wo) return
+    prefilled.current = true
+    setInfo((prev) => fillFromWorkOrder(prev, wo, contractors))
+  }, [mode, woParam, contractors, workOrders])
 
   useEffect(() => {
     if (restoredDraft.current) {
@@ -217,6 +248,8 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
       try {
         localStorage.setItem('ww.auditTeam', info.auditTeam)
         localStorage.setItem('ww.region', info.region)
+        if (info.auditor) localStorage.setItem('ww.auditor', info.auditor)
+        if (info.contactNo) localStorage.setItem('ww.contactNo', info.contactNo)
       } catch {
         // private-mode storage failures are non-fatal
       }
@@ -235,7 +268,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
         status: 'draft',
         createdAt: now,
         updatedAt: now,
-        info,
+        info: template.startFrom === 'workOrder' ? { ...info, inspectionNo: info.inspectionNo || suggestedNo(info) } : info,
         responses: {},
         notes: '',
         campUuid,
@@ -266,7 +299,7 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
       <label>{label}</label>
       <input
         type={opts.type ?? 'text'}
-        value={info[key]}
+        value={info[key] ?? ''}
         onChange={set(key)}
         placeholder={opts.placeholder}
         required={opts.required}
@@ -275,7 +308,13 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
     </div>
   )
 
-  const backTo = mode === 'edit' ? `/inspection/${inspectionId}` : campUuid ? `/camps/${campUuid}` : '/camps'
+  const forWorkOrder = template.startFrom === 'workOrder'
+  const backTo = mode === 'edit' ? `/inspection/${inspectionId}` : forWorkOrder ? '/audits' : campUuid ? `/camps/${campUuid}` : '/camps'
+  const woOptions = (workOrders ?? [])
+    .filter((w) => w.active || w.uuid === info.workOrderUuid)
+    .map((w) => ({ w, c: (contractors ?? []).find((x) => x.uuid === w.contractorUuid) }))
+    .filter((x) => x.c && (x.c.active || x.w.uuid === info.workOrderUuid))
+    .sort((a, b) => a.c!.name.localeCompare(b.c!.name) || a.w.number.localeCompare(b.w.number, undefined, { numeric: true }))
 
   return (
     <>
@@ -283,10 +322,63 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
         <button className="back" onClick={() => goBack(backTo)} aria-label="Back">
           <Icon name="chevron-left" size={26} />
         </button>
-        <h1>{mode === 'edit' ? 'Inspection details' : `New ${template.name}`}</h1>
+        <h1>{mode === 'edit' ? (forWorkOrder ? 'Audit details' : 'Inspection details') : `New ${template.name}`}</h1>
       </header>
       <main className="page">
         <form ref={formRef} onSubmit={submit}>
+          {forWorkOrder ? (
+            <>
+              <div className="card">
+                <div className="section-label" style={{ marginTop: 0 }}>
+                  Work order
+                </div>
+                <div className="field">
+                  <label htmlFor="audit-wo">Contractor and work order</label>
+                  <select
+                    id="audit-wo"
+                    required
+                    value={info.workOrderUuid ?? ''}
+                    onChange={(e) => {
+                      const wo = workOrders?.find((w) => w.uuid === e.target.value)
+                      dirty.current = true
+                      if (wo) setInfo((prev) => fillFromWorkOrder(prev, wo, contractors ?? []))
+                    }}
+                  >
+                    <option value="" disabled>
+                      Pick the work order audited
+                    </option>
+                    {woOptions.map(({ w, c }) => (
+                      <option key={w.uuid} value={w.uuid}>
+                        {c!.name} · WO {w.number}
+                        {w.label ? ` · ${w.label}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {field('Project', 'project', { placeholder: 'e.g. Package 1 residential' })}
+                {field('Location', 'facilityLocation', { placeholder: 'e.g. site office, north gate' })}
+              </div>
+              <div className="card">
+                <div className="section-label" style={{ marginTop: 0 }}>
+                  Audit
+                </div>
+                {field('Audit date', 'reviewDate', { type: 'date', required: true })}
+                {info.reviewDate && <p className="map-hint">Counts for {quarterOf(info.reviewDate.slice(0, 7)).label}.</p>}
+                {field('Auditor', 'auditor', { placeholder: 'Your name', required: true })}
+                {field('Contact no.', 'contactNo', { type: 'tel' })}
+                {field('Inspection no.', 'inspectionNo', { placeholder: suggestedNo(info) || 'e.g. WWA-2026-Q4-882' })}
+              </div>
+              <div className="card">
+                <div className="section-label" style={{ marginTop: 0 }}>
+                  Report sign-off (optional)
+                </div>
+                {field('Client representative', 'clientRep')}
+                {field('Contractor representative', 'contractorRep')}
+                {field('Approved by', 'approvedBy')}
+              </div>
+            </>
+          ) : (
+            <>
           <div className="card">
             <div className="section-label" style={{ marginTop: 0 }}>
               Review
@@ -389,13 +481,15 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
             {field('Projects served by contractors in the facility', 'projectsServed')}
             {field('Project / Work Order', 'workOrder', { placeholder: 'e.g. 4800000882/1272' })}
           </div>
+            </>
+          )}
 
           {/* Enter key still submits; the visible button is in the action bar. */}
           <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
         </form>
         <ActionBar
           primary={{
-            label: mode === 'edit' ? 'Save changes' : 'Start inspection',
+            label: mode === 'edit' ? 'Save changes' : forWorkOrder ? 'Start audit' : 'Start inspection',
             icon: mode === 'edit' ? 'check' : 'play',
             disabled: saving,
             onClick: () => formRef.current?.requestSubmit(),

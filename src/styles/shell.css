@@ -312,6 +312,8 @@ body.has-actionbar .tabbar { display: none; }
 }
 .toast.closing { opacity: 0; transform: translate(-50%, 12px); transition: opacity var(--dur-out) var(--ease-exit), transform var(--dur-out) var(--ease-exit); }
 body.has-actionbar .toast { bottom: calc(var(--bottom-gap) + var(--actionbar-h) + 12px); }
+/* With a sheet open, a message shows at the top: never on the sheet's own buttons and text. */
+body:has(.modal-backdrop) .toast { top: calc(env(safe-area-inset-top) + 12px); bottom: auto; }
 .toast-text { font-size: 15px; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
 .toast-action { min-height: 44px; background: none; color: #6fe3a0; border: none; border-radius: var(--r-btn); padding: 8px 10px; font: 700 15px var(--font); cursor: pointer; white-space: nowrap; }
 .toast.bad { padding-left: 14px; }

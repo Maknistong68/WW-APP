@@ -4,11 +4,16 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { saveAs } from 'file-saver'
 import { compressPhoto, db, logEvent, newUuid } from '../db'
 import { tryWrite } from '../lib/safeWrite'
-import { isAnswered, isFlagged, scoreInspection } from '../lib/score'
+import { gradeOf, isAnswered, isFlagged, scoreInspection, scoreText } from '../lib/score'
+import { kpiStatus, pct as pctText } from '../lib/kpi'
+import { kpiTone } from '../lib/tone'
+import { reducedMotion } from '../lib/motion'
+import { WELFARE_COMMENTS } from '../templates/welfareComments'
 import { getTemplate, getWalkthrough, countItems } from '../templates'
 import {
   EMPTY_RESPONSE,
   FACILITY_PHOTOS,
+  type ComplianceAssessment,
   WALK_STATUS_PATCH,
   type Inspection,
   type Photo,
@@ -19,6 +24,9 @@ import {
 } from '../types'
 import PhotoThumb from '../components/PhotoThumb'
 import QuestionItem from '../components/QuestionItem'
+import AuditQuestion from '../components/AuditQuestion'
+import AuditCompleteSheet from '../components/AuditCompleteSheet'
+import ActionBar from '../components/ActionBar'
 import WalkthroughLine, { lineStatus } from '../components/WalkthroughLine'
 import Modal, { ConfirmSheet } from '../components/Modal'
 import { showToast } from '../components/Toast'
@@ -60,6 +68,9 @@ export default function ChecklistPage() {
   const [flashItem, setFlashItem] = useState<string | null>(null)
   const [exporting, setExporting] = useState<null | 'excel' | 'word'>(null)
   const [confirmFill, setConfirmFill] = useState(false)
+  // Worker Welfare audit: the finishing sheet, and the section on screen (shown in the header)
+  const [completing, setCompleting] = useState(false)
+  const [nowSection, setNowSection] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [compact, setCompact] = useState(false)
@@ -118,19 +129,41 @@ export default function ChecklistPage() {
 
   // F-07: collapse the toolbar while scrolling down, restore on scroll up.
   useEffect(() => {
+    let frame = 0
     const onScroll = () => {
       const y = window.scrollY
-      const goingDown = y > lastScrollY.current
+      const dy = y - lastScrollY.current
       lastScrollY.current = y
-      setCompact(goingDown && y > 140)
+      // Tuck the toolbar away scrolling down, bring it back on a real scroll up. Small moves are the
+      // browser making room for the toolbar itself (near the end of the page): reacting to those
+      // makes the header jump in and out.
+      const atEnd = y + window.innerHeight >= document.documentElement.scrollHeight - 120
+      if (dy > 4 && y > 140) setCompact(true)
+      else if (y < 60 || (dy < -24 && !atEnd)) setCompact(false)
+      // the section card crossing the line under the header is the one being answered
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const line = (document.querySelector('.top-stack')?.getBoundingClientRect().bottom ?? 0) + 24
+        let now: string | null = null
+        for (const el of document.querySelectorAll<HTMLElement>('[id^="section-"]')) {
+          const r = el.getBoundingClientRect()
+          if (r.top <= line && r.bottom > line) now = el.id.slice(8)
+        }
+        setNowSection(now)
+      })
     }
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', onScroll)
+    }
   }, [])
 
   const template = inspection ? getTemplate(inspection.templateId) : undefined
   const walkthrough = inspection ? getWalkthrough(inspection.templateId) : null
   const walkMode = view === 'walk' && walkthrough !== null
+  /** Worker Welfare audit: one answer row (Full / Partial / No / N/A), scored by sections. */
+  const audit = template?.answers === 'compliance'
 
   // Guarded write-through: never overwrite a DB copy newer than the state
   // this edit came from (e.g. cloud sync pulled another device's record
@@ -286,7 +319,7 @@ export default function ChecklistPage() {
             code,
             {
               ...(ins.responses[code] ?? EMPTY_RESPONSE),
-              yesNo: 'Yes' as const,
+              yesNo: audit ? ('' as const) : ('Yes' as const),
               assessment: 'Full compliance' as const,
             },
           ]),
@@ -294,7 +327,36 @@ export default function ChecklistPage() {
       },
     }))
     logEvent(inspectionId, 'Remaining questions filled', `${codes.length} set to Full compliance`)
-    showToast({ text: `${codes.length} remaining question${codes.length === 1 ? '' : 's'} marked compliant` })
+    showToast({ text: `${codes.length} remaining question${codes.length === 1 ? '' : 's'} marked ${audit ? 'Full' : 'compliant'}` })
+  }
+
+  /** Audit: the rest of one section answered Full in one tap. */
+  const fillSection = (section: Section) => {
+    const codes = section.questions.map((q) => q.code).filter((code) => !isAnswered(inspection.responses[code]))
+    if (!codes.length) return
+    update((ins) => ({
+      ...ins,
+      responses: {
+        ...ins.responses,
+        ...Object.fromEntries(codes.map((code) => [code, { ...(ins.responses[code] ?? EMPTY_RESPONSE), yesNo: '' as const, assessment: 'Full compliance' as const }])),
+      },
+    }))
+    logEvent(inspectionId, 'Section filled', `${section.letter}: ${codes.length} set to Full`)
+    showToast({ text: `${section.letter}: ${codes.length} more marked Full` })
+  }
+
+  /** Audit: answer a question; after Full or N/A the next unanswered one comes into view. */
+  const answer = (code: string, value: ComplianceAssessment) => {
+    setResponse(code, { assessment: value, yesNo: '' })
+    if (value !== 'Full compliance' && value !== 'N/A') return
+    const order = template.sections.flatMap((s) => s.questions.map((q) => q.code))
+    const next = order.slice(order.indexOf(code) + 1).find((c) => !isAnswered(inspection.responses[c]))
+    if (!next) return
+    const section = template.sections.find((s) => s.questions.some((qq) => qq.code === next))
+    if (section) setOpenSections((o) => ({ ...o, [section.letter]: true }))
+    window.setTimeout(() => {
+      document.getElementById(`item-${next}`)?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' })
+    }, 120)
   }
 
   const setLineStatus = (line: WalkLine, status: WalkStatus) => {
@@ -535,9 +597,36 @@ export default function ChecklistPage() {
   const photosFor = (code: string) => (photos ?? []).filter((p) => p.itemId === code)
 
   const searching = matches !== null
+  const score = scoreInspection(template, inspection)
+  const sectionScore = (letter: string) => score.sections?.find((x) => x.letter === letter)
+  const firstUnanswered = template.sections.flatMap((s) => s.questions).find((qq) => !isAnswered(inspection.responses[qq.code]))
+  const now = audit && nowSection ? template.sections.find((s) => s.letter === nowSection) : undefined
 
   const renderQuestion = (code: string) => {
     const question = template.sections.flatMap((s) => s.questions).find((qq) => qq.code === code)!
+    if (audit) {
+      return (
+        <AuditQuestion
+          key={code}
+          question={question}
+          resp={inspection.responses[code] ?? EMPTY_RESPONSE}
+          photos={photosFor(code)}
+          comments={WELFARE_COMMENTS[code] ?? []}
+          flash={flashItem === code}
+          onAnswer={(value) => answer(code, value)}
+          onPatch={(patch) => setResponse(code, patch)}
+          onCamera={() => {
+            itemTarget.current = code
+            itemCameraRef.current?.click()
+          }}
+          onGallery={() => {
+            itemTarget.current = code
+            itemGalleryRef.current?.click()
+          }}
+          onViewPhoto={setViewingPhoto}
+        />
+      )
+    }
     return (
       <QuestionItem
         key={code}
@@ -663,8 +752,19 @@ export default function ChecklistPage() {
           </div>
           <div className="progress-text">
             {progress.answered} of {progress.total} answered
-            {progress.flagged > 0 && ` · ${progress.flagged} non-compliance`}
+            {audit
+              ? score.pct !== null && ` · ${scoreText(score.pct)} ${gradeOf(score.pct)}`
+              : progress.flagged > 0 && ` · ${progress.flagged} non-compliance`}
           </div>
+          {now && (
+            <div className="audit-now" aria-live="polite">
+              <b>{now.letter}</b> {now.title}
+              <span>
+                {sectionScore(now.letter)?.answered ?? 0}/{now.questions.length}
+                {sectionScore(now.letter)?.pct != null && ` · ${pctText(sectionScore(now.letter)!.pct)}`}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="toolbar">
@@ -703,7 +803,7 @@ export default function ChecklistPage() {
               title={walkMode ? 'Jump to area' : 'Jump to section'}
               onClick={() => setSectionSheet(true)}
             >
-              {walkMode ? '1→13' : 'A→X'}
+              {walkMode ? `1→${walkthrough?.length ?? ''}` : `${template.sections[0]?.letter}→${template.sections[template.sections.length - 1]?.letter}`}
             </button>
           </div>
           <div className="chip-row">
@@ -711,7 +811,7 @@ export default function ChecklistPage() {
               [
                 ['all', 'All'],
                 ['unanswered', 'Unanswered'],
-                ['flagged', 'Non-compliant'],
+                ['flagged', audit ? 'No / Partial' : 'Non-compliant'],
               ] as Array<[Filter, string]>
             ).map(([f, label]) => (
               <button key={f} className={`chip${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
@@ -777,10 +877,10 @@ export default function ChecklistPage() {
           <>
             <div className="card">
               <b className="card-title">
-                <Icon name="tent" size={20} /> Facility / site photos
+                <Icon name={audit ? 'image' : 'tent'} size={20} /> {audit ? 'General photos' : 'Facility / site photos'}
               </b>
               <p className="note" style={{ margin: '4px 0 8px' }}>
-                General photos of the camp — exported into the General Information sheet.
+                {audit ? 'Site, office and document photos for the report.' : 'General photos of the camp — exported into the General Information sheet.'}
               </p>
               <div className="photo-row">
                 {facilityShots.map((p) => (
@@ -888,28 +988,47 @@ export default function ChecklistPage() {
                       <span className="section-title">{section.title}</span>
                       <span className="counts">
                         {sectionAnswered}/{section.questions.length}
+                        {audit && sectionScore(section.letter)?.pct != null && (
+                          <span className={`sec-pct ${kpiTone(kpiStatus(sectionScore(section.letter)!.pct))}`}>{pctText(sectionScore(section.letter)!.pct)}</span>
+                        )}
                       </span>
                       <span className="chev">
                         <Icon name={open ? 'chevron-down' : 'chevron-right'} size={20} />
                       </span>
                     </button>
                     {open && section.questions.map((qq) => renderQuestion(qq.code))}
+                    {open && audit && canEdit && sectionAnswered < section.questions.length && (
+                      <button className="btn block fill-section" onClick={() => fillSection(section)}>
+                        <Icon name="check" size={19} /> Mark the other {section.questions.length - sectionAnswered} in {section.letter} as Full
+                      </button>
+                    )}
                   </div>
                 )
               })
             )}
 
             <div className="card">
+              {audit && (
+                <div className="audit-score in-card">
+                  <span className={`audit-score-num ${kpiTone(kpiStatus(score.pct))}`}>{scoreText(score.pct)}</span>
+                  <span className="audit-score-grade">{gradeOf(score.pct) || 'Not scored yet'}</span>
+                  <span className="audit-score-sub">
+                    {(() => {
+                      const n = Object.values(inspection.responses).filter((r) => r.assessment === 'No compliance').length
+                      return `${n} finding${n === 1 ? '' : 's'} (No) · average of the ${score.sections?.filter((x) => x.pct !== null).length ?? 0} sections answered`
+                    })()}
+                  </span>
+                </div>
+              )}
               <div className="field">
-                <label>Conclusion remarks (added to the Word report)</label>
+                <label>{audit ? 'Conclusion remarks (in the report)' : 'Conclusion remarks (added to the Word report)'}</label>
                 <textarea
                   value={inspection.notes}
                   placeholder="Particular concerns, priorities, deadlines…"
                   onChange={(e) => update((ins) => ({ ...ins, notes: e.target.value }))}
                 />
               </div>
-              {(() => {
-                const score = scoreInspection(template, inspection)
+              {!audit && (() => {
                 return (
                   score.pct !== null && (
                     <p className="note" style={{ marginTop: 0 }}>
@@ -921,24 +1040,28 @@ export default function ChecklistPage() {
               })()}
               {canEdit && progress.answered < progress.total && (
                 <button className="btn block" onClick={() => setConfirmFill(true)}>
-                  <Icon name="check" size={19} /> Fill remaining {progress.total - progress.answered} as
-                  compliant
+                  <Icon name="check" size={19} /> {audit ? `Mark the other ${progress.total - progress.answered} as Full` : `Fill remaining ${progress.total - progress.answered} as compliant`}
                 </button>
               )}
               <button
                 hidden={!canEdit}
                 className={`btn block ${inspection.status === 'completed' ? '' : 'primary'}`}
                 style={{ marginTop: 10 }}
-                onClick={() =>
+                onClick={() => {
+                  // an audit is finished on its sheet (summary, quarterly audit KPI)
+                  if (audit && inspection.status !== 'completed') {
+                    flushSave()
+                    return setCompleting(true)
+                  }
                   update((ins) => {
                     const completed = ins.status !== 'completed'
                     logEvent(inspectionId, completed ? 'Inspection completed' : 'Inspection reopened')
                     return { ...ins, status: completed ? 'completed' : 'draft' }
                   })
-                }
+                }}
               >
                 <Icon name={inspection.status === 'completed' ? 'undo' : 'check'} size={19} />
-                {inspection.status === 'completed' ? 'Reopen as draft' : 'Mark inspection complete'}
+                {inspection.status === 'completed' ? 'Reopen as draft' : audit ? 'Mark audit complete' : 'Mark inspection complete'}
               </button>
               <div className="btn-row">
                 <button className="btn" disabled={exporting !== null} onClick={() => doExport('excel')}>
@@ -957,8 +1080,43 @@ export default function ChecklistPage() {
         )}
       </main>
 
+      {/* Audit: one bar at the bottom (never over the answers): next question, or complete; camera and gallery */}
+      {audit && canEdit && (
+        <ActionBar
+          secondary={[
+            { icon: 'camera', label: 'Take a photo', onClick: () => quickCameraRef.current?.click() },
+            { icon: 'image', label: 'Add photos from the gallery', onClick: () => quickGalleryRef.current?.click() },
+          ]}
+          primary={
+            inspection.status === 'completed'
+              ? undefined
+              : firstUnanswered
+                ? { icon: 'arrow-right', label: `Next: ${firstUnanswered.code} · ${progress.total - progress.answered} left`, onClick: () => jumpToItem(firstUnanswered.code) }
+                : { icon: 'check', label: 'Complete audit', onClick: () => (flushSave(), setCompleting(true)) }
+          }
+        />
+      )}
+      {completing && (
+        <AuditCompleteSheet
+          template={template}
+          audit={inspection}
+          onShow={(what) => {
+            setCompleting(false)
+            setQuery('')
+            setFilter(what)
+            window.scrollTo({ top: 0 })
+          }}
+          onComplete={() => {
+            update((ins) => ({ ...ins, status: 'completed' }))
+            logEvent(inspectionId, 'Audit completed', `${scoreText(score.pct)} ${gradeOf(score.pct)}`)
+            showToast({ text: `Audit complete · ${scoreText(score.pct)} ${gradeOf(score.pct)}` })
+          }}
+          onClose={() => setCompleting(false)}
+        />
+      )}
+
       {/* Photo-first flow: floating camera + gallery buttons */}
-      <div className="fab-stack" hidden={!canEdit}>
+      <div className={`fab-stack${compact ? ' away' : ''}`} hidden={!canEdit || audit}>
         <button
           className="fab small"
           aria-label="Add photos from gallery"
@@ -1074,8 +1232,8 @@ export default function ChecklistPage() {
           title="Fill all remaining questions?"
           message={`This marks the ${progress.total - progress.answered} unanswered question${
             progress.total - progress.answered === 1 ? '' : 's'
-          } as Yes / Full compliance. Anything you already answered is untouched, and you can still change any answer afterwards.`}
-          confirmLabel="Mark all compliant"
+          } as ${audit ? 'Full' : 'Yes / Full compliance'}. Anything you already answered is untouched, and you can still change any answer afterwards.`}
+          confirmLabel={audit ? 'Mark them Full' : 'Mark all compliant'}
           onCancel={() => setConfirmFill(false)}
           onConfirm={() => {
             setConfirmFill(false)

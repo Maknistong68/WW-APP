@@ -36,12 +36,63 @@ export const assessmentPct = (a: ComplianceAssessment | undefined): number | nul
   return s === null ? null : s * 50
 }
 
+export interface SectionScore {
+  letter: string
+  title: string
+  /** Full = the question's weight, Partial = half of it, No = 0. */
+  points: number
+  /** The weights of the questions answered Full / Partial / No (N/A left out). */
+  possible: number
+  /** points ÷ possible, 0–100; null until something in it is scored. */
+  pct: number | null
+  answered: number
+  total: number
+  flagged: number
+}
+
 export interface InspectionScore {
   /** 0–100, or null when nothing scoreable is answered yet. */
   pct: number | null
   answered: number
   total: number
   flagged: number
+  /** Templates scored by sections (Worker Welfare audit): each section's score. */
+  sections?: SectionScore[]
+}
+
+/** Scoring by sections: each section's points out of what it could get; the audit averages its sections. */
+function scoreBySections(template: InspectionTemplate, inspection: Inspection): InspectionScore {
+  const sections: SectionScore[] = template.sections.map((section) => {
+    let points = 0
+    let possible = 0
+    let answered = 0
+    let flagged = 0
+    for (const q of section.questions) {
+      const resp = inspection.responses[q.code]
+      if (!resp) continue
+      if (isAnswered(resp)) answered++
+      if (isFlagged(resp)) flagged++
+      const share = assessmentPct(resp.assessment)
+      if (share === null) continue
+      const weight = q.weight ?? 1
+      possible += weight
+      points += (weight * share) / 100
+    }
+    return { letter: section.letter, title: section.title, points, possible, pct: possible ? (points / possible) * 100 : null, answered, total: section.questions.length, flagged }
+  })
+  const scored = sections.filter((x) => x.pct !== null)
+  const pct = scored.length ? Math.round((scored.reduce((a, x) => a + x.pct!, 0) / scored.length) * 10) / 10 : null
+  const add = (k: 'answered' | 'total' | 'flagged') => sections.reduce((a, x) => a + x[k], 0)
+  return { pct, answered: add('answered'), total: add('total'), flagged: add('flagged'), sections }
+}
+
+/** An audit score as the workbook shows it: one decimal when it has one ("96.8%", "100%"). */
+export const scoreText = (pct: number | null | undefined) => (pct === null || pct === undefined ? '—' : `${Math.round(pct * 10) / 10}%`)
+
+/** The grade for a final score (Worker Welfare audit): Excellent 90+, Good 80+, Partially 70+, Minimally 60+. */
+export function gradeOf(pct: number | null | undefined): string {
+  if (pct === null || pct === undefined) return ''
+  return pct >= 90 ? 'Excellent' : pct >= 80 ? 'Good' : pct >= 70 ? 'Partially compliant' : pct >= 60 ? 'Minimally compliant' : 'Non-compliant'
 }
 
 /**
@@ -49,6 +100,7 @@ export interface InspectionScore {
  * N/A excluded; the score is the average over scored questions.
  */
 export function scoreInspection(template: InspectionTemplate, inspection: Inspection): InspectionScore {
+  if (template.scoring === 'sections') return scoreBySections(template, inspection)
   let scored = 0
   let sum = 0
   let answered = 0

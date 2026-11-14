@@ -116,6 +116,7 @@
 }
 .add-photo:active { background: var(--press); }
 .fab-stack { position: fixed; right: var(--gutter); bottom: calc(var(--bottom-gap) + 8px); z-index: 30; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.fab-stack[hidden] { display: none; }
 /* The page ends above the camera buttons, so the last card is never under them. */
 body:has(.fab-stack:not([hidden])) .page { padding-bottom: calc(var(--bottom-gap) + 160px); }
 .fab {
@@ -162,3 +163,47 @@ body:has(.fab-stack:not([hidden])) .page { padding-bottom: calc(var(--bottom-gap
 .viewer { padding: 16px; overflow-y: auto; }
 .viewer img { width: 100%; max-height: 50vh; max-height: 50dvh; object-fit: contain; border-radius: 22px; background: #111; }
 .section-head .section-title { flex: 1; min-width: 0; line-height: 1.3; }
+
+/* ---- Worker Welfare audit: phone-first answering ------------------------------- */
+/* One row of four answers (icon over word), 56 px tall, so a thumb hits the right one. */
+.result-btns.audit-answers { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.audit-answers button { flex-direction: column; gap: 2px; padding: 6px 2px; font-size: 14px; border-radius: 16px; }
+/* Photos sit in one strip that scrolls sideways: fixed squares, never on top of the text. */
+.audit-photos { display: flex; gap: 10px; overflow-x: auto; margin: 6px 0 0; padding-bottom: 4px; scrollbar-width: none; }
+.audit-photos::-webkit-scrollbar { display: none; }
+.audit-photos > * { flex: none; }
+.audit-warn { margin: 10px 0 0; font-size: 14px; font-weight: 600; color: var(--bad); }
+/* The section being answered stays in the header, even when it tucks away while scrolling. */
+.audit-now {
+  display: flex; align-items: baseline; gap: 6px; padding: 0 var(--gutter) 8px; min-width: 0;
+  font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden;
+}
+.audit-now b { flex: none; color: var(--info); }
+.audit-now span { margin-left: auto; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.section-head .counts { display: inline-flex; align-items: baseline; gap: 6px; }
+.sec-pct { font-size: 13px; font-weight: 700; }
+.sec-pct.good { color: var(--good); }
+.sec-pct.warn { color: var(--warn); }
+.sec-pct.bad { color: var(--bad); }
+.btn.block.fill-section { width: calc(100% - 32px); margin: 4px 16px 16px; }
+/* Like the tab bar: the floating buttons slide away while scrolling down, so they don't sit on the answers. */
+.fab-stack { transition: transform var(--dur-med) var(--ease-90), opacity var(--dur-med) var(--ease-80); }
+.fab-stack.away { transform: translateY(calc(100% + var(--bottom-gap) + 24px)); opacity: 0; pointer-events: none; }
+/* The audit's score: the number in its status colour, the grade, the findings. */
+.audit-score { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-bottom: 14px; }
+.audit-score-num { font-size: 40px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--muted); }
+.audit-score-num.good { color: var(--good); }
+.audit-score-num.warn { color: var(--warn); }
+.audit-score-num.bad { color: var(--bad); }
+.audit-score-grade { font-size: 18px; font-weight: 700; }
+.audit-score-sub { font-size: 14px; font-weight: 500; color: var(--muted); }
+.audit-done .audit-missing { margin: 0 0 14px; border-radius: 20px; background: var(--card-on-sheet); overflow: hidden; }
+.audit-done .audit-missing .row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
+.audit-low { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
+.audit-kpi {
+  display: flex; align-items: flex-start; gap: 12px; margin: 0 0 6px; padding: 14px 16px; border-radius: 20px;
+  background: var(--card-on-sheet); cursor: pointer;
+}
+.audit-kpi input { flex: none; margin-top: 2px; }
+.audit-kpi b { display: block; font-size: 16px; }
+.audit-kpi span span { display: block; margin-top: 2px; font-size: 14px; color: var(--muted); line-height: 1.4; }

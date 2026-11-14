@@ -419,10 +419,23 @@ export default function ContractorDetailPage() {
         </>
       )}
 
-      {recentAudits.length > 0 && (
+      {(recentAudits.length > 0 || (canEdit && data.subjects.length > 0)) && (
         <>
-          <div className="section-label">Audits · {auditCount}</div>
-          <AuditList items={recentAudits} />
+          <div className="section-label">Audits{auditCount ? ` · ${auditCount}` : ''}</div>
+          {recentAudits.length > 0 && <AuditList items={recentAudits} />}
+          {canEdit && data.subjects.length > 0 && (
+            <button
+              className="btn block"
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                const wo = chosen?.workOrder ?? (data.subjects.length === 1 ? data.subjects[0].workOrder : undefined)
+                navigate(`/new/welfare_audit${wo ? `?wo=${wo.uuid}` : ''}`)
+              }}
+            >
+              <Icon name="seal" size={19} />
+              Start a Worker Welfare audit{chosen?.workOrder ? ` · WO ${chosen.workOrder.number}` : ''}
+            </button>
+          )}
           {auditCount > recentAudits.length && (
             <button
               className="show-more"

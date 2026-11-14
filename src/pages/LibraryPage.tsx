@@ -60,7 +60,7 @@ export default function LibraryPage() {
         icon: 'seal',
         alert: co.overdue ? `${co.overdue} overdue` : undefined,
       },
-      { path: '/audits', title: 'All inspections', sub: `${d.inspections.length} inspections`, hue: MENU_HUE.inspections, icon: 'clipboard' },
+      { path: '/audits', title: 'Inspections & audits', sub: `${d.inspections.length} inspections · ${d.audits?.length ?? 0} welfare audits`, hue: MENU_HUE.inspections, icon: 'clipboard' },
       { path: '/settings/log', title: 'Activity log', sub: `${activity ?? 0} changes recorded`, hue: MENU_HUE.activity, icon: 'activity' },
     ]
     if (me.role === 'admin')

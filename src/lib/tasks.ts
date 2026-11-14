@@ -14,6 +14,7 @@ import { nextDue, repeatText, routineGroup } from './routines'
 import { shortName } from './names'
 import { sourceTab, type SourceTab } from './ticketFilter'
 import type { Routine, Ticket } from '../types'
+import { isWelfareAudit } from './inspectionKinds'
 import type { MenuItem } from './hues'
 import { MONTHLY_KPIS, entryLink } from './entryItems'
 
@@ -63,6 +64,8 @@ export interface Task {
   members?: Task[]
   /** What it means (the long-press note). */
   help?: string
+  /** The Home area it belongs to, when not its kind's (a welfare audit draft: Audits). */
+  area?: TaskArea
   /** A routine task (added by the team): tick it off from the row. */
   routine?: Routine
 }
@@ -412,14 +415,17 @@ export function buildTasks(d: AllData, today = localDate(), o: { ticketCap?: num
   if (lastQuarter[2] >= TASKS_FROM) quarterRow(lastQuarter, 'Last quarter’s audit')
   quarterRow(quarter, 'Quarterly audit')
 
-  // 6. Unfinished inspections
-  for (const ins of d.inspections.filter((i) => i.status === 'draft' && i.id !== undefined)) {
-    const where = ins.info?.facilityLocation || ins.info?.contractorNames || 'Inspection'
+  // 6. Unfinished inspections (camp ones under Accommodation, welfare audits under Audits)
+  for (const ins of [...d.inspections, ...(d.audits ?? [])].filter((i) => i.status === 'draft' && i.id !== undefined)) {
+    const audit = isWelfareAudit(ins)
+    const wo = ins.info?.workOrderUuid ? d.woByUuid.get(ins.info.workOrderUuid) : undefined
+    const where = audit ? (wo ? `WO ${wo.number}` : ins.info?.contractorNames || 'Work order') : ins.info?.facilityLocation || ins.info?.contractorNames || 'Inspection'
     tasks.push({
       key: `draft:${ins.id}`,
       kind: 'draft',
+      ...(audit ? { area: 'audits' as const } : {}),
       group: 'later',
-      title: 'Draft inspection',
+      title: audit ? 'Draft welfare audit' : 'Draft inspection',
       detail: `${where} · started ${dayMonth((ins.createdAt || ins.info?.reviewDate || today).slice(0, 10))}`,
       due: null,
       dueText: 'Continue',
@@ -540,7 +546,7 @@ export const AREAS: AreaDef[] = [
 export const isArea = (k: string | undefined): k is TaskArea => AREAS.some((a) => a.key === k)
 
 /** One card's tasks, in list order. */
-export const tasksIn = (tasks: Task[], area: TaskArea) => tasks.filter((t) => AREA_OF[t.kind] === area)
+export const tasksIn = (tasks: Task[], area: TaskArea) => tasks.filter((t) => (t.area ?? AREA_OF[t.kind]) === area)
 
 export interface AreaSummary {
   /** Things late, due this week and due later (grouped rows count each thing). */

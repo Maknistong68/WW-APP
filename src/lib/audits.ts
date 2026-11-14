@@ -108,7 +108,26 @@ export function contractorAudits(d: AllData, c: Contractor, months: string[]) {
       title: `${quarterOf(k.month).label} · ${wo ? `WO ${wo.number}` : c.name}`,
       detail: findings ? `${k.auditClosed ?? 0} of ${findings} findings closed` : 'Quarterly audit',
       pct: k.quarterlyAuditPct,
-      to: `/contractors/${c.uuid}?m=${k.month}`,
+      to: (() => {
+        const a = k.auditInspectionUuid ? (d.audits ?? []).find((x) => x.uuid === k.auditInspectionUuid) : undefined
+        return a?.id !== undefined ? `/inspection/${a.id}` : `/contractors/${c.uuid}?m=${k.month}`
+      })(),
+    })
+  }
+  // Worker Welfare audits not saved into a quarter's score (the saved ones are the quarterly rows above)
+  const saved = new Set(d.kpis.map((k) => k.auditInspectionUuid).filter(Boolean))
+  for (const a of d.audits ?? []) {
+    if (a.status !== 'completed' || a.info?.contractorUuid !== c.uuid || !a.info.reviewDate || (a.uuid && saved.has(a.uuid))) continue
+    const s = inspectionScore(a)
+    const wo = a.info.workOrderUuid ? d.woByUuid.get(a.info.workOrderUuid) : undefined
+    list.push({
+      key: `a:${a.id}`,
+      kind: 'inspection',
+      date: a.info.reviewDate,
+      title: `Worker Welfare audit · ${wo ? `WO ${wo.number}` : c.name}`,
+      detail: findingsText(s?.flagged ?? 0),
+      pct: s?.pct ?? null,
+      to: `/inspection/${a.id}`,
     })
   }
   for (const i of contractorInspections(d, c)) {

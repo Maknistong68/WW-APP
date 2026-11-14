@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { TEAM_SETTINGS_UUID, setDocRules } from './docRules'
 import { splitTickets } from './cases'
+import { splitInspections } from './inspectionKinds'
 import { inspectionPct } from './inspectionScore'
 import { KPI_PARTS, computeKpi, kpiStatus, type KpiResult } from './kpi'
 import { mentions } from './names'
@@ -23,28 +24,34 @@ export interface AllData {
   kpis: KpiMonth[]
   manpower: Manpower[]
   weekly: WeeklyCount[]
+  /** Camp inspections only (camps, their cycle, the accommodation KPI, the Accommodation dashboard). */
   inspections: Inspection[]
+  /** Worker Welfare audits (src/lib/welfareAudit.ts), one per work order. */
+  audits?: Inspection[]
   /** Monthly documents switched off (Settings › Monthly documents); here so screens recompute when it changes. */
   docRules?: DocRule[]
 }
 
 /** What the database holds: every ticket together, D&C and cases. */
-type Raw = Omit<AllData, 'loaded' | 'byUuid' | 'woByUuid' | 'cases'>
+type Raw = Omit<AllData, 'loaded' | 'byUuid' | 'woByUuid' | 'cases' | 'audits'>
 /** The last result, so a screen opened later shows data on its first frame
  *  (screen transitions snapshot that frame; Back restores scroll into it). */
 let lastRaw: Raw | undefined
 
 const EMPTY: Raw = { contractors: [], workOrders: [], camps: [], tickets: [], kpis: [], manpower: [], weekly: [], inspections: [] }
 
-/** AllData from the stored rows: work orders in number order, tickets split into D&C and cases. */
+/** AllData from the stored rows: work orders in number order, tickets split into D&C and cases, camp inspections and welfare audits apart. */
 export function shapeAllData(raw: Raw, loaded: boolean): AllData {
   const workOrders = [...raw.workOrders].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }))
   const { tickets, cases } = splitTickets(raw.tickets)
+  const { inspections, audits } = splitInspections(raw.inspections)
   return {
     ...raw,
     workOrders,
     tickets,
     cases,
+    inspections,
+    audits,
     loaded,
     byUuid: new Map(raw.contractors.map((c) => [c.uuid, c])),
     woByUuid: new Map(workOrders.map((w) => [w.uuid, w])),

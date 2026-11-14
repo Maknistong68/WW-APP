@@ -28,7 +28,7 @@ const CHOICES: { key: 'ticket' | 'case' | 'kpi' | 'inspection' | 'camp' | 'task'
   { key: 'ticket', label: 'Ticket', sub: 'Log a D&C ticket', icon: 'ticket', hue: MENU_HUE.ticket },
   { key: 'case', label: 'Case', sub: 'Raise with a contractor', icon: 'megaphone', hue: MENU_HUE.case },
   { key: 'kpi', label: 'Monthly entry', sub: 'Documents and KPIs', icon: 'gauge', hue: MENU_HUE.kpis },
-  { key: 'inspection', label: 'Inspection', sub: 'Start a camp inspection', icon: 'clipboard', hue: MENU_HUE.inspections },
+  { key: 'inspection', label: 'Inspection', sub: 'Camp inspection or welfare audit', icon: 'clipboard', hue: MENU_HUE.inspections },
   { key: 'camp', label: 'Camp', sub: 'Add a camp to track', icon: 'tent', hue: MENU_HUE.camps },
   { key: 'task', label: 'Task', sub: 'A to-do for the team, once or repeating', icon: 'checklist', hue: MENU_HUE.task },
 ]
@@ -82,6 +82,10 @@ export default function AddButton() {
     close()
     navigate(uuid ? `/new/accommodation?camp=${uuid}` : '/new/accommodation')
   }
+  const startAudit = () => {
+    close()
+    navigate('/new/welfare_audit')
+  }
 
   return (
     <>
@@ -101,7 +105,7 @@ export default function AddButton() {
         </Modal>
       )}
 
-      {step === 'inspection' && <InspectionStep onClose={close} onPick={startInspection} />}
+      {step === 'inspection' && <InspectionStep onClose={close} onPick={startInspection} onAudit={startAudit} />}
 
       {ticket && <TicketSheet ticket={ticket} onClose={() => setTicket(null)} />}
       {camp && <CampSheet camp={camp} onClose={() => setCamp(null)} />}
@@ -111,7 +115,7 @@ export default function AddButton() {
 }
 
 /** Step 2 of "Inspection": which camp; expired ones first. */
-function InspectionStep({ onPick, onClose }: { onPick: (campUuid?: string) => void; onClose: () => void }) {
+function InspectionStep({ onPick, onAudit, onClose }: { onPick: (campUuid?: string) => void; onAudit: () => void; onClose: () => void }) {
   const d = useAllData()
   const camps = useMemo(
     () =>
@@ -122,9 +126,17 @@ function InspectionStep({ onPick, onClose }: { onPick: (campUuid?: string) => vo
     [d.camps, d.inspections],
   )
   return (
-    <Modal title="Inspection · pick a camp" onClose={onClose}>
+    <Modal title="Inspection or audit" onClose={onClose}>
       <div className="sheet-body">
-        <CardList>
+        <CardList title="Worker Welfare audit">
+          <ItemRow
+            tile={<IconTile icon="seal" hue={MENU_HUE.closeout} size={52} />}
+            title="Audit a work order"
+            sub="Quarterly checklist, 118 questions · fills the quarterly audit KPI"
+            onOpen={onAudit}
+          />
+        </CardList>
+        <CardList title="Camp inspection · pick a camp">
           {camps.map(({ c, st }) => (
             <ItemRow
               key={c.uuid}

@@ -1,0 +1,55 @@
+import { describe, expect, it } from 'vitest'
+import { auditKpiPlan, withAudit } from './welfareAudit'
+import { emptyKpi } from './subjects'
+import type { AllData } from './kpiData'
+import type { ComplianceAssessment, Contractor, Inspection, KpiMonth, WorkOrder } from '../types'
+
+const c1 = { uuid: 'c1', name: 'RPCO', active: true, aliases: [] } as unknown as Contractor
+const wo = (uuid: string, number: string) => ({ uuid, contractorUuid: 'c1', number, label: '', active: true }) as WorkOrder
+const data = (kpis: KpiMonth[] = []): AllData => {
+  const workOrders = [wo('w1', '882'), wo('w2', '1134')]
+  return {
+    loaded: true, contractors: [c1], byUuid: new Map([[c1.uuid, c1]]), workOrders, woByUuid: new Map(workOrders.map((w) => [w.uuid, w])),
+    camps: [], tickets: [], cases: [], kpis, manpower: [], weekly: [], inspections: [], audits: [],
+  }
+}
+const r = (assessment: ComplianceAssessment) => ({ yesNo: '' as const, assessment, observation: '', actionPlan: '' })
+const audit = (p: Partial<Inspection> = {}): Inspection => ({
+  uuid: 'aud-1', templateId: 'welfare_audit', status: 'completed', createdAt: '', updatedAt: '',
+  info: { reviewDate: '2026-11-12', workOrderUuid: 'w1', contractorUuid: 'c1', contractorNames: 'RPCO' } as Inspection['info'],
+  responses: { A1: r('Full compliance'), A2: r('No compliance'), A3: r('Partial compliance'), B1: r('No compliance'), B2: r('N/A') },
+  notes: '', ...p,
+})
+
+describe('A completed Worker Welfare audit fills the quarterly audit KPI', () => {
+  it('for its work order and the audit date’s month: score, date, findings (the Nos), due 30 days after', () => {
+    const plan = auditKpiPlan(audit(), data())!
+    // A: (1 + 0 + 0.5) / 3 = 50; B: 0 / 1 = 0 → 25
+    expect(plan).toMatchObject({ month: '2026-11', workOrderUuid: 'w1', contractorUuid: 'c1', pct: 25, findings: 2, date: '2026-11-12', dueDate: '2026-12-12', replaces: null })
+    const k = withAudit(emptyKpi('c1', 'w1', '2026-11'), plan, 'aud-1')
+    expect(k).toMatchObject({ quarterlyAuditPct: 25, auditDate: '2026-11-12', auditFindings: 2, auditClosed: 0, auditDueDate: '2026-12-12', auditInspectionUuid: 'aud-1' })
+  })
+
+  it('says which typed score it replaces: this month’s or another month of the quarter', () => {
+    const typed = { ...emptyKpi('c1', 'w1', '2026-10'), quarterlyAuditPct: 82 }
+    expect(auditKpiPlan(audit(), data([typed]))!.replaces).toEqual({ month: '2026-10', pct: 82 })
+    const same = { ...emptyKpi('c1', 'w1', '2026-11'), quarterlyAuditPct: 77 }
+    expect(auditKpiPlan(audit(), data([same]))!.replaces).toEqual({ month: '2026-11', pct: 77 })
+    // its own earlier save is not "another" score
+    const mine = { ...same, auditInspectionUuid: 'aud-1' }
+    expect(auditKpiPlan(audit(), data([mine]))!.replaces).toBeNull()
+  })
+
+  it('completing it again keeps how many findings were closed', () => {
+    const plan = auditKpiPlan(audit(), data())!
+    const before = { ...emptyKpi('c1', 'w1', '2026-11'), quarterlyAuditPct: 30, auditFindings: 3, auditClosed: 1, auditInspectionUuid: 'aud-1' }
+    expect(withAudit(before, plan, 'aud-1').auditClosed).toBe(1)
+    expect(withAudit({ ...before, auditInspectionUuid: 'other' }, plan, 'aud-1').auditClosed).toBe(0)
+  })
+
+  it('nothing to save without a work order, a date or a score', () => {
+    expect(auditKpiPlan(audit({ info: { reviewDate: '2026-11-12' } as Inspection['info'] }), data())).toBeNull()
+    expect(auditKpiPlan(audit({ responses: {} }), data())).toBeNull()
+    expect(auditKpiPlan(audit({ info: { workOrderUuid: 'w1', contractorUuid: 'c1' } as Inspection['info'] }), data())).toBeNull()
+  })
+})

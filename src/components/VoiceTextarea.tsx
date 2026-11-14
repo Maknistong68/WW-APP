@@ -31,10 +31,13 @@ const getRecognizer = (): (new () => SpeechRecognitionLike) | null => {
  * plain textarea when the browser has no speech recognition.
  */
 export default function VoiceTextarea({
+  id,
   value,
   onChange,
   placeholder,
 }: {
+  /** For a <label htmlFor>. */
+  id?: string
   value: string
   onChange: (next: string) => void
   placeholder?: string
@@ -87,7 +90,7 @@ export default function VoiceTextarea({
 
   return (
     <div className="voice-wrap" ref={wrapRef}>
-      <textarea value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <textarea id={id} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
       {supported && (
         <button
           type="button"

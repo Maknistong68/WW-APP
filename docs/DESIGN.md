@@ -334,6 +334,36 @@ per screen.
   - answers as big icon + word buttons (OK / Partial / OBS / N/A; Yes / No / N/A);
   - area and section tiles coloured by progress: red = something flagged, amber = started,
     green = done, grey = untouched.
+- **Worker Welfare audit** (`src/templates/welfareAudit.ts`, the client's checklist: 14 sections A–N,
+  118 questions, each weighted 1; the client's own name is never in it):
+  - Done for **one work order**. Started from + → Inspection (top: "Audit a work order"), the
+    contractor page (Audits: "Start a Worker Welfare audit", the chosen work order filled in), or the
+    Audits list. Its form: work order, project, location, audit date (and the quarter it counts for),
+    auditor and contact no. (remembered), inspection no. (suggested `WWA-2026-Q4-882`), and the report's
+    sign-off names (optional). No camp, map or occupancy.
+  - Kept apart from camp inspections (`src/lib/inspectionKinds.ts`): `useAllData` gives `inspections`
+    (camps) and `audits`, so camps, their cycle, the accommodation KPI and the Accommodation dashboard
+    never count an audit. A draft audit is a Home task under **Audits** ("Draft welfare audit · WO 882").
+  - **Answering** (`AuditQuestion`): the question in full, then one row of four answers, Full /
+    Partial / No / N/A (icon over word, 56 px). Full or N/A brings the next unanswered question into
+    view. **No** opens the finding: the question's three ready comments as chips (from the client's
+    workbook, `src/templates/welfareComments.ts`), the comment box (voice works), a note / action, and
+    the camera and gallery, with the photos in a strip that scrolls sideways. A No without a comment
+    says it needs one.
+  - The header shows the section on screen ("A Employment practice · 2/14 · 50%") even while it
+    tucks away; each section head shows its score; an open section offers "Mark the other n in A as
+    Full". No floating buttons: one bottom bar with the camera, the gallery and **Next: A5 · 112 left**
+    (then **Complete audit**).
+  - **Scoring** (`scoreInspection` with `scoring: 'sections'`, `src/lib/score.ts`): a section scores its
+    points (Full = weight, Partial = half) out of the weights answered (N/A left out); the audit is
+    the average of its sections. Shown to one decimal (`scoreText`, "96.8%"). Grades (`gradeOf`):
+    Excellent 90+, Good 80+, Partially compliant 70+, Minimally compliant 60+, else Non-compliant.
+  - **Complete audit** opens a sheet: score, grade, findings (the Nos), what's missing (not answered,
+    a No without a comment: tap to show them), sections below 70%, and **Save to WO 882's Q4 2026
+    audit**: it fills that work order's quarterly audit KPI for the audit date's month (score, date,
+    findings, close-out due date + 30 days, `auditInspectionUuid`), and says which typed score it
+    replaces (`auditKpiPlan`, `withAudit` in `src/lib/welfareAudit.ts`). The quarterly row on the
+    contractor page then opens the audit.
 
 ## Long-press
 - **Hold 450 ms.** The item sinks a little while you hold (a "charge"), then a haptic press.

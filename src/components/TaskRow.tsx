@@ -64,7 +64,7 @@ function taskMenu(t: Task, d: AllData) {
   }
   if (t.kind === 'routine' && t.routine && t.due) return routineMenu(t.routine, { due: t.due, sub: `${t.detail} · ${t.dueText}`, tone: t.tone })
   if (t.kind === 'draft' && t.inspectionId !== undefined) {
-    const ins = d.inspections.find((x) => x.id === t.inspectionId)
+    const ins = [...d.inspections, ...(d.audits ?? [])].find((x) => x.id === t.inspectionId)
     if (ins) return inspectionMenu(ins, { title: t.detail.split(' · ')[0], sub: t.detail, tone: 'info' })
   }
   const actions: SheetAction[] = []

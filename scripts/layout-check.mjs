@@ -6,6 +6,7 @@
 //   - text spilling out of its box, or the page scrolling sideways.
 // Run: node scripts/layout-check.mjs   (starts its own dev server; exits 1 on problems)
 // Options: --only=/tickets (one screen)  --shots=DIR (save a screenshot of each screen with a problem; --all: every screen)
+//          --no-scroll (check and shoot the top of each screen instead of its end)
 import { createRequire } from 'node:module'
 import { createServer } from 'vite'
 
@@ -45,8 +46,9 @@ const ROUTES = [
   '/audits',
   '/closeouts',
   '/inspection/1',
+  '/inspection/2',
   '/new/accommodation',
-  '/new/welfare_audit',
+  '/new/welfare_audit?wo=w1',
   '/settings',
 ].filter((r) => !only || r === only)
 
@@ -94,6 +96,16 @@ async function seed(page) {
         id: 1, uuid: 'ins-1', templateId: 'accommodation', status: 'draft', createdAt: now, updatedAt: now, info, notes: '', campUuid: 'k1',
         responses: { A1: r('Full compliance'), A2: r('No compliance', 'Fire extinguisher in block C expired in September; tag missing.'), A3: r('Partial compliance', 'Two rooms over capacity') },
       })
+      // a Worker Welfare audit for WO 882: A answered (a No with its comment), F started
+      const a = (assessment, observation = '') => ({ yesNo: '', assessment, observation, actionPlan: '' })
+      await db.inspections.add({
+        id: 2, uuid: 'aud-1', templateId: 'welfare_audit', status: 'draft', createdAt: now, updatedAt: now, notes: '',
+        info: { ...info, typeOfReview: 'Worker Welfare audit', reviewDate: '2026-11-12', facilityType: 'Work order', workOrderUuid: 'w1', contractorUuid: 'c1', project: 'Package 1 residential', auditor: 'WW team', inspectionNo: 'WWA-2026-Q4-882' },
+        responses: {
+          A1: a('Full compliance'), A2: a('No compliance', 'No evidence of ethical recruitment review or supply-chain audits.'), A3: a('Partial compliance'), A4: a('Full compliance'),
+          F1: a('Full compliance'), F2: a('No compliance'),
+        },
+      })
       const canvas = new OffscreenCanvas(800, 600)
       const g = canvas.getContext('2d')
       for (let i = 0; i < 4; i++) {
@@ -101,13 +113,14 @@ async function seed(page) {
         g.fillRect(0, 0, 800, 600)
         const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.6 })
         await db.photos.add({ uuid: `p-${i}`, inspectionId: 1, itemId: i < 3 ? 'A2' : '@facility', blob, caption: i === 0 ? 'Expired tag' : '', createdAt: now, updatedAt: now })
+        await db.photos.add({ uuid: `q-${i}`, inspectionId: 2, itemId: 'A2', blob, caption: '', createdAt: now, updatedAt: now })
       }
     }
   })
 }
 
 /** Runs in the page: the problems on the current screen. */
-function findProblems() {
+function findProblems(atEnd) {
   const out = []
   const vis = (el) => {
     const s = getComputedStyle(el)
@@ -142,7 +155,8 @@ function findProblems() {
     const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
     return ownText || ['button', 'a', 'input', 'textarea', 'select', 'img'].includes(tag)
   })
-  for (const b of bars) {
+  // mid-page, content passes under floating buttons as it scrolls; only the end of the page must clear them
+  for (const b of atEnd ? bars : []) {
     const br = b.getBoundingClientRect()
     for (const el of things) {
       const r = el.getBoundingClientRect()
@@ -213,10 +227,17 @@ try {
     for (const route of ROUTES) {
       await page.goto(`${base}#${route}`)
       await page.waitForTimeout(1800)
+      // open the first section of the audit, so its questions are checked too
+      if (route === '/inspection/2') {
+        await page.locator('#section-A .section-head').click()
+        await page.waitForTimeout(500)
+      }
       // to the very end, as a person would scroll, then let the bars come back
-      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-      await page.waitForTimeout(700)
-      const problems = await page.evaluate(findProblems)
+      if (!process.argv.includes('--no-scroll')) {
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+        await page.waitForTimeout(700)
+      }
+      const problems = await page.evaluate(findProblems, !process.argv.includes('--no-scroll'))
       total += problems.length
       const tag = `${size.width}×${size.height} ${size.scheme}`
       console.log(problems.length ? `✗ ${route} (${tag})` : `✓ ${route} (${tag})`)
