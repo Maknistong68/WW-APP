@@ -80,6 +80,11 @@ per screen.
     (`.row-trail`) takes at most 62% of the row and wraps; labels (`.row-label`) never shrink;
   - the page never scrolls sideways (wide grids scroll inside their card, the names column stays
     narrow: `clamp(112px, 34vw, 200px)`).
+- **A bar that changes size never moves the page.** The inspection/audit header floats over the page
+  (`position: fixed`, `.top-space` keeps its full height at the top) and only gets slimmer inside
+  itself; after a change it holds still 350 ms. A header that pushed the page made the browser
+  correct the scroll, which read as scrolling back, which flipped the header again: it blinked.
+  Checked with real finger drags (Playwright touch events): one change per change of direction.
 - **Filter rows never cut a button at the margin.** Up to 4 options: `.segmented.fit` (equal columns, the
   count under the label, fits at 320 px). More: `.segmented.scroll` runs edge to edge and `useChipScroll`
   (`src/lib/chipScroll.ts`) keeps the chosen chip in view. Chips inside a card scroll to the card's edge.
@@ -375,8 +380,25 @@ per screen.
     same audit open on the other device. A change goes out ~2 s after it's made and the other
     device's answers and photos come in every 5 s while the screen is on (`syncAudit`,
     `useLiveAudit`). Answers merge **per question**: each answer has its own time, the later one
-    wins, and nothing either device typed is lost (`src/lib/auditMerge.ts`). A small **Live**
-    (green) or **Offline** (amber) mark sits at the end of the progress line.
+    wins, and nothing either device typed is lost (`src/lib/auditMerge.ts`; copies compare with their
+    keys sorted, as the server keeps fields in its own order). Only an edit here sends sooner; a copy
+    arriving from the other device never starts another round. A small mark ends the progress line
+    (the section line when the header is slim): **Live** (green), **Offline** (amber, no internet) or
+    **Not syncing** (amber, online but the last try failed or took too long). Every server request
+    gives up after 30 s (photo files 120 s) and the steps before it have named limits
+    (`src/lib/timeLimit.ts`), so Sync now always ends and the Sync log says "Sync stuck at: …".
+  - **Every question starts as Full**, like the client's Excel (`presetAnswers`, `QuestionResponse.preset`).
+    It scores as Full; the Full button is dashed until you tap it (confirm) or pick another answer.
+    The progress counts **checked** answers ("12 of 118 checked", `isChecked`); Next, "To check" and
+    **Confirm the other N as Full** work on those; the Finish panel says how many are still as they started.
+  - **Walk** (the toolbar's Walk / A–N switch, kept on the device): the same questions by place:
+    **Office: policies & plans**, **Office: worker files & pay**, **Talk to workers**, **Walk the site**
+    (`src/templates/welfareWalk.ts`, every question in one place). Each shows a short reminder in bold
+    and the full question under it (2 lines, tap for all).
+  - **One question at a time** (`AuditFocus`): from the top of the list (all questions, in the view's
+    order) or a place's **One by one**. The reminder and full question in large type, four big
+    answers; Full or N/A moves on by itself, No or Partial stays with the ready comments, voice note
+    and camera. Back / Next or swipe; Done goes back to the list at that question.
   - **Finish keeps the scores only.** The Finish panel saves the quarterly audit KPI, offers
     **Download the Excel report** first (it can't be made after), then **Finish** turns the audit
     into its scores (`scoresOnly`): final score, grade, each section's score, the number of

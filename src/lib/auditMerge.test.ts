@@ -95,4 +95,20 @@ describe('sameContent', () => {
   it('ignores the save time and local id', () => {
     expect(sameContent(audit({ id: 1, updatedAt: 'x' }), audit({ id: 2, updatedAt: 'y' }))).toBe(true)
   })
+  it('ignores the order the server keeps fields in', () => {
+    const here = audit({ info: { reviewDate: '2026-11-14', workOrder: '882', auditor: 'WW' } as Inspection['info'], responses: { A1: r('Full compliance', 't1', 'ok'), B2: r('No compliance', 't2') } })
+    // as the cloud gives it back: every object's keys in another order
+    const flip = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).reverse()) as T
+    const cloud = flip({ ...here, info: flip(here.info), responses: flip(Object.fromEntries(Object.entries(here.responses).map(([k, v]) => [k, flip(v)]))) })
+    expect(JSON.stringify(cloud)).not.toBe(JSON.stringify(here))
+    expect(sameContent(here, cloud)).toBe(true)
+  })
+})
+
+describe('planAuditSync with the cloud’s field order', () => {
+  it('the same audit, fields reordered by the server: nothing to send or store (no endless re-sending)', () => {
+    const here = audit({ updatedAt: '2026-11-14T08:05:00.000Z', responses: { A1: r('Full compliance', '2026-11-14T08:05:00.000Z') } })
+    const cloud = { ...Object.fromEntries(Object.entries(here).reverse()), info: { ...here.info }, responses: { A1: { at: '2026-11-14T08:05:00.000Z', actionPlan: '', observation: '', assessment: 'Full compliance' as const, yesNo: '' as const } } } as unknown as Inspection
+    expect(planAuditSync(here, cloud)).toMatchObject({ push: false, store: false })
+  })
 })

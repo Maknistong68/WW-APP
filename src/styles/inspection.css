@@ -1,11 +1,15 @@
 /* Inspection screens: built for the field — big targets, one card per question. */
 
 /* ---- Sticky top: header + progress + search ---------------------------------- */
+/* The header floats over the page (fixed), with the same room kept for it at the top
+   (.top-space, its full height). Getting smaller while scrolling only changes the header itself:
+   the page never moves under the finger, so nothing bounces back and forth. */
 .top-stack {
-  position: sticky; top: 0; z-index: 20; padding-top: env(safe-area-inset-top);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20; padding-top: env(safe-area-inset-top);
   background: var(--chrome-bar); box-shadow: 0 1px 0 var(--chrome-border);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat)); backdrop-filter: blur(var(--blur)) saturate(var(--sat));
 }
+.top-space { height: calc(env(safe-area-inset-top) + 236px); }
 .app-header {
   display: flex; align-items: center; gap: 4px; min-height: 60px;
   /* icon buttons draw their glyph ~10px in: this puts the glyphs on the content edge */
@@ -34,7 +38,10 @@
 .live-mark { flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; }
 .live-mark::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .live-mark.live { color: var(--good); }
-.live-mark.offline { color: var(--warn); }
+.live-mark.offline, .live-mark.stuck { color: var(--warn); }
+/* scrolled (slim header): the mark moves to the end of the section line, which stays */
+.audit-now .live-mark { margin-left: 4px; }
+.top-stack:not(.compact) .audit-now .live-mark { display: none; }
 .toolbar { padding: 0 var(--gutter) 12px; }
 .toolbar > * { max-width: 720px; margin-left: auto; margin-right: auto; }
 .search-row { display: flex; gap: 8px; }
@@ -104,6 +111,9 @@
 .result-btns button.sel-yn-no, .result-btns button.sel-none { background: var(--bad-tint); border: 2px solid var(--bad); color: var(--bad); }
 .result-btns button.sel-partial { background: var(--warn-tint); border: 2px solid var(--warn); color: var(--warn); }
 .result-btns button.sel-yn-na, .result-btns button.sel-na { background: var(--none-tint); border: 2px solid var(--none); color: var(--none); }
+/* an audit answer still at the Full it started with: Full, but not looked at yet */
+.preset-note { margin: 0 2px 14px; }
+.result-btns button.sel-preset { background: transparent; border: 2px dashed var(--good); color: var(--good); }
 .item-details { margin-top: 14px; animation: fadeIn var(--dur-med) var(--ease-80); }
 .item-details .field textarea, .item-details .field input { background: var(--card); }
 
@@ -170,6 +180,9 @@ body:has(.fab-stack:not([hidden])) .page { padding-bottom: calc(var(--bottom-gap
 .viewer { padding: 16px; overflow-y: auto; }
 .viewer img { width: 100%; max-height: 50vh; max-height: 50dvh; object-fit: contain; border-radius: 22px; background: #111; }
 .section-head .section-title { flex: 1; min-width: 0; line-height: 1.3; }
+.section-hint { display: block; margin-top: 2px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.btn.block.focus-start { margin: 0 0 14px; }
+.btn.block.place-focus { width: auto; margin: 0 16px 6px; }
 
 /* ---- Worker Welfare audit: phone-first answering ------------------------------- */
 /* One row of four answers (icon over word), 56 px tall, so a thumb hits the right one. */
@@ -179,6 +192,14 @@ body:has(.fab-stack:not([hidden])) .page { padding-bottom: calc(var(--bottom-gap
 .audit-photos { display: flex; gap: 10px; overflow-x: auto; margin: 6px 0 0; padding-bottom: 4px; scrollbar-width: none; }
 .audit-photos::-webkit-scrollbar { display: none; }
 .audit-photos > * { flex: none; }
+/* Walk view: the reminder first, the full question under it (2 lines; tap for all) */
+.audit-reminder { font-weight: 700; }
+.audit-full {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-overflow: ellipsis;
+  width: 100%; margin: 4px 0 2px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer;
+  font: 400 14px/1.4 var(--font); color: var(--muted);
+}
+.audit-full.open { display: block; -webkit-line-clamp: unset; }
 .audit-warn { margin: 10px 0 0; font-size: 14px; font-weight: 600; color: var(--bad); }
 /* The section being answered stays in the header, even when it tucks away while scrolling. */
 .audit-now {
@@ -186,7 +207,9 @@ body:has(.fab-stack:not([hidden])) .page { padding-bottom: calc(var(--bottom-gap
   font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden;
 }
 .audit-now b { flex: none; color: var(--info); }
-.audit-now span { margin-left: auto; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* the section's name gives way (…); its count and the sync mark never do */
+.audit-now .now-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.audit-now .now-count { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
 .section-head .counts { display: inline-flex; align-items: baseline; gap: 6px; }
 .sec-pct { font-size: 13px; font-weight: 700; }
 .sec-pct.good { color: var(--good); }
@@ -219,3 +242,31 @@ body:has(.fab-stack:not([hidden])) .page { padding-bottom: calc(var(--bottom-gap
 .audit-done .audit-excel .row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
 .audit-done .audit-excel .done-mark { flex-shrink: 0; color: var(--good); display: inline-flex; }
 .audit-done .audit-keep { margin: 0 0 4px; }
+
+/* ---- The audit one question at a time (walking around) ------------------------ */
+.audit-focus {
+  position: fixed; inset: 0; z-index: 35; display: flex; flex-direction: column;
+  background: var(--bg); animation: fadeIn var(--dur-med) var(--ease-80);
+}
+body.focus-open { overflow: hidden; }
+.focus-top {
+  display: flex; align-items: center; gap: 6px;
+  padding: calc(env(safe-area-inset-top) + 6px) calc(var(--gutter) - 10px) 6px;
+}
+.focus-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.focus-title b { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.focus-title span { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.focus-bar { height: 4px; margin: 0 var(--gutter) 6px; border-radius: 999px; background: var(--press); overflow: hidden; }
+.focus-bar > div { height: 100%; background: var(--brand); transform-origin: left center; transition: transform var(--dur-med) var(--ease-80); }
+.focus-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px var(--gutter) 16px; }
+.focus-body > * { max-width: 720px; margin-left: auto; margin-right: auto; }
+.audit-q.focus { margin: 0; }
+.audit-q.focus .audit-reminder { font-size: 21px; line-height: 1.3; }
+.audit-q.focus .audit-full { font-size: 16px; color: var(--text); margin-top: 8px; }
+.audit-q.focus .audit-answers button { min-height: 72px; font-size: 16px; }
+.focus-preset { margin: 10px 2px 0; }
+.focus-nav {
+  display: flex; gap: 10px; padding: 10px var(--gutter) calc(env(safe-area-inset-bottom) + 12px);
+  background: var(--chrome-bar); box-shadow: 0 -1px 0 var(--chrome-border);
+}
+.focus-nav .btn { flex: 1; min-height: 56px; }

@@ -5,9 +5,19 @@ import { gradeOf, scoreInspection } from './score'
 import { kpiSubjects, subjectKpi, woOf } from './subjects'
 import { quarterMonths } from './todo'
 import { getTemplate } from '../templates'
-import type { Inspection, InspectionTemplate, KpiMonth } from '../types'
+import type { Inspection, InspectionTemplate, KpiMonth, QuestionResponse } from '../types'
 
 export { WELFARE_AUDIT, isWelfareAudit, splitInspections } from './inspectionKinds'
+
+// ---- A new audit starts with every answer Full, like the client's Excel --------------------
+
+/** Every question Full (preset: not looked at yet); the auditor changes what's wrong and confirms the rest. */
+export function presetAnswers(template: InspectionTemplate, at: string): Record<string, QuestionResponse> {
+  const out: Record<string, QuestionResponse> = {}
+  for (const s of template.sections)
+    for (const q of s.questions) out[q.code] = { yesNo: '', assessment: 'Full compliance', observation: '', actionPlan: '', at, preset: true }
+  return out
+}
 
 // ---- Completing an audit fills its work order's quarterly audit KPI ------------------------
 

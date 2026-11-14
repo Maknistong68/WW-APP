@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { auditKpiPlan, scoresOnly, withAudit } from './welfareAudit'
-import { scoreInspection } from './score'
+import { auditKpiPlan, presetAnswers, scoresOnly, withAudit } from './welfareAudit'
+import { isChecked, scoreInspection } from './score'
 import { getTemplate } from '../templates'
 import { emptyKpi } from './subjects'
 import type { AllData } from './kpiData'
@@ -90,5 +90,26 @@ describe('Finishing an audit keeps the scores only', () => {
 
   it('nothing to keep before anything is scored', () => {
     expect(scoresOnly(audit({ responses: {} }), template, 'now')).toBeNull()
+  })
+})
+
+describe('A new audit starts with every answer Full, like the Excel', () => {
+  const template = getTemplate('welfare_audit')!
+  const at = '2026-11-14T08:00:00.000Z'
+  it('118 answers, all Full and preset, scoring 100% with nothing checked yet', () => {
+    const responses = presetAnswers(template, at)
+    expect(Object.keys(responses)).toHaveLength(118)
+    expect(Object.values(responses).every((r) => r.assessment === 'Full compliance' && r.preset && r.at === at)).toBe(true)
+    const ins = audit({ responses, status: 'draft' })
+    expect(scoreInspection(template, ins).pct).toBe(100)
+    expect(Object.values(responses).filter(isChecked)).toHaveLength(0)
+  })
+  it('confirming or changing one makes it checked; the score follows the answers', () => {
+    const responses = presetAnswers(template, at)
+    responses.A1 = { ...responses.A1, preset: false }
+    responses.A2 = { ...responses.A2, assessment: 'No compliance', preset: false }
+    const ins = audit({ responses, status: 'draft' })
+    expect(Object.values(responses).filter(isChecked)).toHaveLength(2)
+    expect(scoreInspection(template, ins).sections!.find((x) => x.letter === 'A')!.pct).toBeCloseTo((13 / 14) * 100, 5)
   })
 })

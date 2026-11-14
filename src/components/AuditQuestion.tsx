@@ -27,6 +27,8 @@ export default function AuditQuestion({
   onCamera,
   onGallery,
   onViewPhoto,
+  reminder,
+  focus,
 }: {
   question: Question
   resp: QuestionResponse
@@ -39,23 +41,53 @@ export default function AuditQuestion({
   onCamera: () => void
   onGallery: () => void
   onViewPhoto: (p: Photo) => void
+  /** Walk view: the question's short reminder, shown first (the full question under it). */
+  reminder?: string
+  /** The one-at-a-time screen: large, always open, its own ids. */
+  focus?: boolean
 }) {
   const [noteOpen, setNoteOpen] = useState(false)
+  const [fullText, setFullText] = useState(false)
+  const id = (what: string) => `${focus ? 'focus-' : ''}${what}-${question.code}`
   const a = resp.assessment
+  /** Still the Full it started with (like the client's Excel): tapping Full confirms it. */
+  const preset = !!resp.preset && a === 'Full compliance'
   const finding = a === 'No compliance'
   const open = finding || a === 'Partial compliance' || noteOpen || photos.length > 0 || !!resp.observation || !!resp.actionPlan
   return (
-    <div id={`item-${question.code}`} className={`item audit-q${flash ? ' flash' : ''}`}>
-      <div className="item-text">
-        <b className="qcode">{question.code}</b> {question.text}
-      </div>
-      <div className="result-btns audit-answers" role="group" aria-label={`Answer ${question.code}`}>
-        {OPTIONS.map((o) => (
-          <button key={o.value} type="button" className={a === o.value ? o.cls : ''} aria-pressed={a === o.value} onClick={() => onAnswer(a === o.value ? '' : o.value)}>
-            <Icon name={o.icon} size={22} fill={a === o.value} />
-            {o.label}
+    <div id={id('item')} className={`item audit-q${flash ? ' flash' : ''}${focus ? ' focus' : ''}`}>
+      {reminder ? (
+        <>
+          <div className="item-text audit-reminder">
+            <b className="qcode">{question.code}</b> {reminder}
+          </div>
+          {/* the full question: two lines while walking, all of it on a tap (always all on the one-at-a-time screen) */}
+          <button type="button" className={`audit-full${fullText || focus ? ' open' : ''}`} onClick={() => setFullText((x) => !x)} aria-expanded={fullText || focus}>
+            {question.text}
           </button>
-        ))}
+        </>
+      ) : (
+        <div className="item-text">
+          <b className="qcode">{question.code}</b> {question.text}
+        </div>
+      )}
+      <div className="result-btns audit-answers" role="group" aria-label={`Answer ${question.code}`}>
+        {OPTIONS.map((o) => {
+          const isPreset = preset && o.value === 'Full compliance'
+          return (
+            <button
+              key={o.value}
+              type="button"
+              className={isPreset ? 'sel-preset' : a === o.value ? o.cls : ''}
+              aria-pressed={a === o.value}
+              aria-label={isPreset ? 'Full (starts as Full: tap to confirm)' : undefined}
+              onClick={() => onAnswer(isPreset ? o.value : a === o.value ? '' : o.value)}
+            >
+              <Icon name={o.icon} size={22} fill={a === o.value && !isPreset} />
+              {o.label}
+            </button>
+          )
+        })}
       </div>
       {open ? (
         <div className="item-details audit-finding">
@@ -76,18 +108,18 @@ export default function AuditQuestion({
             </>
           )}
           <div className="field">
-            <label htmlFor={`obs-${question.code}`}>Comment for the report</label>
+            <label htmlFor={id('obs')}>Comment for the report</label>
             <VoiceTextarea
-              id={`obs-${question.code}`}
+              id={id('obs')}
               value={resp.observation}
               placeholder="Pick a comment above, or say what you found. No worker names or ID numbers."
               onChange={(observation) => onPatch({ observation })}
             />
           </div>
           <div className="field">
-            <label htmlFor={`note-${question.code}`}>Note / action (optional)</label>
+            <label htmlFor={id('note')}>Note / action (optional)</label>
             <VoiceTextarea
-              id={`note-${question.code}`}
+              id={id('note')}
               value={resp.actionPlan}
               placeholder="What must be done, by whom, by when?"
               onChange={(actionPlan) => onPatch({ actionPlan })}

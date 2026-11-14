@@ -84,7 +84,11 @@ node scripts/layout-check.mjs   # after UI changes: phone layout (nothing under 
   (`src/lib/auditMerge.ts`: `mergeAudit`, `planAuditSync`; used by the editor, `writeInspection`, the full sync and
   `storeAudit`). Finishing keeps the scores only: `scoresOnly` (`welfareAudit.ts`) → `Inspection.logged` with
   `sections` / `findings`, photos deleted (`keepScoresOnly` in `AuditCompleteSheet.tsx`, Excel offered first), shown by
-  `src/components/FinishedAudit.tsx`. No Google Drive: photos stay in the app.
+  `src/components/FinishedAudit.tsx`. No Google Drive: photos stay in the app. New audits start with every answer Full
+  like the Excel (`presetAnswers`, `QuestionResponse.preset`; progress counts `isChecked` in `score.ts`). Walk view by
+  place `src/templates/welfareWalk.ts` (`WELFARE_PLACES`, reminders `WALK_REMINDER`); one question at a time
+  `src/components/AuditFocus.tsx`. Sync time limits and named steps: `src/lib/timeLimit.ts` (`timedFetch`, `step`); the
+  audit header floats (fixed + `.top-space`) so it never blinks.
 - Monthly documents (per work order, 10: the owner's 8 + WPS + Salary; the Manpower register **is** the full manpower
   declaration, one item `manpowerDecl`; due the 15th of the next month):
   rules `src/lib/submissions.ts` (`SUBMISSION_ITEMS`; each in with a date / not provided / N/A / waiting, a note,

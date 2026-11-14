@@ -7,6 +7,7 @@ import { planRecordSync } from './syncPlan'
 import { isForeignTask } from './routines'
 import { mergeAudit, mergesAnswers, planAuditSync, sameContent } from './auditMerge'
 import { isWelfareAudit } from './inspectionKinds'
+import { step, timedFetch } from './timeLimit'
 
 export { newer }
 import type { ActivityEntry, Inspection, Photo, RecordTable } from '../types'
@@ -74,7 +75,8 @@ export async function getClient(): Promise<SupabaseClient | null> {
   // for it, which on iPhone is never the home-screen app. Email links of every
   // shape are read once at start (main.tsx, lib/authReturn.ts), the address is
   // cleaned at once, and they are finished in lib/auth.ts.
-  client = createClient(cfg.url, cfg.anonKey, { auth: { flowType: 'implicit', detectSessionInUrl: false } })
+  // every request gives up after a while (timeLimit.ts): a silent server never leaves a sync spinning
+  client = createClient(cfg.url, cfg.anonKey, { auth: { flowType: 'implicit', detectSessionInUrl: false }, global: { fetch: timedFetch() } })
   return client
 }
 
@@ -350,8 +352,8 @@ async function runSync(): Promise<SyncResult> {
   // Claim the lock before the first await: app-open background sync and a
   // manual "Sync now" could otherwise both pass the check and interleave.
   syncing = true
-  // An open audit's quick sync finishes first (they'd both add the same photos).
-  await auditRunning?.catch(() => null)
+  // An open audit's quick sync finishes first (they'd both add the same photos), but never for long.
+  if (auditRunning) await step('waiting for the open audit', auditRunning, 20_000).catch(() => null)
   const result: SyncResult = {
     pushed: 0,
     pulled: 0,
@@ -369,11 +371,13 @@ async function runSync(): Promise<SyncResult> {
     failures.push(`${what}: ${err instanceof Error ? err.message : String(err)}`)
   }
   try {
-    const c = await getClient()
+    const c = await step('loading sync', getClient(), 20_000)
     if (!c) throw new Error('Cloud sync is not set up yet')
-    const session = await getSession()
+    const session = await step('sign-in check', getSession(), 15_000)
     if (!session) throw new Error('Not signed in')
     if (!navigator.onLine) throw new Error('No internet connection')
+    // the device's database answers (another open copy of the app can hold it)
+    await step('this device’s database', db.tombstones.count(), 15_000)
     const userId = session.user.id
     // Viewers only pull: the server refuses their writes anyway.
     const readOnly = await isViewer(c, userId)
@@ -744,7 +748,7 @@ let lastAuditError = ''
 export function syncAudit(uuid: string, readOnly: boolean): Promise<AuditSyncResult | null> {
   if (syncing) return Promise.resolve(null)
   if (auditRunning) return auditRunning
-  auditRunning = runAuditSync(uuid, readOnly)
+  auditRunning = step('open audit sync', runAuditSync(uuid, readOnly), 25_000)
     .then((r) => {
       lastAuditError = ''
       return r
@@ -764,9 +768,9 @@ export function syncAudit(uuid: string, readOnly: boolean): Promise<AuditSyncRes
 
 async function runAuditSync(uuid: string, readOnly: boolean): Promise<AuditSyncResult | null> {
   if (!getSyncConfig() || !navigator.onLine) return null
-  const c = await getClient()
+  const c = await step('loading sync', getClient(), 15_000)
   if (!c) return null
-  const session = await getSession()
+  const session = await step('sign-in check', getSession(), 10_000)
   if (!session) return null
   const userId = session.user.id
   const result: SyncResult = { pushed: 0, pulled: 0, photosUp: 0, photosDown: 0, deleted: 0, records: 0, failed: 0 }
@@ -777,7 +781,7 @@ async function runAuditSync(uuid: string, readOnly: boolean): Promise<AuditSyncR
   }
   if (!readOnly) await pushTombstones(c, fail)
 
-  const local = await db.inspections.where('uuid').equals(uuid).first()
+  const local = await step('this device’s database', db.inspections.where('uuid').equals(uuid).first(), 10_000)
   const { data, error } = await c.from('inspections').select('uuid, data, updated_at, deleted').eq('uuid', uuid).maybeSingle()
   if (error) throw new Error(error.message)
   const row = data as { uuid: string; data: Inspection; updated_at: string; deleted: boolean } | null

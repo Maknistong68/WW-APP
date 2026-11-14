@@ -48,6 +48,9 @@ const ROUTES = [
   '/inspection/1',
   '/inspection/2',
   '/inspection/3',
+  // the audit by place (walking around), and one question at a time
+  '/inspection/2 walk',
+  '/inspection/2 one-by-one',
   '/new/accommodation',
   '/new/welfare_audit?wo=w1',
   '/settings',
@@ -233,11 +236,25 @@ try {
     await page.waitForTimeout(3000)
     await seed(page)
     for (const route of ROUTES) {
-      await page.goto(`${base}#${route}`)
+      // "/inspection/2 walk": the screen, then what to do on it
+      const [path, mode] = route.split(' ')
+      await page.evaluate((walk) => localStorage.setItem('ww.auditView', walk ? 'walk' : 'sections'), mode === 'walk' || mode === 'one-by-one')
+      await page.goto(`${base}#${path}`)
       await page.waitForTimeout(1800)
       // open the first section of the audit, so its questions are checked too
       if (route === '/inspection/2') {
         await page.locator('#section-A .section-head').click()
+        await page.waitForTimeout(500)
+      }
+      if (mode === 'walk') {
+        await page.locator('#place-2 .section-head').click()
+        await page.waitForTimeout(500)
+      }
+      if (mode === 'one-by-one') {
+        await page.locator('.focus-start').click()
+        await page.waitForTimeout(400)
+        // a No: its ready comments, note and camera open
+        await page.locator('.audit-focus .audit-answers button', { hasText: 'No' }).click()
         await page.waitForTimeout(500)
       }
       // to the very end, as a person would scroll, then let the bars come back

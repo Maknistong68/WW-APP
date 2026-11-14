@@ -79,6 +79,8 @@ export default function AuditCompleteSheet({
   const nos = responses.filter((r) => r.assessment === 'No compliance')
   const noComment = nos.filter((r) => !r.observation.trim()).length
   const unanswered = score.total - score.answered
+  /** Still the Full they started with: they count as Full, like the Excel, but nobody looked at them. */
+  const preset = responses.filter((r) => r.preset && r.assessment === 'Full compliance').length
   const low = (score.sections ?? []).filter((s) => s.pct !== null && s.pct < 70)
   const wo = audit.info.workOrderUuid ? d.woByUuid.get(audit.info.workOrderUuid) : undefined
   const label = `${audit.info.contractorNames}${wo ? ` · WO ${wo.number}` : ''}`
@@ -115,8 +117,17 @@ export default function AuditCompleteSheet({
           </span>
         </div>
 
-        {(unanswered > 0 || noComment > 0) && (
+        {(unanswered > 0 || noComment > 0 || preset > 0) && (
           <div className="audit-missing">
+            {preset > 0 && (
+              <button type="button" className="row" onClick={() => onShow('unanswered')}>
+                <span className="row-main">
+                  <div className="row-title">{preset} still as they started (Full)</div>
+                  <div className="row-sub">They count as Full, like the Excel. Tap to look at them.</div>
+                </span>
+                <Icon name="chevron-right" size={18} />
+              </button>
+            )}
             {unanswered > 0 && (
               <button type="button" className="row" onClick={() => onShow('unanswered')}>
                 <span className="row-main">

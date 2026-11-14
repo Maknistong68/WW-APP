@@ -15,6 +15,12 @@ import type {
 export const isAnswered = (r?: QuestionResponse): boolean =>
   !!r && (r.assessment !== '' || r.yesNo !== '')
 
+/**
+ * Worker Welfare audit: answered and looked at (not the Full it started with).
+ * The audit's progress, Next and "to check" count these; the score counts every answer.
+ */
+export const isChecked = (r?: QuestionResponse): boolean => isAnswered(r) && !r?.preset
+
 /** Non-compliant: the assessment itself flags a problem. */
 export const isFlagged = (r?: QuestionResponse): boolean =>
   r?.assessment === 'No compliance' || r?.assessment === 'Partial compliance'

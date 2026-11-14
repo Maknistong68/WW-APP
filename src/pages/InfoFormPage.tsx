@@ -1,3 +1,4 @@
+import { presetAnswers } from '../lib/welfareAudit'
 import { localDate } from '../lib/dates'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -269,7 +270,8 @@ export default function InfoFormPage({ mode }: { mode: 'new' | 'edit' }) {
         createdAt: now,
         updatedAt: now,
         info: template.startFrom === 'workOrder' ? { ...info, inspectionNo: info.inspectionNo || suggestedNo(info) } : info,
-        responses: {},
+        // a Worker Welfare audit starts with every answer Full, like the client's Excel
+        responses: template.answers === 'compliance' ? presetAnswers(template, now) : {},
         notes: '',
         campUuid,
       }

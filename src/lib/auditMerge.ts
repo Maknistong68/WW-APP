@@ -33,9 +33,25 @@ export function mergeAudit(a: Inspection, b: Inspection): Inspection {
   return { ...newest, responses }
 }
 
-/** The parts two devices can differ in (not the local id or the save time). */
-const content = (i: Inspection) => JSON.stringify([i.status, i.info, i.notes, i.logged ?? null, i.campUuid ?? null, sorted(i.responses)])
-const sorted = (r: Record<string, QuestionResponse>) => Object.keys(r).sort().map((k) => [k, r[k]])
+/**
+ * The same value with every object's keys in one order. The server stores a record's
+ * fields in its own order, so two equal copies can print differently: compare this.
+ */
+export function canonical(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canonical)
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const k of Object.keys(v).sort()) {
+      const x = (v as Record<string, unknown>)[k]
+      if (x !== undefined) out[k] = canonical(x)
+    }
+    return out
+  }
+  return v
+}
+
+/** The parts two devices can differ in (not the local id or the save time), in a fixed order. */
+const content = (i: Inspection) => JSON.stringify(canonical([i.status, i.info, i.notes, i.logged ?? null, i.campUuid ?? null, i.responses]))
 
 export const sameContent = (a: Inspection, b: Inspection) => content(a) === content(b)
 

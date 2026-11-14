@@ -65,6 +65,11 @@ export interface QuestionResponse {
   evidenceNote?: string
   /** When this answer last changed (ISO). Two devices' copies of an audit merge per answer by it (src/lib/auditMerge.ts). */
   at?: string
+  /**
+   * Worker Welfare audit: still the Full every question starts with (like the client's Excel),
+   * not yet looked at. It scores as Full; confirming or changing it makes it "checked".
+   */
+  preset?: boolean
 }
 
 export interface GeneralInfo {
