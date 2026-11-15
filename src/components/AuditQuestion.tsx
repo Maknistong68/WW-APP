@@ -3,6 +3,7 @@ import type { ComplianceAssessment, Photo, Question, QuestionResponse } from '..
 import Icon, { type IconName } from './Icon'
 import PhotoThumb from './PhotoThumb'
 import VoiceTextarea from './VoiceTextarea'
+import type { Findings } from '../templates/welfareFindings'
 
 // One Worker Welfare audit question, made for a phone: the question in full,
 // one row of four big answers (Full / Partial / No / N/A). A "No" opens the
@@ -29,12 +30,15 @@ export default function AuditQuestion({
   onViewPhoto,
   reminder,
   focus,
+  findings,
 }: {
   question: Question
   resp: QuestionResponse
   photos: Photo[]
-  /** The question's ready comments for a finding. */
+  /** The client's own short comments for this question (from the Excel). */
   comments: string[]
+  /** Researched findings for this question: 3 for No, 2 for Partial (shown first). */
+  findings?: Findings
   flash: boolean
   onAnswer: (value: ComplianceAssessment) => void
   onPatch: (patch: Partial<QuestionResponse>) => void
@@ -49,6 +53,17 @@ export default function AuditQuestion({
   const [noteOpen, setNoteOpen] = useState(false)
   const [fullText, setFullText] = useState(false)
   const id = (what: string) => `${focus ? 'focus-' : ''}${what}-${question.code}`
+  // the researched findings for this answer first (No: not in place, Partial: partly), then the checklist's own
+  const ready = resp.assessment === 'No compliance' ? (findings?.no ?? []) : resp.assessment === 'Partial compliance' ? (findings?.partial ?? []) : []
+  const chip = (c: string) => {
+    const on = resp.observation === c || resp.observation.startsWith(`${c} `)
+    return (
+      <button key={c} type="button" className={`obs-chip${on ? ' obs-chip-on' : ''}`} onClick={() => onPatch({ observation: on ? '' : c })}>
+        {on ? '✓ ' : ''}
+        {c}
+      </button>
+    )
+  }
   const a = resp.assessment
   /** Still the Full it started with (like the client's Excel): tapping Full confirms it. */
   const preset = !!resp.preset && a === 'Full compliance'
@@ -91,20 +106,16 @@ export default function AuditQuestion({
       </div>
       {open ? (
         <div className="item-details audit-finding">
-          {comments.length > 0 && (finding || a === 'Partial compliance') && (
+          {(finding || a === 'Partial compliance') && (ready.length > 0 || comments.length > 0) && (
             <>
               <div className="control-label">{finding ? 'Finding: pick a comment' : 'Comment (optional)'}</div>
-              <div className="obs-chips">
-                {comments.map((c) => {
-                  const on = resp.observation === c || resp.observation.startsWith(`${c} `)
-                  return (
-                    <button key={c} type="button" className={`obs-chip${on ? ' obs-chip-on' : ''}`} onClick={() => onPatch({ observation: on ? '' : c })}>
-                      {on ? '✓ ' : ''}
-                      {c}
-                    </button>
-                  )
-                })}
-              </div>
+              {ready.length > 0 && <div className="obs-chips">{ready.map(chip)}</div>}
+              {comments.length > 0 && (
+                <>
+                  <div className="control-label checklist-label">From the checklist</div>
+                  <div className="obs-chips">{comments.map(chip)}</div>
+                </>
+              )}
             </>
           )}
           <div className="field">

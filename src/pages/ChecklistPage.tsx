@@ -4,11 +4,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { saveAs } from 'file-saver'
 import { compressPhoto, db, logEvent, newUuid } from '../db'
 import { tryWrite } from '../lib/safeWrite'
-import { gradeOf, isAnswered, isChecked, isFlagged, scoreInspection, scoreText } from '../lib/score'
+import { gradeOf, isAnswered, isChecked, isFlagged, projectedScore, scoreInspection, scoreText } from '../lib/score'
 import { kpiStatus, pct as pctText } from '../lib/kpi'
 import { kpiTone } from '../lib/tone'
 import { reducedMotion } from '../lib/motion'
 import { WELFARE_COMMENTS } from '../templates/welfareComments'
+import { WELFARE_FINDINGS } from '../templates/welfareFindings'
 import { getTemplate, getWalkthrough, countItems } from '../templates'
 import {
   EMPTY_RESPONSE,
@@ -745,6 +746,9 @@ export default function ChecklistPage() {
 
   const searching = matches !== null
   const score = scoreInspection(template, inspection)
+  // the score at the top: unanswered questions count as Full, so it starts at 100% and only comes down
+  const headPct = projectedScore(template, inspection)
+  const headTone = kpiTone(kpiStatus(headPct))
   const mark = liveMark(live)
   const sectionScore = (letter: string) => score.sections?.find((x) => x.letter === letter)
   /** Audit answers still at the Full they started with (not looked at yet). */
@@ -762,6 +766,7 @@ export default function ChecklistPage() {
           resp={inspection.responses[code] ?? EMPTY_RESPONSE}
           photos={photosFor(code)}
           comments={WELFARE_COMMENTS[code] ?? []}
+          findings={WELFARE_FINDINGS[code]}
           flash={flashItem === code}
           reminder={reminder}
           onAnswer={(value) => answer(code, value)}
@@ -888,6 +893,15 @@ export default function ChecklistPage() {
           <h1>
             {template.shortName} · {inspection.info.contractorNames || inspection.info.facilityLocation}
           </h1>
+          {headPct !== null && (
+            <span
+              className={`head-score ${headTone}`}
+              title={`${scoreText(headPct)}${audit ? ` · ${gradeOf(headPct)}` : ''}: questions not answered yet count as compliant`}
+              aria-label={`Score ${scoreText(headPct)}`}
+            >
+              {scoreText(headPct)}
+            </span>
+          )}
           <button
             className="icon-btn header-btn"
             aria-label="Edit inspection details"
@@ -904,9 +918,7 @@ export default function ChecklistPage() {
           <div className="progress-text">
             <span className="progress-main">
               {progress.answered} of {progress.total} {audit ? 'checked' : 'answered'}
-              {audit
-                ? score.pct !== null && ` · ${scoreText(score.pct)} ${gradeOf(score.pct)}`
-                : progress.flagged > 0 && ` · ${progress.flagged} non-compliance`}
+              {audit ? headPct !== null && ` · ${gradeOf(headPct)}` : progress.flagged > 0 && ` · ${progress.flagged} non-compliance`}
             </span>
             {mark && (
               <span className={`live-mark ${live}`} title={mark.title}>
@@ -1337,6 +1349,7 @@ export default function ChecklistPage() {
           responses={inspection.responses}
           photosFor={photosFor}
           commentsFor={(c) => WELFARE_COMMENTS[c] ?? []}
+          findingsFor={(c) => WELFARE_FINDINGS[c]}
           onAnswer={(c, value) => setResponse(c, { assessment: value, yesNo: '', preset: false })}
           onPatch={(c, patch) => setResponse(c, { ...patch, preset: false })}
           onCamera={(c) => {

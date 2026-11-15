@@ -87,7 +87,9 @@ node scripts/layout-check.mjs   # after UI changes: phone layout (nothing under 
   `src/components/FinishedAudit.tsx`. No Google Drive: photos stay in the app. New audits start with every answer Full
   like the Excel (`presetAnswers`, `QuestionResponse.preset`; progress counts `isChecked` in `score.ts`). Walk view by
   place `src/templates/welfareWalk.ts` (`WELFARE_PLACES`, reminders `WALK_REMINDER`); one question at a time
-  `src/components/AuditFocus.tsx`. Sync time limits and named steps: `src/lib/timeLimit.ts` (`timedFetch`, `step`); the
+  `src/components/AuditFocus.tsx`. Ready findings per question `src/templates/welfareFindings.ts` (`WELFARE_FINDINGS`: 3
+  for No, 2 for Partial; shown before the client's `WELFARE_COMMENTS`). The header's score pill on every checklist is
+  `projectedScore` (`score.ts`: unanswered counts as Full). Sync time limits and named steps: `src/lib/timeLimit.ts` (`timedFetch`, `step`); the
   audit header floats (fixed + `.top-space`) so it never blinks.
 - Monthly documents (per work order, 10: the owner's 8 + WPS + Salary; the Manpower register **is** the full manpower
   declaration, one item `manpowerDecl`; due the 15th of the next month):

@@ -27,6 +27,15 @@
   color: var(--text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .header-btn { color: var(--brand) !important; }
+/* The score, always at the top (the title row stays when the header slims): 100% until problems are recorded */
+.head-score {
+  flex: none; margin-left: 2px; padding: 4px 10px; border-radius: 999px;
+  font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;
+  background: var(--press); color: var(--text);
+}
+.head-score.good { background: var(--good-tint); color: var(--good); }
+.head-score.warn { background: var(--warn-tint); color: var(--warn); }
+.head-score.bad { background: var(--bad-tint); color: var(--bad); }
 .progress-wrap { padding: 4px var(--gutter) 10px; }
 .progress-bar { height: 8px; border-radius: 999px; background: var(--press); overflow: hidden; }
 /* scaleX, not width: animating width re-lays out the page on every frame */
@@ -200,6 +209,7 @@ body:has(.fab-stack:not([hidden])) .page { padding-bottom: calc(var(--bottom-gap
   font: 400 14px/1.4 var(--font); color: var(--muted);
 }
 .audit-full.open { display: block; -webkit-line-clamp: unset; }
+.audit-finding .checklist-label { margin-top: 10px; font-size: 13px; }
 .audit-warn { margin: 10px 0 0; font-size: 14px; font-weight: 600; color: var(--bad); }
 /* The section being answered stays in the header, even when it tucks away while scrolling. */
 .audit-now {

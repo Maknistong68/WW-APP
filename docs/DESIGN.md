@@ -387,6 +387,14 @@ per screen.
     **Not syncing** (amber, online but the last try failed or took too long). Every server request
     gives up after 30 s (photo files 120 s) and the steps before it have named limits
     (`src/lib/timeLimit.ts`), so Sync now always ends and the Sync log says "Sync stuck at: …".
+  - **The score is always at the top**, on every checklist (audits and camp inspections): a small pill
+    in the title row, coloured by status, which stays when the header slims. Questions not answered yet
+    count as Full (`projectedScore`), so a new checklist reads **100%** and the score only comes down as
+    problems are recorded. Exports, KPIs and the finished record keep the answered-only score.
+  - **Researched findings** (`src/templates/welfareFindings.ts`): for every question, 3 ready findings for
+    **No** (not in place) and 2 for **Partial** (partly in place), 15–25 words each, written as audit
+    findings: the gap and the evidence seen or missing (documents, payslips, timesheets, interviews, the
+    site), never praise. Shown first; the client's own short comments follow under **From the checklist**.
   - **Every question starts as Full**, like the client's Excel (`presetAnswers`, `QuestionResponse.preset`).
     It scores as Full; the Full button is dashed until you tap it (confirm) or pick another answer.
     The progress counts **checked** answers ("12 of 118 checked", `isChecked`); Next, "To check" and

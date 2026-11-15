@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { gradeOf, scoreInspection } from './score'
+import { gradeOf, projectedScore, scoreInspection } from './score'
 import { welfareAudit } from '../templates/welfareAudit'
 import { WELFARE_COMMENTS } from '../templates/welfareComments'
 import { accommodation } from '../templates/accommodation'
@@ -66,5 +66,24 @@ describe('Scoring by sections (Worker Welfare)', () => {
       'Excellent', 'Excellent', 'Good', 'Good', 'Partially compliant', 'Minimally compliant', 'Minimally compliant', 'Non-compliant', 'Non-compliant',
     ])
     expect(gradeOf(null)).toBe('')
+  })
+})
+
+describe('The score at the top while a checklist is done: unanswered counts as Full', () => {
+  const blank = (templateId: string) => ({ templateId, status: 'draft', createdAt: '', updatedAt: '', notes: '', info: {} as Inspection['info'], responses: {} }) as Inspection
+  const r = (assessment: ComplianceAssessment) => ({ yesNo: '' as const, assessment, observation: '', actionPlan: '' })
+  it('a new audit and a new camp inspection read 100%', () => {
+    expect(projectedScore(welfareAudit, blank('welfare_audit'))).toBe(100)
+    expect(projectedScore(accommodation, blank('accommodation'))).toBe(100)
+  })
+  it('one No brings its section down, and the total with it', () => {
+    const ins = { ...blank('welfare_audit'), responses: { F4: r('No compliance') } }
+    // F: 10 of 11 → 90.9…; the 14 sections average: (13 × 100 + 90.9…) / 14 = 99.35…, shown to one decimal
+    expect(projectedScore(welfareAudit, ins)).toBe(99.4)
+    expect(scoreInspection(welfareAudit, ins).pct).toBe(0)
+  })
+  it('answered questions count as they are', () => {
+    const responses = Object.fromEntries(welfareAudit.sections.flatMap((s) => s.questions.map((q) => [q.code, r('Partial compliance')])))
+    expect(projectedScore(welfareAudit, { ...blank('welfare_audit'), responses })).toBe(50)
   })
 })

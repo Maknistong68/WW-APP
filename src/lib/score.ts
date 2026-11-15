@@ -128,3 +128,17 @@ export function scoreInspection(template: InspectionTemplate, inspection: Inspec
   }
   return { pct: scored > 0 ? Math.round(sum / scored) : null, answered, total, flagged }
 }
+
+/**
+ * The score shown at the top of a checklist while it's being done: every
+ * question not answered yet counts as Full, so a new checklist reads 100% and
+ * the score only comes down as problems are recorded. Exports, KPIs and the
+ * finished record keep using `scoreInspection` (answered questions only).
+ */
+export function projectedScore(template: InspectionTemplate, inspection: Inspection): number | null {
+  const responses: Record<string, QuestionResponse> = { ...inspection.responses }
+  for (const section of template.sections)
+    for (const q of section.questions)
+      if (!isAnswered(responses[q.code])) responses[q.code] = { yesNo: '', assessment: 'Full compliance', observation: '', actionPlan: '' }
+  return scoreInspection(template, { ...inspection, responses }).pct
+}

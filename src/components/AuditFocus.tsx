@@ -4,6 +4,7 @@ import Icon from './Icon'
 import { isChecked } from '../lib/score'
 import { reducedMotion } from '../lib/motion'
 import { WALK_REMINDER } from '../templates/welfareWalk'
+import type { Findings } from '../templates/welfareFindings'
 import { EMPTY_RESPONSE, type ComplianceAssessment, type Photo, type Question, type QuestionResponse } from '../types'
 
 /**
@@ -22,6 +23,7 @@ export default function AuditFocus({
   responses,
   photosFor,
   commentsFor,
+  findingsFor,
   onAnswer,
   onPatch,
   onCamera,
@@ -37,6 +39,7 @@ export default function AuditFocus({
   responses: Record<string, QuestionResponse>
   photosFor: (code: string) => Photo[]
   commentsFor: (code: string) => string[]
+  findingsFor: (code: string) => Findings | undefined
   onAnswer: (code: string, value: ComplianceAssessment) => void
   onPatch: (code: string, patch: Partial<QuestionResponse>) => void
   onCamera: (code: string) => void
@@ -126,6 +129,7 @@ export default function AuditFocus({
           reminder={WALK_REMINDER.get(code)}
           photos={photosFor(code)}
           comments={commentsFor(code)}
+          findings={findingsFor(code)}
           flash={false}
           onAnswer={answer}
           onPatch={(patch) => onPatch(code, patch)}
